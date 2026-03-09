@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS projects (
     name TEXT NOT NULL,
     description TEXT,
     drive_link TEXT,
+    team_members TEXT,
+    github_link TEXT,
     created_by UUID REFERENCES users(id),
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'rejected')),
     created_at TIMESTAMPTZ DEFAULT NOW()

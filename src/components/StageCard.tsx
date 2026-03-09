@@ -1,34 +1,46 @@
 import { useState } from 'react';
-import type { ProjectStage, StageName } from '@/types';
-import { ExternalLink, Plus, Send } from 'lucide-react';
+import type { Project, ProjectStage, StageName } from '@/types';
+import { ExternalLink, Plus, Send, Github } from 'lucide-react';
 import { projectService } from '@/services/projectService';
 
 interface StageCardProps {
-  projectId: string;
+  project: Project;
   stage: ProjectStage;
   tools: { name: string, url: string }[];
-  driveLink: string;
   onUpdate: () => void;
   designation: string;
 }
 
 export function StageCard({
-  projectId,
+  project,
   stage,
   tools,
-  driveLink,
   onUpdate,
   designation
 }: StageCardProps) {
   const [updateText, setUpdateText] = useState('');
+  const [githubUrl, setGithubUrl] = useState(project.github_link || '');
   const [loading, setLoading] = useState(false);
 
   const handleLogActivity = async () => {
     if (!updateText.trim()) return;
     setLoading(true);
     try {
-      await projectService.logActivity(projectId, designation, stage.stage_name, updateText);
+      await projectService.logActivity(project.id, designation, stage.stage_name, updateText);
       setUpdateText('');
+      onUpdate();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateGithub = async () => {
+    setLoading(true);
+    try {
+      await projectService.updateGithubLink(project.id, githubUrl);
+      await projectService.logActivity(project.id, designation, stage.stage_name, `Updated GitHub repository link to: ${githubUrl}`);
       onUpdate();
     } catch (err) {
       console.error(err);
@@ -45,7 +57,7 @@ export function StageCard({
     setLoading(true);
     try {
       await projectService.updateStageStatus(
-        projectId,
+        project.id,
         stage.stage_name,
         nextStage,
         'User', // Will be fetched in service
@@ -57,6 +69,10 @@ export function StageCard({
     } finally {
       setLoading(false);
     }
+  };
+
+  const openNotes = () => {
+    window.open(project.drive_link, "_blank");
   };
 
   return (
@@ -73,15 +89,14 @@ export function StageCard({
             {stage.status.toUpperCase().replace('_', ' ')}
           </span>
         </div>
-        <a
-          href={driveLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+        <button
+          onClick={openNotes}
+          className="flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-colors"
           title="Open Project Folder"
         >
-          <ExternalLink className="h-5 w-5" />
-        </a>
+          <ExternalLink className="h-4 w-4 mr-1.5" />
+          Notes
+        </button>
       </div>
 
       <div className="space-y-6 flex-1">
@@ -102,6 +117,28 @@ export function StageCard({
             ))}
           </div>
         </div>
+
+        {stage.stage_name === 'development' && designation === 'Developer & Engineering Team' && (
+          <div>
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">GitHub Repository</h4>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="https://github.com/..."
+                className="flex-1 text-sm px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <button
+                onClick={handleUpdateGithub}
+                disabled={loading}
+                className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <Github className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Update Feed Placeholder / Simple Input */}
         <div>

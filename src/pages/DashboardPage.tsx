@@ -15,6 +15,7 @@ export default function DashboardPage() {
 
   // Form State
   const [newName, setNewName] = useState('');
+  const [newMembers, setNewMembers] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newLink, setNewLink] = useState('');
   const [creating, setCreating] = useState(false);
@@ -43,9 +44,10 @@ export default function DashboardPage() {
     if (!user) return;
     setCreating(true);
     try {
-      await projectService.createProject(newName, newDesc, newLink, user.id);
+      await projectService.createProject(newName, newDesc, newLink, newMembers, user.id);
       setIsModalOpen(false);
       setNewName('');
+      setNewMembers('');
       setNewDesc('');
       setNewLink('');
       fetchData();
@@ -188,6 +190,17 @@ export default function DashboardPage() {
                   onChange={(e) => setNewName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="e.g. Drone Defibrillator"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Team Members</label>
+                <input
+                  type="text"
+                  required
+                  value={newMembers}
+                  onChange={(e) => setNewMembers(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="e.g. Ajay Narava, Rahul Kumar"
                 />
               </div>
               <div>

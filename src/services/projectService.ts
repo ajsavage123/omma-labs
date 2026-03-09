@@ -29,7 +29,7 @@ export const projectService = {
     return data;
   },
 
-  async createProject(name: string, description: string, driveLink: string, userId: string) {
+  async createProject(name: string, description: string, driveLink: string, teamMembers: string, userId: string) {
     // 1. Create Project
     const { data: project, error: projectError } = await supabase
       .from('projects')
@@ -37,6 +37,7 @@ export const projectService = {
         name,
         description,
         drive_link: driveLink,
+        team_members: teamMembers,
         created_by: userId,
         status: 'active'
       })
@@ -90,6 +91,15 @@ export const projectService = {
 
     // 3. Log activity
     await this.logActivity(projectId, designation, currentStage, `Completed ${currentStage} and moved to ${nextStage || 'next phase'}`);
+  },
+
+  async updateGithubLink(projectId: string, githubLink: string) {
+    const { error } = await supabase
+      .from('projects')
+      .update({ github_link: githubLink })
+      .eq('id', projectId);
+
+    if (error) throw error;
   },
 
   async logActivity(projectId: string, designation: string, stage: string, updateText: string) {

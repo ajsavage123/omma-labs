@@ -157,10 +157,9 @@ export default function ProjectWorkspacePage() {
               {visibleStages.map(stage => (
                 <StageCard
                   key={stage.id}
-                  projectId={project.id}
+                  project={project}
                   stage={stage}
                   tools={teamTools[selectedTeam]}
-                  driveLink={project.drive_link}
                   onUpdate={() => fetchData(project.id)}
                   designation={user?.designation || selectedTeam}
                 />
