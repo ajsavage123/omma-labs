@@ -11,13 +11,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   const stages = project.project_stages || [];
   const completedStages = stages.filter(s => s.status === 'completed').length;
-  const totalStages = stages.length || 6;
+  const totalStages = 6;
   const progress = Math.round((completedStages / totalStages) * 100);
 
   const currentStage = stages.find(s => s.status === 'in_progress')?.stage_name ||
                    (completedStages === totalStages ? 'completed' : 'pending');
 
-  const lastUpdated = project.created_at; // Should ideally be from logs or stages
+  const lastUpdated = project.created_at;
 
   return (
     <div

@@ -101,11 +101,12 @@ export default function AdminDashboardPage() {
 
       <main className="p-8 max-w-7xl mx-auto w-full">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-12">
           <StatCard icon={<BarChart3 className="text-indigo-600" />} label="Active Projects" value={stats.activeProjects} />
           <StatCard icon={<Search className="text-blue-600" />} label="Research Phase" value={stats.researchCount} />
           <StatCard icon={<Code className="text-purple-600" />} label="Development Phase" value={stats.developmentCount} />
           <StatCard icon={<Rocket className="text-emerald-600" />} label="Launch Phase" value={stats.launchCount} />
+          <StatCard icon={<Activity className="text-orange-600" />} label="Most Active" value={stats.mostActiveTeam} isText />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -239,7 +240,7 @@ export default function AdminDashboardPage() {
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode, label: string, value: number }) {
+function StatCard({ icon, label, value, isText }: { icon: React.ReactNode, label: string, value: any, isText?: boolean }) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center">
       <div className="h-12 w-12 rounded-xl bg-gray-50 flex items-center justify-center mr-4">
@@ -247,7 +248,7 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode, label: string
       </div>
       <div>
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>
-        <p className="text-2xl font-black text-gray-900">{value}</p>
+        <p className={`${isText ? 'text-sm' : 'text-2xl'} font-black text-gray-900`}>{value}</p>
       </div>
     </div>
   );

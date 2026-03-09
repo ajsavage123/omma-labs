@@ -20,6 +20,8 @@ export interface Project {
   name: string;
   description: string;
   drive_link: string;
+  team_members?: string;
+  github_link?: string;
   created_by: string;
   status: ProjectStatus;
   created_at: string;
