@@ -6,7 +6,7 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import {
   BarChart3, Rocket, Search, Code, Star, ChevronLeft,
-  Activity, CheckCircle2, XCircle, RefreshCcw, ShieldAlert
+  Activity, CheckCircle2, XCircle, RefreshCcw, ShieldAlert, Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -111,6 +111,21 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${projectName}"? This action cannot be undone.`)) return;
+    
+    setLoading(true);
+    try {
+      await adminService.deleteProject(projectId);
+      toast.success(`Project "${projectName}" deleted successfully.`);
+      await fetchData();
+    } catch {
+      toast.error('Failed to delete project.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-gray-50">
       <div className="animate-pulse flex flex-col items-center">
@@ -182,21 +197,30 @@ export default function AdminDashboardPage() {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            {isAdminReview ? (
+                            <div className="flex items-center gap-3">
+                              {isAdminReview ? (
+                                <button
+                                  onClick={() => loadProjectRating(project)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold justify-center rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+                                >
+                                  Evaluate
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => loadProjectRating(project)}
+                                  className="text-xs font-bold text-gray-400 hover:text-indigo-600 transition-colors"
+                                >
+                                  View Details
+                                </button>
+                              )}
                               <button
-                                onClick={() => loadProjectRating(project)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold justify-center rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+                                onClick={() => handleDeleteProject(project.id, project.name)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                title="Delete Project"
                               >
-                                Evaluate
+                                <Trash2 className="h-4 w-4" />
                               </button>
-                            ) : (
-                              <button
-                                onClick={() => loadProjectRating(project)}
-                                className="text-xs font-bold text-gray-400 hover:text-indigo-600 transition-colors"
-                              >
-                                View Details
-                              </button>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       );

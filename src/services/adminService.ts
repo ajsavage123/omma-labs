@@ -114,6 +114,18 @@ export const adminService = {
     });
   },
 
+  async deleteProject(projectId: string) {
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId);
+
+    if (error) {
+      console.error('Supabase deleteProject error:', error);
+      throw error;
+    }
+  },
+
   async getProjectRating(projectId: string) {
     const { data, error } = await supabase
       .from('admin_ratings')
