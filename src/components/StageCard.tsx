@@ -21,6 +21,15 @@ const STAGE_LABEL_MAP: Record<string, string> = {
   admin_review: 'Admin Review',
 };
 
+const STAGE_DELIVERABLES: Record<string, string[]> = {
+  ideology: ['Concept Document', 'Initial Sketches', 'Mind Maps'],
+  research: ['Market Research Report', 'Competitor Analysis', 'Feasibility Study'],
+  development: ['Technical Architecture', 'API Documentation', 'Source Code Repo'],
+  deployment: ['Deployment Guide', 'Infrastructure Diagram', 'QA Test Results'],
+  business: ['Marketing Strategy', 'Pricing Model', 'Pitch Deck'],
+  admin_review: ['Final Project Summary', 'Innovation Scoring Sheet'],
+};
+
 const NEXT_TEAM_LABEL: Record<string, string> = {
   ideology: 'Research →',
   research: 'Engineering Team →',
@@ -159,6 +168,21 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
           </div>
         )}
 
+        {/* Deliverables / Templates */}
+        <div className="p-3.5 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+          <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+             <FileText className="h-3 w-3" /> Team Deliverables (Save to Drive)
+          </p>
+          <ul className="grid grid-cols-1 gap-1.5">
+            {STAGE_DELIVERABLES[stage.stage_name]?.map((item, i) => (
+              <li key={i} className="flex items-center gap-2 text-[11px] text-gray-700 font-medium">
+                <div className="h-1 w-1 rounded-full bg-indigo-400" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+
         {/* Tools */}
         <div>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">Recommended Tools</p>
@@ -169,7 +193,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
                 href={tool.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 py-1 bg-gray-50 text-xs font-medium text-gray-700 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-all"
+                className="px-2.5 py-1 bg-white text-xs font-medium text-gray-700 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-all shadow-sm"
               >
                 {tool.name}
               </a>
@@ -204,14 +228,14 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
         {/* Add Update (only when active) */}
         {isActive && (
           <div className="flex-1">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">Add Update</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">Log Activity & Progress</p>
             <div className="relative">
               <textarea
                 value={updateText}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setUpdateText(e.target.value)}
-                placeholder="What did you complete or discover?"
+                placeholder="Briefly describe the documents you added to the Drive..."
                 onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && e.ctrlKey) handleLogActivity(); }}
-                className="w-full text-sm p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none h-20"
+                className="w-full text-sm p-3 pr-10 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none h-20 shadow-inner"
               />
                 <button
                 onClick={handleLogActivity}

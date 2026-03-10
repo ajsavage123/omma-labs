@@ -160,7 +160,16 @@ export default function ProjectWorkspacePage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+              <a
+                href={project.drive_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-200"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open Project Drive
+              </a>
               <button
                 onClick={() => setInfoModalOpen(true)}
                 className="flex items-center justify-center p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-gray-900 transition-colors"
