@@ -46,7 +46,10 @@ export const adminService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase submitRating error:', error);
+      throw error;
+    }
     return data;
   },
 

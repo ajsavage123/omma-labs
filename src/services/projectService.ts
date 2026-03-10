@@ -3,30 +3,46 @@ import type { Project, ProjectStage, StageName } from '@/types';
 
 export const projectService = {
   async getProjects() {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        project_stages (*)
-      `)
-      .order('created_at', { ascending: false }) as { data: (Project & { project_stages: ProjectStage[] })[] | null, error: any };
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          project_stages (*)
+        `)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+      if (error) {
+        console.error('Supabase getProjects error:', error);
+        throw error;
+      }
+      return (data || []) as (Project & { project_stages: ProjectStage[] })[];
+    } catch (err) {
+      console.error('projectService.getProjects failed:', err);
+      throw err;
+    }
   },
 
   async getProjectById(id: string) {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        project_stages (*)
-      `)
-      .eq('id', id)
-      .single() as { data: (Project & { project_stages: ProjectStage[] }) | null, error: any };
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          project_stages (*)
+        `)
+        .eq('id', id)
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        console.error('Supabase getProjectById error:', error);
+        throw error;
+      }
+      return data as (Project & { project_stages: ProjectStage[] }) | null;
+    } catch (err) {
+      console.error('projectService.getProjectById failed:', err);
+      throw err;
+    }
   },
 
   async createProject(name: string, description: string, driveLink: string, teamMembers: string, userId: string) {
