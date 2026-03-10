@@ -8,7 +8,7 @@ import { StageCard } from '@/components/StageCard';
 import { ProjectInfoModal } from '@/components/ProjectInfoModal';
 import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { ChevronLeft, Info, Briefcase, Code, Microscope, Clock, ShieldAlert } from 'lucide-react';
+import { ChevronLeft, Info, Briefcase, Code, Microscope, Clock, ShieldAlert, ExternalLink } from 'lucide-react';
 
 export default function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();
