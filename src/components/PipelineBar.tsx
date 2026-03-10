@@ -30,52 +30,54 @@ export function PipelineBar({ stages }: PipelineBarProps) {
         <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{progressPercent}% Complete</span>
       </div>
 
-      {/* Stage bubbles */}
-      <div className="relative flex items-center justify-between gap-0">
-        {ORDERED_STAGES.map((name, index) => {
-          const status = getStatus(name);
-          const isCompleted = status === 'completed';
-          const isActive = status === 'in_progress';
+      {/* Stage bubbles - Scrollable on mobile */}
+      <div className="overflow-x-auto pb-4 -mb-4 scrollbar-hide">
+        <div className="relative flex items-center justify-between gap-0 min-w-[500px] sm:min-w-0 px-2">
+          {ORDERED_STAGES.map((name, index) => {
+            const status = getStatus(name);
+            const isCompleted = status === 'completed';
+            const isActive = status === 'in_progress';
 
-          return (
-            <div key={name} className="flex-1 flex flex-col items-center relative">
-              {/* Connector line (left side) */}
-              {index > 0 && (
-                <div
-                  className={`absolute left-0 right-1/2 top-4 h-0.5 -translate-y-1/2 ${
-                    isCompleted || isActive ? 'bg-indigo-400' : 'bg-gray-200'
-                  }`}
-                  style={{ right: '50%', left: '-50%' }}
-                />
-              )}
+            return (
+              <div key={name} className="flex-1 flex flex-col items-center relative min-w-[80px]">
+                {/* Connector line (left side) */}
+                {index > 0 && (
+                  <div
+                    className={`absolute right-1/2 top-4 h-0.5 -translate-y-1/2 ${
+                      isCompleted || isActive ? 'bg-indigo-400' : 'bg-gray-200'
+                    }`}
+                    style={{ left: '-50%' }}
+                  />
+                )}
 
-              {/* Bubble */}
-              <div className={`relative z-10 h-8 w-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                isCompleted
-                  ? 'bg-indigo-600 border-indigo-600'
-                  : isActive
-                    ? 'bg-white border-indigo-500 shadow-lg shadow-indigo-100'
-                    : 'bg-white border-gray-200'
-              }`}>
-                {isCompleted
-                  ? <CheckCircle2 className="h-4 w-4 text-white" />
-                  : isActive
-                    ? <Loader2 className="h-4 w-4 text-indigo-500 animate-spin" />
-                    : <Circle className="h-4 w-4 text-gray-300" />
-                }
+                {/* Bubble */}
+                <div className={`relative z-10 h-8 w-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                  isCompleted
+                    ? 'bg-indigo-600 border-indigo-600'
+                    : isActive
+                      ? 'bg-white border-indigo-500 shadow-lg shadow-indigo-100'
+                      : 'bg-white border-gray-200'
+                }`}>
+                  {isCompleted
+                    ? <CheckCircle2 className="h-4 w-4 text-white" />
+                    : isActive
+                      ? <Loader2 className="h-4 w-4 text-indigo-500 animate-spin" />
+                      : <Circle className="h-4 w-4 text-gray-300" />
+                  }
+                </div>
+
+                {/* Label */}
+                <span className={`mt-2 text-[9px] uppercase font-bold tracking-wider text-center leading-tight px-1 whitespace-nowrap sm:whitespace-normal ${
+                  isCompleted ? 'text-indigo-600'
+                  : isActive ? 'text-indigo-700'
+                  : 'text-gray-400'
+                }`}>
+                  {STAGE_LABELS[name]}
+                </span>
               </div>
-
-              {/* Label */}
-              <span className={`mt-2 text-[9px] uppercase font-bold tracking-wider text-center leading-tight px-1 ${
-                isCompleted ? 'text-indigo-600'
-                : isActive ? 'text-indigo-700'
-                : 'text-gray-400'
-              }`}>
-                {STAGE_LABELS[name]}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Overall progress bar */}
