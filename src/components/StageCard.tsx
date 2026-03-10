@@ -101,7 +101,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
     setLoading(true);
     try {
       await projectService.updateStageStatus(project.id, stage.stage_name, nextStage, 'User', designation);
-      onUpdate();
+      await onUpdate();
       const nextLabel = nextStage ? STAGE_LABEL_MAP[nextStage] : 'completion';
       onToast?.(`Stage submitted! Moving to ${nextLabel}.`, 'success');
     } catch {
@@ -213,13 +213,13 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
                 onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && e.ctrlKey) handleLogActivity(); }}
                 className="w-full text-sm p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none h-20"
               />
-              <button
+                <button
                 onClick={handleLogActivity}
                 disabled={loading || !updateText.trim()}
                 title="Log update (Ctrl+Enter)"
-                className="absolute bottom-2.5 right-2.5 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+                className="absolute bottom-2 right-2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-all shadow-sm hover:shadow-md"
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className="h-4 w-4" />
               </button>
             </div>
           </div>

@@ -82,24 +82,37 @@ export const projectService = {
   },
 
   async updateStageStatus(projectId: string, currentStage: StageName, nextStage: StageName | null, _userName: string, designation: string) {
-    const { error: currentError } = await supabase
+    // 1. Mark current stage as completed
+    const { data: currentData, error: currentError } = await supabase
       .from('project_stages')
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('project_id', projectId)
-      .eq('stage_name', currentStage);
+      .eq('stage_name', currentStage)
+      .select();
 
     if (currentError) throw currentError;
+    if (!currentData || currentData.length === 0) {
+      throw new Error(`Failed to update current stage "${currentStage}". Row not found or no change made.`);
+    }
 
+    // 2. Mark next stage as in_progress
     if (nextStage) {
-      const { error: nextError } = await supabase
+      const { data: nextData, error: nextError } = await supabase
         .from('project_stages')
         .update({ status: 'in_progress', started_at: new Date().toISOString() })
         .eq('project_id', projectId)
-        .eq('stage_name', nextStage);
+        .eq('stage_name', nextStage)
+        .select();
 
       if (nextError) throw nextError;
+      if (!nextData || nextData.length === 0) {
+        // If next stage isn't found, we should still have the current one completed, 
+        // but this is an inconsistent state.
+        console.warn(`Next stage "${nextStage}" not found in database for project ${projectId}`);
+      }
     }
 
+    // 3. Log activity after successful database updates
     const stageLabelMap: Record<string, string> = {
       ideology: 'Ideology & Concept',
       research: 'Research',
