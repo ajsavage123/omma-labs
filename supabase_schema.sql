@@ -70,9 +70,7 @@ CREATE POLICY "Allow authenticated users to read users" ON users FOR SELECT USIN
 CREATE POLICY "Allow users to update their own record" ON users FOR UPDATE USING (auth.uid() = id);
 
 CREATE POLICY "Allow authenticated users to read projects" ON projects FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow Innovation team to create projects" ON projects FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND designation = 'Innovation & Research Team')
-);
+CREATE POLICY "Allow authenticated users to create projects" ON projects FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to update projects" ON projects FOR UPDATE USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Allow authenticated users to read stages" ON project_stages FOR SELECT USING (auth.role() = 'authenticated');
