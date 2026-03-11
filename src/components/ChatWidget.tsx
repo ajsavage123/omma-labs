@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { MessageSquare, X, Send } from 'lucide-react';
