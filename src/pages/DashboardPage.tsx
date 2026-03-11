@@ -95,7 +95,7 @@ export default function DashboardPage() {
     try {
       await adminService.deleteTimelineLog(logId);
       toast.success('Activity Purged');
-      setLogs(prev => prev.filter(l => l.id !== logId));
+      setLogs((prev: TimelineLog[]) => prev.filter((l: TimelineLog) => l.id !== logId));
     } catch {
       toast.error('Deletion Failed');
     }
