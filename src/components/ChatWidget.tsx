@@ -17,7 +17,7 @@ export default function ChatWidget() {
       fetchMessages();
       const subscription = supabase
         .channel('public:chat_messages')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
           fetchMessages();
         })
         .subscribe();
