@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { projectService } from '@/services/projectService';
+import { adminService } from '@/services/adminService';
 import type { Project, ProjectStage, TimelineLog } from '@/types';
 import { ProjectCard } from '@/components/ProjectCard';
 import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import {
   Plus, LayoutDashboard, LogOut, Settings, History,
-  Search, X, Menu, Filter
+  Search, X, Menu, Filter, Trash2
 } from 'lucide-react';
 import { OomaLogo } from '@/components/OomaLogo';
 import { useNavigate, Link } from 'react-router-dom';

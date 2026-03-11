@@ -7,7 +7,7 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import {
   BarChart3, Rocket, Search, Code, Star, ChevronLeft,
-  Activity, CheckCircle2, XCircle, RefreshCcw, ShieldAlert, Trash2
+  Activity, XCircle, ShieldAlert, Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 

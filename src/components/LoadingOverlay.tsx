@@ -1,4 +1,3 @@
-import React from 'react';
 import { OomaLogo } from './OomaLogo';
 
 interface LoadingOverlayProps {

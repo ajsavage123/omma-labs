@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { MessageSquare, X, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,7 +53,7 @@ export default function ChatWidget() {
     }
   };
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const sendMessage = async (e: FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !user) return;
 
