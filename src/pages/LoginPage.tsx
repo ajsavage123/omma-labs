@@ -19,7 +19,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // 1. Authenticate with Supabase Auth
+      // 1. Authenticate with Supabase Auth (Email/Password)
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
@@ -28,41 +28,28 @@ export default function LoginPage() {
       if (authError) throw authError;
       if (!authData.user) throw new Error('Authentication failed.');
 
-      // 2. Logic to determine Role and Designation based on Email
-      // This allows the admin to simply create common accounts like:
-      // admin@omma.io -> Admin Role
-      // builder@omma.io -> Partner (Dev) Role
-      // etc.
-      
-      let role: UserRole = 'partner';
-      let designation: Designation = 'Developer & Engineering Team';
-      
-      const emailLower = email.toLowerCase();
-      
-      // Admin Logic: Check for admin keywords or specific email
-      if (emailLower.includes('admin') || emailLower === 'ajay@omma.io') {
-          role = 'admin';
-          designation = 'Innovation & Research Team';
-      } else if (emailLower.includes('research') || emailLower.includes('innov')) {
-          designation = 'Innovation & Research Team';
-      } else if (emailLower.includes('biz') || emailLower.includes('market')) {
-          designation = 'Business Strategy & Marketing Team';
+      // 2. Fetch the existing record from the 'users' table
+      // This record MUST be created by the Admin beforehand.
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError || !profile) {
+          // No record = No permission.
+          await supabase.auth.signOut();
+          throw new Error('Access Denied: Your profile has not been activated by the administrator.');
       }
 
-      // 3. Sync/Initialize Profile in public.users
-      // We overwrite existing record with the 'fixed' username and logic-based role
-      const { error: upsertError } = await supabase
-        .from('users')
-        .upsert({
-          id: authData.user.id,
-          username: username, // Uses the third credential provided
-          full_name: username,
-          designation: designation,
-          role: role
-        }, { onConflict: 'id' });
+      // 3. Verify Identity Handle (Username provided by Admin)
+      // The user must enter the EXACT username established by the Admin.
+      if (profile.username !== username) {
+          await supabase.auth.signOut();
+          throw new Error('Security Breach: The provided Identity Handle does not match our records for this account.');
+      }
 
-      if (upsertError) throw upsertError;
-      
+      // 4. Success -> The session is already managed by Supabase Auth (useAuth hook will pick it up)
       navigate('/');
     } catch (err: any) {
       console.error('Auth error:', err);
