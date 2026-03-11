@@ -1,13 +1,12 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, User as UserIcon } from 'lucide-react';
+import { Lock, Mail, ArrowRight } from 'lucide-react';
 import { OomaLogo } from '@/components/OomaLogo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -27,32 +26,23 @@ export default function LoginPage() {
       if (authError) throw authError;
       if (!authData.user) throw new Error('Authentication failed.');
 
-      // 2. Fetch the existing record from the 'users' table
-      // This record MUST be created by the Admin beforehand.
+      // 2. Fetch the existing record to determine the role for routing
       const { data: profile, error: profileError } = await supabase
         .from('users')
-        .select('*')
+        .select('role')
         .eq('id', authData.user.id)
         .single();
 
       if (profileError || !profile) {
-          // No record = No permission.
           await supabase.auth.signOut();
           throw new Error('Access Denied: Your profile has not been activated by the administrator.');
       }
 
-      // 3. Verify Identity Handle (Username provided by Admin)
-      // The user must enter the username established by the Admin (case-insensitive for better UX).
-      if (profile.username.toLowerCase() !== username.toLowerCase()) {
-          await supabase.auth.signOut();
-          throw new Error('Access Denied: The provided Identity Handle is incorrect for this account.');
-      }
-
-      // 4. Success -> The session is already managed by Supabase Auth (useAuth hook will pick it up)
-      navigate('/');
+      // Route based on role
+      navigate(profile.role === 'admin' ? '/admin' : '/');
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError(err.message || 'Access Denied. Please verify your 3 credentials.');
+      setError(err.message || 'Access Denied. Please verify your credentials.');
     } finally {
       setLoading(false);
     }
@@ -85,7 +75,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative space-y-3">
-          {['Access System', 'Identify Department', 'Establish Connection'].map((step, i) => (
+          {['Access System', 'Establish Connection'].map((step, i) => (
             <div key={step} className="flex items-center gap-4 text-sm text-indigo-100 bg-white/5 p-3 rounded-2xl border border-white/5 backdrop-blur-sm">
               <span className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-lg shadow-indigo-500/20">
                 {i + 1}
@@ -107,31 +97,14 @@ export default function LoginPage() {
           <div className="mb-10 text-center lg:text-left">
             <h2 className="text-3xl font-black text-white mb-2">Secure Access</h2>
             <p className="text-gray-500 text-sm font-bold flex items-center gap-2 justify-center lg:justify-start">
-               Verify your 3 Credentials to Proceed
+               Verify your Credentials to Proceed
             </p>
           </div>
 
           <form onSubmit={handleAuth} className="space-y-6">
-             {/* Credential 1: Username */}
+              {/* Credential 1: Email */}
             <div>
-              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2.5 scale-90 origin-left">1. Identity Handle</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <UserIcon className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
-                </div>
-                <input
-                  type="text" required
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#121216] border border-[#1F1F26] rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-600 font-medium"
-                  placeholder="Official Username"
-                  value={username}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Credential 2: Email */}
-            <div>
-              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2.5 scale-90 origin-left">2. Registered Intel Mail</label>
+              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2.5 scale-90 origin-left">1. Registered Intel Mail</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Mail className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
@@ -146,9 +119,9 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Credential 3: Password */}
+            {/* Credential 2: Password */}
             <div>
-              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2.5 scale-90 origin-left">3. Security Passcode</label>
+              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2.5 scale-90 origin-left">2. Security Passcode</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Lock className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />

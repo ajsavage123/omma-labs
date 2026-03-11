@@ -67,24 +67,46 @@ ALTER TABLE timeline_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_ratings ENABLE ROW LEVEL SECURITY;
 
 -- Policies (Simplified for development - adjust based on specific needs later)
+DROP POLICY IF EXISTS "Allow authenticated users to read users" ON users;
+DROP POLICY IF EXISTS "Allow users to update their own record" ON users;
+DROP POLICY IF EXISTS "Allow users to insert their own record" ON users;
+
 CREATE POLICY "Allow authenticated users to read users" ON users FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow users to update their own record" ON users FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Allow users to insert their own record" ON users FOR INSERT WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Allow authenticated users to read projects" ON projects;
+DROP POLICY IF EXISTS "Allow authenticated users to create projects" ON projects;
+DROP POLICY IF EXISTS "Allow authenticated users to update projects" ON projects;
 
 CREATE POLICY "Allow authenticated users to read projects" ON projects FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to create projects" ON projects FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to update projects" ON projects FOR UPDATE USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Allow authenticated users to read stages" ON project_stages;
+DROP POLICY IF EXISTS "Allow authenticated users to update stages" ON project_stages;
+DROP POLICY IF EXISTS "Allow authenticated users to insert stages" ON project_stages;
+
 CREATE POLICY "Allow authenticated users to read stages" ON project_stages FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to update stages" ON project_stages FOR UPDATE USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to insert stages" ON project_stages FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Allow authenticated users to read logs" ON timeline_logs;
+DROP POLICY IF EXISTS "Allow authenticated users to insert logs" ON timeline_logs;
+
 CREATE POLICY "Allow authenticated users to read logs" ON timeline_logs FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to insert logs" ON timeline_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
-CREATE POLICY "Allow admins to read ratings" ON admin_ratings FOR SELECT USING (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
-);
-CREATE POLICY "Allow admins to insert/update ratings" ON admin_ratings FOR ALL USING (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
-);
+DROP POLICY IF EXISTS "Allow admins to read ratings" ON admin_ratings;
+DROP POLICY IF EXISTS "Allow admins to insert/update ratings" ON admin_ratings;
+
+-- Use a Security Definer function to safely check for admin status and prevent infinite recursion
+CREATE OR REPLACE FUNCTION is_admin() RETURNS BOOLEAN
+LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'
+    );
+$$;
+
+CREATE POLICY "Allow admins to read ratings" ON admin_ratings FOR SELECT USING (is_admin());
+CREATE POLICY "Allow admins to insert/update ratings" ON admin_ratings FOR ALL USING (is_admin());
