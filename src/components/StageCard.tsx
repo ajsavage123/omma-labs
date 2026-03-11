@@ -1,6 +1,28 @@
 import React, { useState } from 'react';
 import type { Project, ProjectStage, StageName } from '@/types';
-import { ExternalLink, Plus, Send, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, FileText } from 'lucide-react';
+import { ExternalLink, Plus, Send, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, FileText, Globe, Layers, Wind, PenTool, Layout, Search } from 'lucide-react';
+
+const TOOL_ICONS: Record<string, React.ReactNode> = {
+  'GitHub': <Github className="h-3 w-3" />,
+  'Figma': <PenTool className="h-3 w-3" />,
+  'Google Drive': <FileText className="h-3 w-3" />,
+  'LinkedIn': <Globe className="h-3 w-3" />,
+  'Market Research': <BarChart2 className="h-3 w-3" />,
+  'Analytics': <TrendingUp className="h-3 w-3" />,
+  'Vercel': <Wind className="h-3 w-3" />,
+  'Linear': <Layers className="h-3 w-3" />,
+  'Canva': <Layout className="h-3 w-3" />,
+  'Perplexity AI': <Search className="h-3 w-3" />,
+  'ChatGPT': <MessageCircle className="h-3 w-3" />,
+  'Claude AI': <MessageCircle className="h-3 w-3" />,
+  'Miro': <Layout className="h-3 w-3" />,
+  'Google Docs': <FileText className="h-3 w-3" />,
+  'Postman': <Globe className="h-3 w-3" />,
+  'Docker': <Wind className="h-3 w-3" />,
+  'Supabase': <Layers className="h-3 w-3" />,
+  'Mailchimp': <Send className="h-3 w-3" />,
+  'HubSpot': <TrendingUp className="h-3 w-3" />,
+};
 import { projectService } from '@/services/projectService';
 
 interface StageCardProps {
@@ -17,7 +39,8 @@ const STAGE_LABEL_MAP: Record<string, string> = {
   research: 'Research',
   development: 'Development',
   deployment: 'Deployment',
-  business: 'Business Strategy & Marketing',
+  business: 'Business Strategy',
+  marketing: 'Marketing',
   admin_review: 'Admin Review',
 };
 
@@ -26,7 +49,8 @@ const STAGE_DELIVERABLES: Record<string, string[]> = {
   research: ['Market Research Report', 'Competitor Analysis', 'Feasibility Study'],
   development: ['Technical Architecture', 'API Documentation', 'Source Code Repo'],
   deployment: ['Deployment Guide', 'Infrastructure Diagram', 'QA Test Results'],
-  business: ['Marketing Strategy', 'Pricing Model', 'Pitch Deck'],
+  business: ['Business Model Canvas', 'Pricing Model', 'Pitch Deck'],
+  marketing: ['Marketing Strategy', 'Campaign Plans', 'Customer Acquisition Funnel'],
   admin_review: ['Final Project Summary', 'Innovation Scoring Sheet'],
 };
 
@@ -35,31 +59,32 @@ const NEXT_TEAM_LABEL: Record<string, string> = {
   research: 'Engineering Team →',
   development: 'Deployment →',
   deployment: 'Business Team →',
-  business: 'Admin Review →',
+  business: 'Marketing →',
+  marketing: 'Admin Review →',
   admin_review: 'Finish',
 };
 
 const businessSubPanels = [
   {
-    icon: <TrendingUp className="h-4 w-4 text-emerald-500" />,
+    icon: <TrendingUp className="h-4 w-4 text-emerald-400" />,
     title: 'Business Strategy',
     description: 'Define revenue models, pricing strategy, and growth metrics.',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-100',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
   },
   {
-    icon: <BarChart2 className="h-4 w-4 text-indigo-500" />,
+    icon: <BarChart2 className="h-4 w-4 text-indigo-400" />,
     title: 'Marketing Planning',
     description: 'Plan ad campaigns, social media, and customer acquisition channels.',
-    bg: 'bg-indigo-50',
-    border: 'border-indigo-100',
+    bg: 'bg-indigo-500/10',
+    border: 'border-indigo-500/20',
   },
   {
-    icon: <MessageCircle className="h-4 w-4 text-purple-500" />,
+    icon: <MessageCircle className="h-4 w-4 text-purple-400" />,
     title: 'Customer Feedback',
     description: 'Collect early user responses, NPS scores, and iterate on feedback.',
-    bg: 'bg-purple-50',
-    border: 'border-purple-100',
+    bg: 'bg-purple-500/10',
+    border: 'border-purple-500/20',
   },
 ];
 
@@ -103,7 +128,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
   };
 
   const handleNextStage = async () => {
-    const order: StageName[] = ['ideology', 'research', 'development', 'deployment', 'business', 'admin_review'];
+    const order: StageName[] = ['ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'];
     const currentIndex = order.indexOf(stage.stage_name);
     const nextStage = currentIndex < order.length - 1 ? order[currentIndex + 1] : null;
 
@@ -123,30 +148,30 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
   const openNotes = () => window.open(project.drive_link, '_blank');
 
   return (
-    <div className={`bg-white rounded-2xl border flex flex-col h-full transition-all duration-200 ${
+    <div className={`bg-[#121216] rounded-2xl border flex flex-col h-full transition-all duration-200 ${
       isCompleted
-        ? 'border-emerald-200 bg-emerald-50/30'
+        ? 'border-emerald-500/30 bg-emerald-500/5'
         : isActive
-          ? 'border-indigo-200 shadow-lg shadow-indigo-50 ring-1 ring-indigo-100'
-          : 'border-gray-100 opacity-70'
+          ? 'border-indigo-500/30 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/20'
+          : 'border-[#1F1F26] opacity-70'
     }`}>
       {/* Card Header */}
-      <div className="flex justify-between items-start p-5 pb-4 border-b border-gray-100">
+      <div className="flex justify-between items-start p-5 pb-4 border-b border-[#1F1F26]">
         <div>
-          <h3 className="text-base font-bold text-gray-900">{stageName}</h3>
+          <h3 className="text-base font-bold text-white">{stageName}</h3>
           <span className={`mt-1 inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
-            isCompleted ? 'bg-emerald-100 text-emerald-700'
-            : isActive ? 'bg-indigo-100 text-indigo-700'
-            : 'bg-gray-100 text-gray-500'
+            isCompleted ? 'bg-emerald-500/15 text-emerald-400'
+            : isActive ? 'bg-indigo-500/15 text-indigo-400'
+            : 'bg-[#1F1F26] text-gray-500'
           }`}>
             {isCompleted ? '✓ COMPLETED' : isActive ? '● IN PROGRESS' : '○ PENDING'}
           </span>
         </div>
         <button
           onClick={openNotes}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-100 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-black rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-900/40 border border-blue-400/30 uppercase tracking-widest group"
         >
-          <ExternalLink className="h-3.5 w-3.5" />
+          <ExternalLink className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
           Notes
         </button>
       </div>
@@ -160,8 +185,8 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
               <div key={p.title} className={`flex gap-3 p-3 ${p.bg} border ${p.border} rounded-xl`}>
                 <div className="mt-0.5">{p.icon}</div>
                 <div>
-                  <p className="text-xs font-bold text-gray-800">{p.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{p.description}</p>
+                  <p className="text-xs font-bold text-gray-200">{p.title}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{p.description}</p>
                 </div>
               </div>
             ))}
@@ -169,13 +194,13 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
         )}
 
         {/* Deliverables / Templates */}
-        <div className="p-3.5 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+        <div className="p-3.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
           <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
              <FileText className="h-3 w-3" /> Team Deliverables (Save to Drive)
           </p>
           <ul className="grid grid-cols-1 gap-1.5">
             {STAGE_DELIVERABLES[stage.stage_name]?.map((item, i) => (
-              <li key={i} className="flex items-center gap-2 text-[11px] text-gray-700 font-medium">
+              <li key={i} className="flex items-center gap-2 text-[11px] text-gray-300 font-medium">
                 <div className="h-1 w-1 rounded-full bg-indigo-400" />
                 {item}
               </li>
@@ -193,8 +218,9 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
                 href={tool.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 py-1 bg-white text-xs font-medium text-gray-700 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1A1A24] text-[11px] font-bold text-gray-300 rounded-xl border border-[#2F2F3B] hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all shadow-sm"
               >
+                {TOOL_ICONS[tool.name] || <Globe className="h-3 w-3" />}
                 {tool.name}
               </a>
             ))}
@@ -211,13 +237,13 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
                 value={githubUrl}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGithubUrl(e.target.value)}
                 placeholder="https://github.com/your-org/repo"
-                className="flex-1 text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="flex-1 text-sm px-3 py-2 bg-[#0A0A0B] border border-[#2F2F3B] rounded-xl text-gray-200 placeholder:text-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
               <button
                 onClick={handleUpdateGithub}
                 disabled={loading || !githubUrl.trim()}
                 title="Save GitHub link"
-                className="p-2 bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-colors"
               >
                 <Github className="h-4 w-4" />
               </button>
@@ -225,35 +251,37 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
           </div>
         )}
 
-        {/* Add Update (only when active) */}
         {isActive && (
           <div className="flex-1">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">Log Activity & Progress</p>
-            <div className="relative">
-              <textarea
-                value={updateText}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setUpdateText(e.target.value)}
-                placeholder="Briefly describe the documents you added to the Drive..."
-                onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && e.ctrlKey) handleLogActivity(); }}
-                className="w-full text-sm p-3 pr-10 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none h-20 shadow-inner"
-              />
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-300"></div>
+              <div className="relative">
+                <textarea
+                  value={updateText}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setUpdateText(e.target.value)}
+                  placeholder="Describe your progress or documents added..."
+                  onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && e.ctrlKey) handleLogActivity(); }}
+                  className="w-full text-sm p-3 pr-10 bg-[#0A0A0B] border border-[#2F2F3B] rounded-xl text-gray-200 placeholder:text-gray-500 focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 outline-none resize-none h-24 transition-all"
+                />
                 <button
-                onClick={handleLogActivity}
-                disabled={loading || !updateText.trim()}
-                title="Log update (Ctrl+Enter)"
-                className="absolute bottom-2 right-2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-all shadow-sm hover:shadow-md"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+                  onClick={handleLogActivity}
+                  disabled={loading || !updateText.trim()}
+                  title="Log update (Ctrl+Enter)"
+                  className="absolute bottom-2.5 right-2.5 p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-all shadow-md hover:shadow-indigo-500/50 hover:scale-105 active:scale-95"
+                >
+                  <Plus className="h-4.5 w-4.5" />
+                </button>
+              </div>
             </div>
           </div>
         )}
 
         {/* Completed badge */}
         {isCompleted && (
-          <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            <p className="text-xs font-bold text-emerald-700">Stage completed</p>
+          <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <p className="text-xs font-bold text-emerald-400">Stage completed</p>
           </div>
         )}
       </div>
@@ -264,7 +292,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
           <button
             onClick={handleNextStage}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md shadow-indigo-200 disabled:opacity-40 text-sm"
+            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md shadow-indigo-900/30 disabled:opacity-40 text-sm"
           >
             <Send className="h-4 w-4" />
             Submit Stage &nbsp;{NEXT_TEAM_LABEL[stage.stage_name] ?? '→'}

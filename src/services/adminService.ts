@@ -53,6 +53,31 @@ export const adminService = {
     return data;
   },
 
+  async getAllUsers() {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  async updateUserRole(userId: string, role: 'admin' | 'partner') {
+    const { error } = await supabase
+      .from('users')
+      .update({ role })
+      .eq('id', userId);
+    if (error) throw error;
+  },
+
+  async deleteTimelineLog(logId: string) {
+    const { error } = await supabase
+      .from('timeline_logs')
+      .delete()
+      .eq('id', logId);
+    if (error) throw error;
+  },
+
   async updateProjectStatus(projectId: string, status: ProjectStatus, feedback: string) {
     const { error: projectError } = await supabase
       .from('projects')

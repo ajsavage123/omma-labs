@@ -7,9 +7,11 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import {
   Plus, LayoutDashboard, LogOut, Settings, History,
-  Search, X, Menu, Zap, Filter
+  Search, X, Menu, Filter
 } from 'lucide-react';
+import { OomaLogo } from '@/components/OomaLogo';
 import { useNavigate, Link } from 'react-router-dom';
+import { LoadingOverlay } from '@/components/LoadingOverlay';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
 
@@ -35,7 +37,10 @@ export default function DashboardPage() {
   const [newLink, setNewLink] = useState('');
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+    projectService.cleanupOldMessages();
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -83,6 +88,18 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteLog = async (logId: string) => {
+    if (user?.role !== 'admin') return;
+    if (!window.confirm('Delete this activity entry?')) return;
+    try {
+      await adminService.deleteTimelineLog(logId);
+      toast.success('Activity Purged');
+      setLogs(prev => prev.filter(l => l.id !== logId));
+    } catch {
+      toast.error('Deletion Failed');
+    }
+  };
+
   const filteredProjects = projects.filter((p: Project & { project_stages: ProjectStage[] }) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -98,11 +115,11 @@ export default function DashboardPage() {
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-            <Zap className="h-5 w-5 text-white" />
+            <OomaLogo className="text-white" size={24} />
           </div>
           <div>
-            <h1 className="text-lg font-extrabold text-gray-900">Ooma Workspace</h1>
-            <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">Innovation Pipeline</p>
+            <h1 className="text-lg font-extrabold text-white">Ooma Workspace</h1>
+            <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">Ooma Workflow</p>
           </div>
         </div>
       </div>
@@ -111,7 +128,7 @@ export default function DashboardPage() {
         <Link
           to="/"
           onClick={() => setSidebarOpen(false)}
-          className="flex items-center px-4 py-3 text-sm font-semibold rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-100"
+          className="flex items-center px-4 py-3 text-sm font-semibold rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
         >
           <LayoutDashboard className="mr-3 h-4 w-4" /> Dashboard
         </Link>
@@ -119,7 +136,7 @@ export default function DashboardPage() {
           <Link
             to="/admin"
             onClick={() => setSidebarOpen(false)}
-            className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
+            className="flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-xl hover:bg-white/5 transition-colors"
           >
             <Settings className="mr-3 h-4 w-4" /> Admin Panel
           </Link>
@@ -127,18 +144,18 @@ export default function DashboardPage() {
       </nav>
 
       <div className="p-4 border-t border-gray-100">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 mb-3">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1A1A24] mb-3 border border-[#2F2F3B]">
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
             {(user?.full_name || user?.username || 'U').substring(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-gray-900 truncate">{user?.full_name || user?.username}</p>
-            <p className="text-xs text-gray-500 truncate">{user?.designation}</p>
+            <p className="text-sm font-bold text-white truncate">{user?.full_name || user?.username}</p>
+            <p className="text-xs text-gray-400 truncate">{user?.designation}</p>
           </div>
         </div>
         <button
           onClick={() => { signOut(); }}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 rounded-xl hover:bg-red-50 transition-colors border border-red-100"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-500 rounded-xl hover:bg-red-500/10 transition-colors border border-red-500/20"
         >
           <LogOut className="h-4 w-4" /> Sign Out
         </button>
@@ -147,18 +164,18 @@ export default function DashboardPage() {
   );
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-gray-50">
+    <div className="flex items-center justify-center h-screen bg-[#0A0A0B]">
       <div className="text-center">
-        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <Zap className="h-6 w-6 text-white" />
+        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 flex items-center justify-center mx-auto mb-6 animate-pulse box-glow-indigo">
+          <OomaLogo className="text-indigo-400" size={32} />
         </div>
-        <p className="text-gray-500 font-medium">Loading Dashboard…</p>
+        <p className="text-gray-400 font-bold tracking-widest text-xs uppercase animate-pulse">Initializing Ooma...</p>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[#0B0B0E] flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -169,7 +186,7 @@ export default function DashboardPage() {
 
       {/* Sidebar – desktop (fixed) + mobile (slide-in) */}
       <aside className={`
-        fixed md:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-100 flex flex-col h-screen
+        fixed md:static inset-y-0 left-0 z-50 w-72 bg-[#121216] border-r border-[#1F1F26] flex flex-col h-screen
         transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}
       `}>
@@ -186,7 +203,7 @@ export default function DashboardPage() {
       {/* Main content */}
       <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
         {/* Top bar */}
-        <header className="bg-white border-b border-gray-100 px-4 sm:px-8 py-4 flex items-center justify-between gap-4 sticky top-0 z-30">
+        <header className="bg-[#121216]/90 backdrop-blur-md border-b border-[#1F1F26] px-4 sm:px-8 py-4 flex items-center justify-between gap-4 sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -195,8 +212,10 @@ export default function DashboardPage() {
               <Menu className="h-5 w-5" />
             </button>
             <div>
-              <h2 className="text-lg sm:text-2xl font-extrabold text-gray-900">Project Timeline Dashboard</h2>
-              <p className="text-xs text-gray-400 hidden sm:block">Monitor and manage all active innovation projects</p>
+              <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight leading-tight">
+                Welcome back, <span className="text-indigo-400">{user?.full_name?.split(' ')[0] || user?.username}</span>
+              </h2>
+              <p className="text-xs text-gray-400 font-medium hidden sm:block">You are currently monitoring the <span className="text-gray-300 font-bold">Ooma Workflow</span></p>
             </div>
           </div>
 
@@ -206,8 +225,7 @@ export default function DashboardPage() {
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md shadow-indigo-200 text-sm font-bold flex-shrink-0"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Create Project</span>
-              <span className="sm:hidden">New</span>
+              <span>Create Project</span>
             </button>
           )}
         </header>
@@ -222,7 +240,7 @@ export default function DashboardPage() {
                 placeholder="Search projects or team members…"
                 value={searchQuery}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A24] border border-[#2F2F3B] rounded-xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -234,7 +252,7 @@ export default function DashboardPage() {
                   className={`px-3 py-2 rounded-xl text-xs font-bold capitalize transition-colors ${
                     statusFilter === f
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                      : 'bg-white border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600'
+                      : 'bg-[#1A1A24] border border-[#2F2F3B] text-gray-400 hover:border-indigo-500/50 hover:text-indigo-400'
                   }`}
                 >
                   {f}
@@ -255,9 +273,9 @@ export default function DashboardPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                   <div className="h-16 w-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
-                    <Zap className="h-8 w-8 text-indigo-300" />
+                    <OomaLogo className="text-indigo-300" size={40} />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  <h3 className="text-lg font-bold text-white mb-2">
                     {searchQuery || statusFilter !== 'all' ? 'No projects match your filter' : 'No projects yet'}
                   </h3>
                   <p className="text-gray-500 text-sm mb-6 max-w-xs">
@@ -281,15 +299,15 @@ export default function DashboardPage() {
 
             {/* Global Activity Feed */}
             <div className="xl:col-span-1">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-24">
-                <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-2">
+              <div className="bg-[#121216] rounded-2xl border border-[#1F1F26] shadow-xl shadow-black/50 overflow-hidden sticky top-24">
+                <div className="p-4 border-b border-[#1F1F26] bg-[#1A1A24]/50 flex items-center gap-2">
                   <History className="h-4 w-4 text-indigo-500" />
-                  <h3 className="font-bold text-gray-900 text-sm">Global Activity</h3>
-                  <span className="ml-auto text-[10px] text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">
+                  <h3 className="font-bold text-white text-sm">Global Activity</h3>
+                  <span className="ml-auto text-[10px] text-gray-300 font-medium bg-[#2A2A35] px-2 py-0.5 rounded-full">
                     {logs.length}
                   </span>
                 </div>
-                <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
+                <div className="divide-y divide-[#1F1F26] max-h-[500px] overflow-y-auto">
                   {logs.map((log: any) => {
                     // Make it short/readable e.g "ajay_innovator created project 'Alpha'"
                     const projectName = log.projects?.name || 'a project';
@@ -312,11 +330,19 @@ export default function DashboardPage() {
                     }
 
                     return (
-                      <div key={log.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div key={log.id} className="p-4 hover:bg-[#1A1A24] transition-colors group relative">
                         <div className="flex justify-between items-start mb-1">
-                          <p className="text-xs text-gray-800 leading-relaxed font-medium">
-                            {icon} <span className="font-bold text-indigo-600">{log.user_name}</span> {shortText}
+                          <p className="text-xs text-gray-200 leading-relaxed font-medium pr-6">
+                            {icon} <span className="font-bold text-indigo-400">{log.user_name}</span> {shortText}
                           </p>
+                          {user?.role === 'admin' && (
+                            <button 
+                              onClick={() => handleDeleteLog(log.id)}
+                              className="absolute top-4 right-4 p-1 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
                         <div className="flex justify-between items-center mt-2">
                           <span className="text-[10px] text-gray-400">
@@ -343,7 +369,7 @@ export default function DashboardPage() {
           onClick={() => setIsModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-modal-in"
+            className="bg-[#1A1A24] border border-[#2F2F3B] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-modal-in"
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-6 text-white">
@@ -352,43 +378,43 @@ export default function DashboardPage() {
             </div>
             <form onSubmit={handleCreateProject} className="p-6 space-y-4">
               {[
-                { label: 'Project Name', value: newName, setter: setNewName, placeholder: 'e.g. Drone Defibrillator', type: 'text' },
-                { label: 'Team Members', value: newMembers, setter: setNewMembers, placeholder: 'e.g. Ajay Narava, Rahul Kumar', type: 'text' },
+                { label: 'Project Name', value: newName, setter: setNewName, placeholder: 'e.g. NextGen Robotics Platform', type: 'text' },
+                { label: 'Team Members', value: newMembers, setter: setNewMembers, placeholder: 'e.g. Jane Doe, John Smith', type: 'text' },
               ].map(f => (
                 <div key={f.label}>
-                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">{f.label}</label>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">{f.label}</label>
                   <input
                     type={f.type} required value={f.value}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => f.setter(e.target.value)}
                     placeholder={f.placeholder}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="w-full px-3 py-2.5 bg-[#121216] border border-[#2F2F3B] rounded-xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                   />
                 </div>
               ))}
               <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">Short Description</label>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Short Description</label>
                 <textarea
                   required value={newDesc}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewDesc(e.target.value)}
                   placeholder="What problem does this innovation solve?"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none h-20 resize-none"
+                  className="w-full px-3 py-2.5 bg-[#121216] border border-[#2F2F3B] rounded-xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none h-20 resize-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">Google Drive Folder Link</label>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Google Drive Folder Link</label>
                 <input
                   type="url" required value={newLink}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLink(e.target.value)}
                   placeholder="https://drive.google.com/drive/folders/..."
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  className="w-full px-3 py-2.5 bg-[#121216] border border-[#2F2F3B] rounded-xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">This folder will be the shared documentation workspace for all teams.</p>
+                <p className="text-[10px] text-gray-500 mt-1">This folder will be the shared documentation workspace for all teams.</p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 text-sm font-semibold transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-[#2F2F3B] text-gray-400 rounded-xl hover:bg-white/5 text-sm font-semibold transition-colors"
                 >
                   Cancel
                 </button>
@@ -406,6 +432,7 @@ export default function DashboardPage() {
       )}
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      {creating && <LoadingOverlay message="Forging New Project..." />}
     </div>
   );
 }

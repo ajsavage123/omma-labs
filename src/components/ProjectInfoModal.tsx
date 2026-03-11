@@ -8,9 +8,9 @@ interface ProjectInfoModalProps {
 }
 
 const statusStyles: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700',
-  completed: 'bg-blue-100 text-blue-700',
-  rejected: 'bg-red-100 text-red-700',
+  active: 'bg-emerald-500/15 text-emerald-400',
+  completed: 'bg-blue-500/15 text-blue-400',
+  rejected: 'bg-red-500/15 text-red-400',
 };
 
 export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
@@ -20,7 +20,7 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-modal-in"
+        className="bg-[#121216] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-modal-in border border-[#1F1F26]"
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
         {/* Header */}
@@ -47,12 +47,12 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
           {/* Description */}
           {project.description && (
             <div className="flex gap-3">
-              <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                <FileText className="h-4 w-4 text-indigo-500" />
+              <div className="h-8 w-8 rounded-lg bg-indigo-500/15 flex items-center justify-center flex-shrink-0">
+                <FileText className="h-4 w-4 text-indigo-400" />
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Description</p>
-                <p className="text-sm text-gray-700 leading-relaxed">{project.description}</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Description</p>
+                <p className="text-sm text-gray-300 leading-relaxed">{project.description}</p>
               </div>
             </div>
           )}
@@ -60,14 +60,14 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
           {/* Team Members */}
           {project.team_members && (
             <div className="flex gap-3">
-              <div className="h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-                <Users className="h-4 w-4 text-purple-500" />
+              <div className="h-8 w-8 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
+                <Users className="h-4 w-4 text-purple-400" />
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Team Members</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Team Members</p>
                 <div className="flex flex-wrap gap-1.5">
                   {project.team_members.split(',').map((m, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
+                    <span key={i} className="px-2 py-0.5 bg-purple-500/15 text-purple-400 text-xs font-medium rounded-full">
                       {m.trim()}
                     </span>
                   ))}
@@ -78,12 +78,12 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
 
           {/* Created Date */}
           <div className="flex gap-3">
-            <div className="h-8 w-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
-              <Calendar className="h-4 w-4 text-gray-500" />
+            <div className="h-8 w-8 rounded-lg bg-[#1F1F26] flex items-center justify-center flex-shrink-0">
+              <Calendar className="h-4 w-4 text-gray-400" />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Created On</p>
-              <p className="text-sm text-gray-700">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Created On</p>
+              <p className="text-sm text-gray-300">
                 {new Date(project.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
@@ -91,32 +91,32 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
 
           {/* Status Tag */}
           <div className="flex gap-3">
-            <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
-              <Tag className="h-4 w-4 text-amber-500" />
+            <div className="h-8 w-8 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+              <Tag className="h-4 w-4 text-amber-400" />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Project ID</p>
-              <p className="text-xs text-gray-500 font-mono">{project.id}</p>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Project ID</p>
+              <p className="text-xs text-gray-400 font-mono">{project.id}</p>
             </div>
           </div>
 
           {/* Links */}
-          <div className="pt-4 border-t border-gray-100 space-y-3">
+          <div className="pt-4 border-t border-[#1F1F26] space-y-3">
             {project.drive_link && (
               <a
                 href={project.drive_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors group"
+                className="flex items-center gap-3 p-3 bg-blue-500/10 rounded-xl hover:bg-blue-500/20 transition-colors group border border-blue-500/20"
               >
-                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                  <ExternalLink className="h-4 w-4 text-blue-600" />
+                <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/30 transition-colors">
+                  <ExternalLink className="h-4 w-4 text-blue-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Google Drive Folder</p>
-                  <p className="text-xs text-blue-500 truncate">{project.drive_link}</p>
+                  <p className="text-xs font-bold text-blue-400 uppercase tracking-wider">Google Drive Folder</p>
+                  <p className="text-xs text-blue-500/70 truncate">{project.drive_link}</p>
                 </div>
-                <ExternalLink className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+                <ExternalLink className="h-3.5 w-3.5 text-blue-500/50 flex-shrink-0" />
               </a>
             )}
             {project.github_link && (

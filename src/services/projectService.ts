@@ -8,7 +8,8 @@ export const projectService = {
         .from('projects')
         .select(`
           *,
-          project_stages (*)
+          project_stages (*),
+          admin_ratings (*)
         `)
         .order('created_at', { ascending: false });
 
@@ -29,7 +30,8 @@ export const projectService = {
         .from('projects')
         .select(`
           *,
-          project_stages (*)
+          project_stages (*),
+          admin_ratings (*)
         `)
         .eq('id', id)
         .single();
@@ -67,6 +69,7 @@ export const projectService = {
       { project_id: project.id, stage_name: 'development', status: 'pending' },
       { project_id: project.id, stage_name: 'deployment', status: 'pending' },
       { project_id: project.id, stage_name: 'business', status: 'pending' },
+      { project_id: project.id, stage_name: 'marketing', status: 'pending' },
       { project_id: project.id, stage_name: 'admin_review', status: 'pending' },
     ];
 
@@ -121,7 +124,8 @@ export const projectService = {
       research: 'Research',
       development: 'Development',
       deployment: 'Deployment',
-      business: 'Business Strategy & Marketing',
+      business: 'Business Strategy',
+      marketing: 'Marketing',
       admin_review: 'Admin Review',
     };
 
@@ -144,7 +148,7 @@ export const projectService = {
     let userName = 'System';
     if (user) {
       const { data: profile } = await supabase.from('users').select('username, full_name').eq('id', user.id).single();
-      userName = profile?.full_name || profile?.username || user.email || 'User';
+      userName = profile?.full_name || profile?.username || 'User';
     }
 
     await supabase.from('timeline_logs').insert({
@@ -164,5 +168,19 @@ export const projectService = {
     const { data, error } = await query.limit(50);
     if (error) throw error;
     return data;
+  },
+
+  async cleanupOldMessages() {
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    
+    const { error } = await supabase
+      .from('chat_messages')
+      .delete()
+      .lt('created_at', fiveDaysAgo.toISOString());
+      
+    if (error) {
+      console.error('Cleanup old messages failed:', error);
+    }
   }
 };

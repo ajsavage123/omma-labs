@@ -6,6 +6,9 @@ CREATE POLICY "Allow authenticated users to read users" ON users FOR SELECT USIN
 DROP POLICY IF EXISTS "Allow users to update their own record" ON users;
 CREATE POLICY "Allow users to update their own record" ON users FOR UPDATE USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Allow users to insert their own record" ON users;
+CREATE POLICY "Allow users to insert their own record" ON users FOR INSERT WITH CHECK (auth.uid() = id);
+
 DROP POLICY IF EXISTS "Allow authenticated users to read projects" ON projects;
 CREATE POLICY "Allow authenticated users to read projects" ON projects FOR SELECT USING (auth.role() = 'authenticated');
 

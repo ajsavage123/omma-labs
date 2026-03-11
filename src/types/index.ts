@@ -26,6 +26,7 @@ export interface Project {
   created_by: string;
   status: ProjectStatus;
   created_at: string;
+  admin_ratings?: AdminRating[];
 }
 
 export type StageName =
@@ -34,6 +35,7 @@ export type StageName =
   | 'development'
   | 'deployment'
   | 'business'
+  | 'marketing'
   | 'admin_review';
 
 export type StageStatus = 'pending' | 'in_progress' | 'completed';
@@ -67,6 +69,9 @@ export interface AdminRating {
   impact_potential: number;
   development_complexity: number;
   innovation_score: number;
+  innovation_rating: number;
+  engineering_rating: number;
+  business_rating: number;
   notes: string;
   rated_at?: string;
 }
