@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, Zap, ArrowRight, User as UserIcon, Briefcase } from 'lucide-react';
+import { Lock, Mail, Zap, ArrowRight, Briefcase } from 'lucide-react';
 import type { Designation } from '@/types';
 
 export default function LoginPage() {
-  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [designation, setDesignation] = useState<Designation>('Innovation & Research Team');
   const [loading, setLoading] = useState(false);
@@ -21,36 +19,32 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      if (isSignUp) {
-        // 1. Sign up with Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+      // 1. Log in with credentials provided by admin
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
+      
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Authentication failed. Please try again.');
 
-        if (authError) throw authError;
-        if (!authData.user) throw new Error('Signup failed. Please try again.');
+      // 2. Ensure their profile exists in our 'users' table with their username
+      const { error: profileError } = await supabase
+        .from('users')
+        .upsert({
+          id: authData.user.id,
+          full_name: username, // Fallback full name to username 
+          username: username,
+          designation: designation,
+          role: 'partner' // Admin accounts will overwrite this manually later or maintain their role if handled via separate triggers
+        }, { onConflict: 'id', ignoreDuplicates: false });
 
-        // 2. Create entry in our users table
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            full_name: fullName,
-            username: username,
-            designation: designation,
-            role: 'partner' // Default role
-          });
-
-        if (profileError) throw profileError;
-        
-        // Auto-login after signup
-        navigate('/');
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate('/');
+      if (profileError) {
+        // If we fail to update the profile due to permissions, it's okay, they are still logged in.
+        console.warn('Could not update profile, but login successful:', profileError);
       }
+      
+      navigate('/');
     } catch (err: any) {
       console.error('Auth error:', err);
       setError(err.message || 'Authentication failed. Please check your credentials.');
@@ -113,31 +107,13 @@ export default function LoginPage() {
 
         <div className="w-full max-w-sm">
           <div className="mb-8">
-            <h2 className="text-3xl font-extrabold text-gray-900 mb-2">{isSignUp ? 'Create Profile' : 'Sign in'}</h2>
+            <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Sign into Workspace</h2>
             <p className="text-gray-500 text-sm">
-              {isSignUp ? 'Join the Ooma innovation pipeline.' : 'Your credentials were sent to you by the team admin.'}
+              Use the credentials provided by your application admin.
             </p>
           </div>
 
           <form onSubmit={handleAuth} className="space-y-4">
-            {isSignUp && (
-              <>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <UserIcon className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                      type="text" required
-                      className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                      placeholder="Ajay Narava"
-                      value={fullName}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
-                    />
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Username / Handle</label>
                   <div className="relative">
@@ -172,8 +148,6 @@ export default function LoginPage() {
                     </select>
                   </div>
                 </div>
-              </>
-            )}
 
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
@@ -198,7 +172,7 @@ export default function LoginPage() {
                   <Lock className="h-4 w-4 text-gray-400" />
                 </div>
                 <input
-                  type="password" required autoComplete={isSignUp ? "new-password" : "current-password"}
+                  type="password" required autoComplete="current-password"
                   className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400"
                   placeholder="Enter your password"
                   value={password}
@@ -224,25 +198,16 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  {isSignUp ? 'Creating Profile…' : 'Signing in…'}
+                  Entering Workspace…
                 </>
               ) : (
                 <>
-                  {isSignUp ? 'Complete Registration' : 'Enter Workspace'} 
+                  Enter Workspace 
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
-            >
-              {isSignUp ? 'Already have an account? Sign in' : 'First time here? Create your profile'}
-            </button>
-          </div>
 
           <p className="text-center text-[10px] text-gray-400 mt-8">
             Private workspace — innovation intellectual property protected.
