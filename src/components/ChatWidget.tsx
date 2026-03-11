@@ -138,7 +138,7 @@ export default function ChatWidget() {
           <input
             type="text"
             value={newMessage}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             className="flex-1 pl-4 pr-10 py-2.5 bg-[#0A0A0B] border border-[#2F2F3B] rounded-xl text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             disabled={loading}
