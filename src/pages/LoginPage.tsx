@@ -1,47 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, type ChangeEvent, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, Briefcase, ChevronDown } from 'lucide-react';
+import { Lock, Mail, ArrowRight, User as UserIcon } from 'lucide-react';
 import { OomaLogo } from '@/components/OomaLogo';
-import type { Designation } from '@/types';
+import type { Designation, UserRole } from '@/types';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
-  const [designation, setDesignation] = useState<Designation>('Innovation & Research Team');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleAuth = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
+      // 1. Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
       });
       
       if (authError) throw authError;
-      if (!authData.user) throw new Error('Authentication failed. Please try again.');
+      if (!authData.user) throw new Error('Authentication failed.');
 
-      await supabase
+      // 2. Logic to determine Role and Designation based on Email
+      // This allows the admin to simply create common accounts like:
+      // admin@omma.io -> Admin Role
+      // builder@omma.io -> Partner (Dev) Role
+      // etc.
+      
+      let role: UserRole = 'partner';
+      let designation: Designation = 'Developer & Engineering Team';
+      
+      const emailLower = email.toLowerCase();
+      
+      // Admin Logic: Check for admin keywords or specific email
+      if (emailLower.includes('admin') || emailLower === 'ajay@omma.io') {
+          role = 'admin';
+          designation = 'Innovation & Research Team';
+      } else if (emailLower.includes('research') || emailLower.includes('innov')) {
+          designation = 'Innovation & Research Team';
+      } else if (emailLower.includes('biz') || emailLower.includes('market')) {
+          designation = 'Business Strategy & Marketing Team';
+      }
+
+      // 3. Sync/Initialize Profile in public.users
+      // We overwrite existing record with the 'fixed' username and logic-based role
+      const { error: upsertError } = await supabase
         .from('users')
         .upsert({
           id: authData.user.id,
+          username: username, // Uses the third credential provided
           full_name: username,
-          username: username,
           designation: designation,
-          role: 'partner'
+          role: role
         }, { onConflict: 'id' });
+
+      if (upsertError) throw upsertError;
       
       navigate('/');
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError(err.message || 'Authentication failed. Please check your credentials.');
+      setError(err.message || 'Access Denied. Please verify your 3 credentials.');
     } finally {
       setLoading(false);
     }
@@ -67,19 +92,19 @@ export default function LoginPage() {
               Innovation<br />starts<br />
               <span className="text-indigo-400">right here.</span>
             </h1>
-            <p className="text-indigo-200/60 text-lg leading-relaxed max-w-sm">
-              A private platform where ideas become products — through structured pipelines, team workrooms, and data-driven innovation scoring.
+            <p className="text-indigo-200/60 text-lg leading-relaxed max-w-sm font-medium">
+              A private platform where ideas become products through structured pipelines and data-driven innovation scoring.
             </p>
           </div>
         </div>
 
         <div className="relative space-y-3">
-          {['Ideology & Research', 'Development & Deployment', 'Business & Marketing', 'Admin Approval'].map((step, i) => (
+          {['Access System', 'Identify Department', 'Establish Connection'].map((step, i) => (
             <div key={step} className="flex items-center gap-4 text-sm text-indigo-100 bg-white/5 p-3 rounded-2xl border border-white/5 backdrop-blur-sm">
               <span className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-lg shadow-indigo-500/20">
                 {i + 1}
               </span>
-              <span className="font-bold opacity-80">{step}</span>
+              <span className="font-extrabold opacity-80 uppercase tracking-widest text-[10px]">{step}</span>
             </div>
           ))}
         </div>
@@ -93,107 +118,93 @@ export default function LoginPage() {
         </div>
 
         <div className="w-full max-w-sm">
-          <div className="mb-10">
+          <div className="mb-10 text-center lg:text-left">
             <h2 className="text-3xl font-black text-white mb-2">Secure Access</h2>
-            <p className="text-gray-500 text-sm font-medium">
-              Initialize your innovation session with admin credentials.
+            <p className="text-gray-500 text-sm font-bold flex items-center gap-2 justify-center lg:justify-start">
+               Verify your 3 Credentials to Proceed
             </p>
           </div>
 
-          <form onSubmit={handleAuth} className="space-y-5">
+          <form onSubmit={handleAuth} className="space-y-6">
+             {/* Credential 1: Username */}
             <div>
-              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2 scale-90 origin-left">Identity Handle</label>
+              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2.5 scale-90 origin-left">1. Identity Handle</label>
               <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-indigo-400">
-                  <span className="text-gray-500 font-bold text-sm">@</span>
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <UserIcon className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
                 </div>
                 <input
                   type="text" required
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#121216] border border-[#1F1F26] rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-600"
-                  placeholder="username"
+                  className="w-full pl-11 pr-4 py-3.5 bg-[#121216] border border-[#1F1F26] rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-600 font-medium"
+                  placeholder="Official Username"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                 />
               </div>
             </div>
 
+            {/* Credential 2: Email */}
             <div>
-              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2 scale-90 origin-left">Department</label>
+              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2.5 scale-90 origin-left">2. Registered Intel Mail</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Briefcase className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400" />
-                </div>
-                <select
-                  required
-                  value={designation}
-                  onChange={(e) => setDesignation(e.target.value as Designation)}
-                  className="w-full pl-11 pr-10 py-3.5 bg-[#121216] border border-[#1F1F26] rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value="Innovation & Research Team">Innovation & Research</option>
-                  <option value="Developer & Engineering Team">Engineering & Dev</option>
-                  <option value="Business Strategy & Marketing Team">Business & Marketing</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2 scale-90 origin-left">Authentication Email</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400" />
+                  <Mail className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
                 </div>
                 <input
                   type="email" required
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#121216] border border-[#1F1F26] rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-600"
-                  placeholder="team@ooma.io"
+                  className="w-full pl-11 pr-4 py-3.5 bg-[#121216] border border-[#1F1F26] rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-600 font-medium"
+                  placeholder="name@omma.io"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 />
               </div>
             </div>
 
+            {/* Credential 3: Password */}
             <div>
-              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2 scale-90 origin-left">Security Pass</label>
+              <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2.5 scale-90 origin-left">3. Security Passcode</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400" />
+                  <Lock className="h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
                 </div>
                 <input
                   type="password" required
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#121216] border border-[#1F1F26] rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-600"
+                  className="w-full pl-11 pr-4 py-3.5 bg-[#121216] border border-[#1F1F26] rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-600 font-medium"
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 />
               </div>
             </div>
 
             {error && (
-              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                <p className="text-red-400 text-xs font-bold leading-relaxed">{error}</p>
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-shake">
+                <p className="text-red-400 text-[11px] font-bold leading-relaxed">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black rounded-2xl hover:from-indigo-500 hover:to-indigo-600 transition-all shadow-xl shadow-indigo-500/20 disabled:opacity-50 text-xs uppercase tracking-[0.2em]"
+              className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black rounded-2xl hover:from-indigo-500 hover:to-indigo-600 transition-all shadow-xl shadow-indigo-500/20 disabled:opacity-50 text-[10px] uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98]"
             >
-              {loading ? 'Authenticating...' : (
+              {loading ? (
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
                 <>
-                  Establish Connection 
+                  Establish Auth Link 
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
           </form>
 
-          <p className="text-center text-[10px] text-gray-600 mt-12 font-bold uppercase tracking-widest">
-            Private Intel Project — Access Logged
-          </p>
+          <div className="mt-12 pt-8 border-t border-[#1F1F26]">
+            <p className="text-center text-[10px] text-gray-600 font-bold uppercase tracking-widest leading-relaxed">
+              Private Innovation Workspace<br />
+              <span className="text-gray-700">All authentication attempts are audited</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
