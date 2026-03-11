@@ -115,7 +115,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleAuth} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Username / Handle</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Username</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <span className="text-gray-400 font-bold text-sm">@</span>
@@ -123,7 +123,7 @@ export default function LoginPage() {
                     <input
                       type="text" required
                       className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                      placeholder="ajay_innovator"
+                      placeholder="username"
                       value={username}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                     />

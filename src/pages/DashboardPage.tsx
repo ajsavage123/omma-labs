@@ -290,21 +290,42 @@ export default function DashboardPage() {
                   </span>
                 </div>
                 <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
-                  {logs.map((log: TimelineLog) => (
-                    <div key={log.id} className="p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="text-xs font-bold text-indigo-600">{log.user_name}</span>
-                        <span className="text-[10px] text-gray-400">
-                          {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                  {logs.map((log: any) => {
+                    // Make it short/readable e.g "ajay_innovator created project 'Alpha'"
+                    const projectName = log.projects?.name || 'a project';
+                    let shortText = log.update_text;
+                    let icon = '💬';
+
+                    if (shortText.includes('Created project')) {
+                      shortText = `created project '${projectName}'`;
+                      icon = '🚀';
+                    } else if (shortText.includes('advanced to')) {
+                      // e.g., "Completed Ideology stage and advanced to Research." -> "moved 'Alpha' to Research"
+                      const toStageMatch = shortText.match(/advanced to ([^\.]+)/);
+                      const toStage = toStageMatch ? toStageMatch[1] : log.stage;
+                      shortText = `moved '${projectName}' to ${toStage}`;
+                      icon = '➡️';
+                    } else if (shortText.includes('Logged an update')) {
+                      shortText = `updated '${projectName}'`;
+                    } else {
+                       shortText = `${shortText} on '${projectName}'`;
+                    }
+
+                    return (
+                      <div key={log.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex justify-between items-start mb-1">
+                          <p className="text-xs text-gray-800 leading-relaxed font-medium">
+                            {icon} <span className="font-bold text-indigo-600">{log.user_name}</span> {shortText}
+                          </p>
+                        </div>
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-gray-400 font-medium mb-1 truncate">{log.designation}</p>
-                      <p className="text-xs text-gray-700 leading-relaxed line-clamp-2">{log.update_text}</p>
-                      <span className="text-[9px] mt-1.5 inline-block px-1.5 py-0.5 bg-indigo-50 rounded text-indigo-500 font-bold uppercase tracking-wider">
-                        {log.stage.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {logs.length === 0 && (
                     <div className="p-10 text-center text-gray-400 text-sm">No activity yet.</div>
                   )}

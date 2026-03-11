@@ -5,6 +5,7 @@ import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import ProjectWorkspacePage from '@/pages/ProjectWorkspacePage';
 import AdminDashboardPage from '@/pages/AdminDashboardPage';
+import ChatWidget from '@/components/ChatWidget';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
             </Route>
           </Route>
         </Routes>
+        <ChatWidget />
       </BrowserRouter>
     </AuthProvider>
   );

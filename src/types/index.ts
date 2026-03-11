@@ -70,3 +70,14 @@ export interface AdminRating {
   notes: string;
   rated_at?: string;
 }
+
+export interface ChatMessage {
+  id: string;
+  user_id: string;
+  message: string;
+  created_at: string;
+  users?: {
+    username: string;
+    designation: string;
+  };
+}

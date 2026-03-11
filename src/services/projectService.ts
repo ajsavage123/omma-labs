@@ -157,7 +157,7 @@ export const projectService = {
   },
 
   async getTimelineLogs(projectId?: string) {
-    let query = supabase.from('timeline_logs').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('timeline_logs').select('*, projects(name)').order('created_at', { ascending: false });
     if (projectId) {
       query = query.eq('project_id', projectId);
     }
