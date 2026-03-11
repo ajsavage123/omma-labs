@@ -7,6 +7,7 @@ export type Designation =
 
 export interface User {
   id: string;
+  full_name: string;
   username: string;
   designation: Designation;
   role: UserRole;

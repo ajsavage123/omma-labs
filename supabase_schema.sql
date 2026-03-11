@@ -1,6 +1,7 @@
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+    full_name TEXT NOT NULL,
     username TEXT NOT NULL,
     designation TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('partner', 'admin')),

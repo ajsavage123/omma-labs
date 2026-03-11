@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import type { Project, ProjectStage, StageName } from '@/types';
 import { ExternalLink, Plus, Send, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, FileText } from 'lucide-react';
 import { projectService } from '@/services/projectService';

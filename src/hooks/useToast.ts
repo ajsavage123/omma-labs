@@ -14,9 +14,12 @@ export function useToast() {
   const addToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev: ToastItem[]) => [...prev, { id, message, type }]);
+    
     setTimeout(() => {
       setToasts((prev: ToastItem[]) => prev.filter((t: ToastItem) => t.id !== id));
-    }, 3500);
+    }, 5000); // Increased duration for better readability
+
+    return id;
   }, []);
 
   const removeToast = useCallback((id: string) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { projectService } from '@/services/projectService';
 import type { Project, ProjectStage, TimelineLog } from '@/types';
@@ -9,12 +9,13 @@ import {
   Plus, LayoutDashboard, LogOut, Settings, History,
   Search, X, Menu, Zap, Filter
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const { toasts, toast, removeToast } = useToast();
 
   const [projects, setProjects] = useState<(Project & { project_stages: ProjectStage[] })[]>([]);
@@ -54,15 +55,29 @@ export default function DashboardPage() {
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    
     setCreating(true);
+    const creationToastId = toast.info('Creating project and setting up pipeline...');
+    
     try {
-      await projectService.createProject(newName, newDesc, newLink, newMembers, user.id);
+      const project = await projectService.createProject(newName, newDesc, newLink, newMembers, user.id);
+      
       setIsModalOpen(false);
+      const createdName = newName;
       setNewName(''); setNewMembers(''); setNewDesc(''); setNewLink('');
-      await fetchData();
-      toast.success(`Project "${newName}" created successfully!`);
-    } catch {
+      
+      toast.success(`Project "${createdName}" created successfully!`);
+      if (creationToastId) removeToast(creationToastId);
+      
+      // Navigate to the new project workspace after a brief delay
+      setTimeout(() => {
+        navigate(`/project/${project.id}`);
+      }, 500);
+      
+    } catch (error) {
+      console.error('Project creation failed:', error);
       toast.error('Failed to create project. Please try again.');
+      if (creationToastId) removeToast(creationToastId);
     } finally {
       setCreating(false);
     }
@@ -114,10 +129,10 @@ export default function DashboardPage() {
       <div className="p-4 border-t border-gray-100">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 mb-3">
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-            {user?.username?.substring(0, 2).toUpperCase()}
+            {(user?.full_name || user?.username || 'U').substring(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-gray-900 truncate">{user?.username}</p>
+            <p className="text-sm font-bold text-gray-900 truncate">{user?.full_name || user?.username}</p>
             <p className="text-xs text-gray-500 truncate">{user?.designation}</p>
           </div>
         </div>
@@ -308,7 +323,7 @@ export default function DashboardPage() {
         >
           <div
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-modal-in"
-            onClick={e => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-6 text-white">
               <h3 className="text-xl font-extrabold">Create New Project</h3>

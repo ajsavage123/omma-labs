@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { projectService } from '@/services/projectService';
@@ -80,13 +80,13 @@ export default function ProjectWorkspacePage() {
     ]
   };
 
-  const teamStages: Record<Designation, string[]> = {
+  const teamStages: Record<string, string[]> = {
     'Innovation & Research Team': ['ideology', 'research'],
     'Developer & Engineering Team': ['development', 'deployment'],
     'Business Strategy & Marketing Team': ['business']
   };
 
-  const isAdminReviewing = project.project_stages.some(s => s.stage_name === 'admin_review' && s.status === 'in_progress');
+  const isAdminReviewing = project.project_stages.some((s: ProjectStage) => s.stage_name === 'admin_review' && s.status === 'in_progress');
   const isCompleted = project.status === 'completed';
 
   if (!selectedTeam) {
@@ -137,8 +137,8 @@ export default function ProjectWorkspacePage() {
     );
   }
 
-  const visibleStages = project.project_stages.filter(s =>
-    teamStages[selectedTeam].includes(s.stage_name)
+  const visibleStages = project.project_stages.filter((s: ProjectStage) =>
+    selectedTeam && teamStages[selectedTeam]?.includes(s.stage_name)
   );
 
   return (
@@ -216,15 +216,15 @@ export default function ProjectWorkspacePage() {
           <div className="xl:col-span-2 space-y-6">
             <h3 className="font-extrabold text-xl text-gray-900">Task Boards</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-              {visibleStages.map(stage => (
+              {visibleStages.map((stage: ProjectStage) => (
                 <StageCard
                   key={stage.id}
                   project={project}
                   stage={stage}
-                  tools={teamTools[selectedTeam]}
+                  tools={selectedTeam ? teamTools[selectedTeam as Designation] : []}
                   onUpdate={() => fetchData(project.id)}
-                  designation={user?.designation || selectedTeam}
-                  onToast={toast.success}
+                  designation={user?.designation || selectedTeam || 'Innovation & Research Team'}
+                  onToast={(msg: string, type: 'success' | 'error' | 'info') => toast[type](msg)}
                 />
               ))}
             </div>
@@ -237,7 +237,7 @@ export default function ProjectWorkspacePage() {
             </h3>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-28">
               <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
-                {logs.map(log => (
+                {logs.map((log: TimelineLog) => (
                   <div key={log.id} className="relative pl-6 pb-6 border-l-2 border-indigo-50 last:border-l-transparent last:pb-0 group">
                     <div className="absolute left-[-5px] top-1.5 h-2 w-2 rounded-full bg-gray-300 ring-4 ring-white group-hover:bg-indigo-500 transition-colors" />
                     <div className="flex flex-col mb-1.5">

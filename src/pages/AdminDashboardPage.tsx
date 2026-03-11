@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { adminService } from '@/services/adminService';
 import { projectService } from '@/services/projectService';
 import type { Project, ProjectStage, AdminRating } from '@/types';

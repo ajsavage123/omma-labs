@@ -11,7 +11,7 @@ export const adminService = {
 
     const { data: logs } = await supabase.from('timeline_logs').select('designation');
     const teamCounts: Record<string, number> = {};
-    logs?.forEach(log => {
+    logs?.forEach((log: { designation: string }) => {
       teamCounts[log.designation] = (teamCounts[log.designation] || 0) + 1;
     });
 
@@ -99,8 +99,8 @@ export const adminService = {
     const { data: { user } } = await supabase.auth.getUser();
     let adminName = 'Admin';
     if (user) {
-      const { data: profile } = await supabase.from('users').select('username').eq('id', user.id).single();
-      adminName = profile?.username || 'Admin';
+      const { data: profile } = await supabase.from('users').select('username, full_name').eq('id', user.id).single();
+      adminName = profile?.full_name || profile?.username || 'Admin';
     }
 
     const actionLabel = status === 'completed' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Returned for Improvements';

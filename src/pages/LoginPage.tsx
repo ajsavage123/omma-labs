@@ -1,26 +1,59 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, Zap, ArrowRight } from 'lucide-react';
+import { Lock, Mail, Zap, ArrowRight, User as UserIcon, Briefcase } from 'lucide-react';
+import type { Designation } from '@/types';
 
 export default function LoginPage() {
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [designation, setDesignation] = useState<Designation>('Innovation & Research Team');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      navigate('/');
+      if (isSignUp) {
+        // 1. Sign up with Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (authError) throw authError;
+        if (!authData.user) throw new Error('Signup failed. Please try again.');
+
+        // 2. Create entry in our users table
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            full_name: fullName,
+            username: username,
+            designation: designation,
+            role: 'partner' // Default role
+          });
+
+        if (profileError) throw profileError;
+        
+        // Auto-login after signup
+        navigate('/');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        navigate('/');
+      }
     } catch (err: any) {
-      setError(err.message || 'Invalid credentials. Please try again.');
+      console.error('Auth error:', err);
+      setError(err.message || 'Authentication failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -69,7 +102,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel – login form */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 bg-gray-50">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 bg-gray-50 overflow-y-auto">
         {/* Mobile logo */}
         <div className="flex items-center gap-3 mb-10 lg:hidden">
           <div className="h-8 w-8 rounded-xl bg-indigo-600 flex items-center justify-center">
@@ -80,11 +113,68 @@ export default function LoginPage() {
 
         <div className="w-full max-w-sm">
           <div className="mb-8">
-            <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Sign in</h2>
-            <p className="text-gray-500 text-sm">Your credentials were sent to you by the team admin.</p>
+            <h2 className="text-3xl font-extrabold text-gray-900 mb-2">{isSignUp ? 'Create Profile' : 'Sign in'}</h2>
+            <p className="text-gray-500 text-sm">
+              {isSignUp ? 'Join the Ooma innovation pipeline.' : 'Your credentials were sent to you by the team admin.'}
+            </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleAuth} className="space-y-4">
+            {isSignUp && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <UserIcon className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text" required
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                      placeholder="Ajay Narava"
+                      value={fullName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Username / Handle</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <span className="text-gray-400 font-bold text-sm">@</span>
+                    </div>
+                    <input
+                      type="text" required
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                      placeholder="ajay_innovator"
+                      value={username}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Team Designation</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Briefcase className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <select
+                      required
+                      value={designation}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDesignation(e.target.value as Designation)}
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none"
+                    >
+                      <option value="Innovation & Research Team">Innovation & Research</option>
+                      <option value="Developer & Engineering Team">Engineering & Dev</option>
+                      <option value="Business Strategy & Marketing Team">Business & Marketing</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
               <div className="relative">
@@ -92,13 +182,11 @@ export default function LoginPage() {
                   <Mail className="h-4 w-4 text-gray-400" />
                 </div>
                 <input
-                  type="email"
-                  required
-                  autoComplete="email"
+                  type="email" required autoComplete="email"
                   className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400"
                   placeholder="team@ommalabs.com"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 />
               </div>
             </div>
@@ -110,13 +198,11 @@ export default function LoginPage() {
                   <Lock className="h-4 w-4 text-gray-400" />
                 </div>
                 <input
-                  type="password"
-                  required
-                  autoComplete="current-password"
+                  type="password" required autoComplete={isSignUp ? "new-password" : "current-password"}
                   className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400"
                   placeholder="Enter your password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 />
               </div>
             </div>
@@ -133,21 +219,33 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-2"
             >
               {loading ? (
                 <>
                   <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Signing in…
+                  {isSignUp ? 'Creating Profile…' : 'Signing in…'}
                 </>
               ) : (
-                <>Enter Workspace <ArrowRight className="h-4 w-4" /></>
+                <>
+                  {isSignUp ? 'Complete Registration' : 'Enter Workspace'} 
+                  <ArrowRight className="h-4 w-4" />
+                </>
               )}
             </button>
           </form>
 
-          <p className="text-center text-xs text-gray-400 mt-8">
-            Contact your workspace administrator if you need access.
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+            >
+              {isSignUp ? 'Already have an account? Sign in' : 'First time here? Create your profile'}
+            </button>
+          </div>
+
+          <p className="text-center text-[10px] text-gray-400 mt-8">
+            Private workspace — innovation intellectual property protected.
           </p>
         </div>
       </div>

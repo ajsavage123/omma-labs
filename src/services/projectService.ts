@@ -72,9 +72,12 @@ export const projectService = {
 
     const { error: stagesError } = await supabase
       .from('project_stages')
-      .insert(stages);
+      .upsert(stages, { onConflict: 'project_id,stage_name' });
 
-    if (stagesError) throw stagesError;
+    if (stagesError) {
+      console.error('Error inserting/upserting project stages:', stagesError);
+      throw stagesError;
+    }
 
     await this.logActivity(project.id, 'Innovation & Research Team', 'ideology', 'Project created – ideology & concept stage started.');
 
@@ -140,8 +143,8 @@ export const projectService = {
 
     let userName = 'System';
     if (user) {
-      const { data: profile } = await supabase.from('users').select('username').eq('id', user.id).single();
-      userName = profile?.username || user.email || 'User';
+      const { data: profile } = await supabase.from('users').select('username, full_name').eq('id', user.id).single();
+      userName = profile?.full_name || profile?.username || user.email || 'User';
     }
 
     await supabase.from('timeline_logs').insert({
