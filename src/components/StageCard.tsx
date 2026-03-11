@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
+import React from 'react';
 import type { Project, ProjectStage, StageName } from '@/types';
 import { ExternalLink, Plus, Send, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, FileText, Globe, Layers, Wind, PenTool, Layout, Search } from 'lucide-react';
 
-const TOOL_ICONS: Record<string, React.ReactNode> = {
+const TOOL_ICONS: Record<string, any> = {
   'GitHub': <Github className="h-3 w-3" />,
   'Figma': <PenTool className="h-3 w-3" />,
   'Google Drive': <FileText className="h-3 w-3" />,
@@ -29,7 +30,7 @@ interface StageCardProps {
   project: Project;
   stage: ProjectStage;
   tools: { name: string; url: string }[];
-  onUpdate: () => void;
+  onUpdate: () => void | Promise<void>;
   designation: string;
   onToast?: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
@@ -235,7 +236,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
               <input
                 type="url"
                 value={githubUrl}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGithubUrl(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setGithubUrl(e.target.value)}
                 placeholder="https://github.com/your-org/repo"
                 className="flex-1 text-sm px-3 py-2 bg-[#0A0A0B] border border-[#2F2F3B] rounded-xl text-gray-200 placeholder:text-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
@@ -259,7 +260,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
               <div className="relative">
                 <textarea
                   value={updateText}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setUpdateText(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setUpdateText(e.target.value)}
                   placeholder="Describe your progress or documents added..."
                   onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && e.ctrlKey) handleLogActivity(); }}
                   className="w-full text-sm p-3 pr-10 bg-[#0A0A0B] border border-[#2F2F3B] rounded-xl text-gray-200 placeholder:text-gray-500 focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 outline-none resize-none h-24 transition-all"

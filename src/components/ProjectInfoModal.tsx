@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Project } from '@/types';
 import { X, ExternalLink, Github, Users, Calendar, FileText, Tag } from 'lucide-react';
 
@@ -21,7 +20,7 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
     >
       <div
         className="bg-[#121216] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-modal-in border border-[#1F1F26]"
-        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        onClick={(e: any) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-6 text-white">

@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, User as UserIcon } from 'lucide-react';
 import { OomaLogo } from '@/components/OomaLogo';
-import type { Designation, UserRole } from '@/types';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -43,10 +42,10 @@ export default function LoginPage() {
       }
 
       // 3. Verify Identity Handle (Username provided by Admin)
-      // The user must enter the EXACT username established by the Admin.
-      if (profile.username !== username) {
+      // The user must enter the username established by the Admin (case-insensitive for better UX).
+      if (profile.username.toLowerCase() !== username.toLowerCase()) {
           await supabase.auth.signOut();
-          throw new Error('Security Breach: The provided Identity Handle does not match our records for this account.');
+          throw new Error('Access Denied: The provided Identity Handle is incorrect for this account.');
       }
 
       // 4. Success -> The session is already managed by Supabase Auth (useAuth hook will pick it up)

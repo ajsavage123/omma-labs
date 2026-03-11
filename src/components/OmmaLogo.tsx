@@ -1,11 +1,11 @@
-import React from 'react';
+import type { FC } from 'react';
 
 interface OmmaLogoProps {
   className?: string;
   size?: number | string;
 }
 
-export const OmmaLogo: React.FC<OmmaLogoProps> = ({ className = 'w-5 h-5', size }) => {
+export const OmmaLogo: FC<OmmaLogoProps> = ({ className = 'w-5 h-5', size }) => {
   return (
     <svg
       width={size}

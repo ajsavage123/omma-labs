@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { projectService } from '@/services/projectService';
@@ -117,7 +117,7 @@ export default function ProjectWorkspacePage() {
               onClick={() => setSelectedTeam('Innovation & Research Team')}
               borderColor="hover:border-blue-500/50"
               bgHover="group-hover:bg-blue-500/10"
-              isActive={project.project_stages.some(s => teamStages['Innovation & Research Team'].includes(s.stage_name) && s.status === 'in_progress')}
+              isActive={project.project_stages.some((s: any) => teamStages['Innovation & Research Team'].includes(s.stage_name) && s.status === 'in_progress')}
             />
             <TeamCard
               name="Developer & Engineering Team"
@@ -126,7 +126,7 @@ export default function ProjectWorkspacePage() {
               onClick={() => setSelectedTeam('Developer & Engineering Team')}
               borderColor="hover:border-indigo-500/50"
               bgHover="group-hover:bg-indigo-500/10"
-              isActive={project.project_stages.some(s => teamStages['Developer & Engineering Team'].includes(s.stage_name) && s.status === 'in_progress')}
+              isActive={project.project_stages.some((s: any) => teamStages['Developer & Engineering Team'].includes(s.stage_name) && s.status === 'in_progress')}
             />
             <TeamCard
               name="Business Strategy & Marketing Team"
@@ -135,7 +135,7 @@ export default function ProjectWorkspacePage() {
               onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
               borderColor="hover:border-emerald-500/50"
               bgHover="group-hover:bg-emerald-500/10"
-              isActive={project.project_stages.some(s => teamStages['Business Strategy & Marketing Team'].includes(s.stage_name) && s.status === 'in_progress')}
+              isActive={project.project_stages.some((s: any) => teamStages['Business Strategy & Marketing Team'].includes(s.stage_name) && s.status === 'in_progress')}
             />
           </div>
         </div>
@@ -277,7 +277,7 @@ export default function ProjectWorkspacePage() {
   );
 }
 
-function TeamCard({ name, icon, description, onClick, borderColor, bgHover, isActive }: { name: string, icon: React.ReactNode, description: string, onClick: () => void, borderColor: string, bgHover: string, isActive?: boolean }) {
+function TeamCard({ name, icon, description, onClick, borderColor, bgHover, isActive }: { name: string, icon: any, description: string, onClick: () => void, borderColor: string, bgHover: string, isActive?: boolean }) {
   return (
     <div
       onClick={onClick}

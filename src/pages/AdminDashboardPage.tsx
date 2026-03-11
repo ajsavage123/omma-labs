@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import { adminService } from '@/services/adminService';
 import { projectService } from '@/services/projectService';
 import { useAuth } from '@/hooks/useAuth';
@@ -217,9 +217,9 @@ export default function AdminDashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1F1F26] bg-[#121216]">
-                      {projects.map((project) => {
-                        const completedCount = project.project_stages?.filter((s) => s.status === 'completed').length || 0;
-                        const currentStage = project.project_stages?.find(s => s.status === 'in_progress')?.stage_name || (completedCount === 6 ? 'completed' : 'pending');
+                      {projects.map((project: any) => {
+                        const completedCount = project.project_stages?.filter((s: any) => s.status === 'completed').length || 0;
+                        const currentStage = (project.project_stages?.find((s: any) => s.status === 'in_progress')?.stage_name as string) || (completedCount === 6 ? 'completed' : 'pending');
                         const isAdminReview = currentStage === 'admin_review';
 
                         return (
@@ -318,7 +318,7 @@ export default function AdminDashboardPage() {
                         placeholder="Admin Notes..."
                         className="w-full p-4 text-sm bg-[#0A0A0B] border border-[#2F2F3B] rounded-xl min-h-[100px] text-gray-200 resize-none outline-none focus:ring-2 focus:ring-indigo-500"
                         value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
+                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
                         readOnly={!!existingRating}
                       />
                     </div>
@@ -358,7 +358,7 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1F1F26] bg-[#121216]">
-                  {allUsers.map((u) => (
+                  {allUsers.map((u: any) => (
                     <tr key={u.id} className="hover:bg-[#1A1A24] transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -411,7 +411,7 @@ export default function AdminDashboardPage() {
   );
 }
 
-function StatCard({ icon, label, value, isText, className = '' }: { icon: React.ReactNode, label: string, value: any, isText?: boolean, className?: string }) {
+function StatCard({ icon, label, value, isText, className = '' }: { icon: any, label: string, value: any, isText?: boolean, className?: string }) {
   return (
     <div className={`bg-[#121216] p-5 rounded-2xl border border-[#1F1F26] flex items-center gap-4 ${className}`}>
       <div className="h-12 w-12 rounded-xl bg-[#1F1F26] flex items-center justify-center shrink-0">{icon}</div>
@@ -434,7 +434,7 @@ function RatingInput({ label, value, onChange, readOnly }: { label: string, valu
         <input
           type="range" min="1" max="10"
           value={value}
-          onChange={(e) => onChange(parseInt(e.target.value))}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(parseInt(e.target.value))}
           disabled={readOnly}
           className="w-full h-2 bg-[#252531] rounded-full appearance-none outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
         />
