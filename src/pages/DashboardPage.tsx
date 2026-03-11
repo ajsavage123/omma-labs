@@ -115,9 +115,7 @@ export default function DashboardPage() {
     <>
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-            <OomaLogo className="text-white" size={24} />
-          </div>
+          <OomaLogo className="text-white" size={32} />
           <div>
             <h1 className="text-lg font-extrabold text-white">Ooma Workspace</h1>
             <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">Ooma Workflow</p>
@@ -167,9 +165,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-[#0A0A0B]">
       <div className="text-center">
-        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 flex items-center justify-center mx-auto mb-6 animate-pulse box-glow-indigo">
-          <OomaLogo className="text-indigo-400" size={32} />
-        </div>
+        <OomaLogo className="text-indigo-400" size={48} />
         <p className="text-gray-400 font-bold tracking-widest text-xs uppercase animate-pulse">Initializing Ooma...</p>
       </div>
     </div>
@@ -273,9 +269,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="h-16 w-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
-                    <OomaLogo className="text-indigo-300" size={40} />
-                  </div>
+                    <OomaLogo className="text-indigo-300" size={56} />
                   <h3 className="text-lg font-bold text-white mb-2">
                     {searchQuery || statusFilter !== 'all' ? 'No projects match your filter' : 'No projects yet'}
                   </h3>

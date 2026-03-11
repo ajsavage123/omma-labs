@@ -58,9 +58,7 @@ export default function LoginPage() {
 
         <div className="relative">
           <div className="flex items-center gap-3 mb-16">
-            <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">
-              <OomaLogo className="text-white" size={24} />
-            </div>
+            <OomaLogo className="text-white" size={40} />
             <span className="text-white font-extrabold text-xl tracking-tight">Ooma <span className="text-indigo-400 font-bold">Workspace</span></span>
           </div>
 
@@ -90,9 +88,7 @@ export default function LoginPage() {
       {/* Right panel – login form */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 bg-[#0A0A0B] overflow-y-auto">
         <div className="flex items-center gap-3 mb-10 lg:hidden">
-          <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center border border-indigo-400/30 shadow-lg shadow-indigo-500/20">
-            <OomaLogo className="text-white" size={20} />
-          </div>
+            <OomaLogo className="text-white" size={32} />
           <span className="text-white font-extrabold text-xl tracking-tight">Ooma <span className="text-indigo-400">Workspace</span></span>
         </div>
 
