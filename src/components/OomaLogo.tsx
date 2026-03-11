@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { FC } from 'react';
 
 interface OomaLogoProps {
   className?: string;
   size?: number;
 }
 
-export const OomaLogo: React.FC<OomaLogoProps> = ({ className = '', size = 24 }) => {
+export const OomaLogo: FC<OomaLogoProps> = ({ className = '', size = 24 }) => {
   return (
     <div className={`flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       <svg
@@ -23,17 +23,14 @@ export const OomaLogo: React.FC<OomaLogoProps> = ({ className = '', size = 24 })
           </linearGradient>
         </defs>
         
-        {/* Sleek, Thin, Half-Cutted Circle (Arc) */}
+        {/* Sleek, Thin, Half-Cutted Circle (Arc) - radius reduced for a smaller look */}
         <path
-          d="M 12 2 A 10 10 0 1 1 4.5 7.5"
+          d="M 12 4 A 8 8 0 1 1 6.5 8.5"
           stroke="url(#ooma-sleek-grad)"
-          strokeWidth="1.2"
+          strokeWidth="1"
           strokeLinecap="round"
           className="opacity-90"
         />
-        
-        {/* Tech Dot in center */}
-        <circle cx="12" cy="12" r="0.8" fill="currentColor" />
       </svg>
     </div>
   );

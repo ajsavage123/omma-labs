@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { MessageSquare, X, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import type { ChatMessage } from '@/types';
+import { useToast } from '@/hooks/useToast';
+import { ToastContainer } from '@/components/Toast';
 
 export default function ChatWidget() {
   const { user } = useAuth();
@@ -12,16 +14,25 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const { toasts, toast, removeToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchMessages();
+    cleanupOldMessages();
+
     const subscription = supabase
       .channel('public:chat_messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload: any) => {
-        const newMsg = payload.new as any;
-        if (!isOpen && newMsg.user_id !== user?.id) {
-          setUnreadCount((prev: number) => prev + 1);
+        const newMsg = payload.new as ChatMessage;
+        
+        if (newMsg.user_id !== user?.id) {
+          if (!isOpen) {
+            setUnreadCount((prev: number) => prev + 1);
+            // Show pop-up notification
+            toast.info(`New message from teammate`);
+          }
         }
         fetchMessages();
       })
@@ -30,7 +41,7 @@ export default function ChatWidget() {
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, [isOpen, user?.id]);
+  }, [isOpen, user?.id, toast]);
 
   useEffect(() => {
     if (isOpen) {
@@ -42,10 +53,31 @@ export default function ChatWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const cleanupOldMessages = async () => {
+    try {
+      const fiveDaysAgo = new Date();
+      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+      
+      // Real deletion from the database
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .lt('created_at', fiveDaysAgo.toISOString());
+        
+      if (error) console.error('Cleanup error:', error);
+    } catch (e) {
+      console.error('Failed to cleanup messages:', e);
+    }
+  };
+
   const fetchMessages = async () => {
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
     const { data, error } = await supabase
       .from('chat_messages')
       .select('*, users(username, full_name, designation)')
+      .gte('created_at', fiveDaysAgo.toISOString())
       .order('created_at', { ascending: true })
       .limit(100);
       
@@ -152,6 +184,7 @@ export default function ChatWidget() {
           </button>
         </form>
       </div>
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
