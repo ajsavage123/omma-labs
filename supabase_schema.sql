@@ -92,6 +92,14 @@ ALTER TABLE project_stages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE timeline_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_ratings ENABLE ROW LEVEL SECURITY;
 
+-- Helper function for admin check (resolves recursion)
+CREATE OR REPLACE FUNCTION is_admin() RETURNS BOOLEAN
+LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'
+    );
+$$;
+
 -- Workspace Policies
 CREATE POLICY "Allow users to read their workspace" ON workspaces FOR SELECT USING (
     id IN (SELECT workspace_id FROM users WHERE users.id = auth.uid())
@@ -104,17 +112,13 @@ CREATE POLICY "Allow users to read users in same workspace" ON users FOR SELECT 
 );
 CREATE POLICY "Allow users to update their own record" ON users FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Allow authenticated to insert user" ON users FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Allow admins to update users in same workspace" ON users FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM users u WHERE u.id = auth.uid() AND u.role = 'admin' AND u.workspace_id = users.workspace_id)
-);
+CREATE POLICY "Allow admins to update users in same workspace" ON users FOR UPDATE USING (is_admin());
 
 -- Invitation Policies
 CREATE POLICY "Allow reading invitations for workspace" ON invitations FOR SELECT USING (
     workspace_id IN (SELECT workspace_id FROM users WHERE users.id = auth.uid()) OR NOT used
 );
-CREATE POLICY "Allow admins to create invitations" ON invitations FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin' AND workspace_id = invitations.workspace_id)
-);
+CREATE POLICY "Allow admins to create invitations" ON invitations FOR INSERT WITH CHECK (is_admin());
 CREATE POLICY "Allow updating used status" ON invitations FOR UPDATE USING (auth.role() = 'authenticated');
 
 -- Project Policies
@@ -148,18 +152,13 @@ CREATE POLICY "Allow inserting workspace logs" ON timeline_logs FOR INSERT WITH 
 );
 
 -- Admin Ratings Policies
-CREATE POLICY "Allow admins to read workspace ratings" ON admin_ratings FOR SELECT USING (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin' AND workspace_id = admin_ratings.workspace_id)
-);
-CREATE POLICY "Allow admins to insert/update workspace ratings" ON admin_ratings FOR ALL USING (
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin' AND workspace_id = admin_ratings.workspace_id)
-);
+CREATE POLICY "Allow admins to read workspace ratings" ON admin_ratings FOR SELECT USING (is_admin());
+CREATE POLICY "Allow admins to insert/update workspace ratings" ON admin_ratings FOR ALL USING (is_admin());
 
 -- Migration Script for Existing Data
 DO $$
 DECLARE
     default_workspace_id UUID;
-    user_record RECORD;
 BEGIN
     -- Only run migration if there are users without a workspace
     IF EXISTS (SELECT 1 FROM users WHERE workspace_id IS NULL) THEN
@@ -172,7 +171,7 @@ BEGIN
         -- Update Projects
         UPDATE projects SET workspace_id = default_workspace_id WHERE workspace_id IS NULL;
         
-        -- Update existing stages (requires joining with projects to get workspace if projects had them, or just set to default)
+        -- Update existing stages
         UPDATE project_stages SET workspace_id = default_workspace_id WHERE workspace_id IS NULL;
         
         -- Update existing logs

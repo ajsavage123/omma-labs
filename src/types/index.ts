@@ -26,6 +26,7 @@ export interface Invitation {
 export interface User {
   id: string;
   username: string;
+  full_name?: string;
   designation: Designation;
   role: UserRole;
   workspace_id: string;
@@ -45,6 +46,7 @@ export interface Project {
   created_by: string;
   status: ProjectStatus;
   created_at: string;
+  admin_ratings?: AdminRating[];
 }
 
 export type StageName =
@@ -81,7 +83,7 @@ export interface TimelineLog {
 }
 
 export interface AdminRating {
-  id: string;
+  id?: string;
   project_id: string;
   workspace_id: string;
   problem_importance: number;
@@ -90,6 +92,21 @@ export interface AdminRating {
   impact_potential: number;
   development_complexity: number;
   innovation_score: number;
+  innovation_rating?: number;
+  engineering_rating?: number;
+  business_rating?: number;
   notes: string;
-  rated_at: string;
+  rated_at?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  user_id: string;
+  message: string;
+  created_at: string;
+  users?: {
+    full_name: string;
+    username: string;
+    designation: string;
+  };
 }

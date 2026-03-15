@@ -6,6 +6,7 @@ import DashboardPage from '@/pages/DashboardPage';
 import ProjectWorkspacePage from '@/pages/ProjectWorkspacePage';
 import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import OnboardingPage from '@/pages/OnboardingPage';
+import ChatWidget from '@/components/ChatWidget';
 
 // Helper for the Onboarding route to ensure they are logged in to Supabase first
 function OnboardingRoute() {
@@ -48,6 +49,7 @@ function App() {
             </Route>
           </Route>
         </Routes>
+        <ChatWidget />
       </BrowserRouter>
     </AuthProvider>
   );
