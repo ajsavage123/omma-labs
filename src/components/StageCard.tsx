@@ -1,6 +1,6 @@
-import { useState, type ChangeEvent } from 'react';
+import { useState } from 'react';
 import type { Project, ProjectStage, StageName } from '@/types';
-import { ExternalLink, Plus, Send, FileText, Check, Search, MessageSquare, Figma, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, Globe, Layers, Wind, PenTool, Layout } from 'lucide-react';
+import { ExternalLink, Plus, Send, FileText, Search, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, Globe, Layers, Wind, PenTool, Layout } from 'lucide-react';
 import { projectService } from '@/services/projectService';
 
 interface StageCardProps {

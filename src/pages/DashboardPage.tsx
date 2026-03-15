@@ -8,7 +8,7 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, MessageCircle, Clock, Menu, X, Trash2, History } from 'lucide-react';
+import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History as HistoryIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
@@ -263,7 +263,7 @@ export default function DashboardPage() {
             <div className="xl:col-span-1">
               <div className="rounded-2xl bg-[#11111d] border border-white/5 overflow-hidden sticky top-24 shadow-2xl">
                 <div className="p-4 border-b border-white/5 bg-white/[0.01] flex items-center gap-2">
-                  <History className="h-4 w-4 text-indigo-500" />
+                  <HistoryIcon className="h-4 w-4 text-indigo-500" />
                   <h3 className="font-bold text-white text-xs uppercase tracking-widest">Global Activity</h3>
                   <span className="ml-auto text-[10px] text-gray-400 font-black bg-white/5 px-2 py-0.5 rounded-full">
                     {logs.length}

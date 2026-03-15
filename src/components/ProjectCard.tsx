@@ -102,7 +102,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
         {/* Segmented Progress Bar - Match screenshot width/gaps */}
         <div className="flex gap-[6px] mb-4">
-          {orderedStages.map((name, idx) => {
+          {orderedStages.map((name) => {
             const stg = stages.find(s => s.stage_name === name);
             const isCompleted = stg?.status === 'completed';
             const isActive = stg?.status === 'in_progress';

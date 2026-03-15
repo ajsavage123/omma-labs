@@ -29,7 +29,7 @@ export function PipelineBar({ stages }: PipelineBarProps) {
           {/* Background Line */}
           <div className="absolute left-10 right-10 top-1/2 -translate-y-1/2 h-[2px] bg-[#1a1a24]"></div>
           
-          {orderedStages.map((name, index) => {
+          {orderedStages.map((name) => {
             const stage = stages.find(s => s.stage_name === name);
             const isCompleted = stage?.status === 'completed';
             const isInProgress = stage?.status === 'in_progress';
