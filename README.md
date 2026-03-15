@@ -1,73 +1,84 @@
-# React + TypeScript + Vite
+# Ooma Labs Innovation Workspace
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Ooma Labs Innovation Workspace is a specialized conceptualization and project management platform built specifically for an innovation lab environment. It acts as an **Innovation Pipeline**, where ideas are pitched, researched, developed, marketed, and finally reviewed by an administration team. It divides the workforce into distinct departments, giving each team specialized tools and access to specific stages in a project's lifecycle.
 
-Currently, two official plugins are available:
+## 🌟 Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 🛡️ Role-Based Workrooms
+The application operates on strict access control rules and splits users into specific **Designations**:
+- **Innovation & Research Team**: The idea generators. They are the only ones allowed to create new projects and oversee the `Ideology` and `Research` stages.
+- **Developer & Engineering Team**: The builders. They oversee the `Development` and `Deployment` stages, utilizing developer-specific tools.
+- **Business Strategy & Marketing Team**: The promoters. They oversee the `Business` execution plan, defining revenue models and market rollouts.
 
-## React Compiler
+### 🚀 The Innovation Pipeline
+Every project goes through a strict 6-stage pipeline:
+1. Ideology 
+2. Research
+3. Development
+4. Deployment
+5. Business
+6. Admin Review
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+When a user enters a project, they must **Select their Team**. The dashboard adapts UI dynamically based on the team, showing only relevant stages and quick links to department tools.
 
-## Expanding the ESLint configuration
+### 📊 Admin Control Center
+Once a project completes the Business stage, it enters Admin Review. Admins use a dedicated dashboard that tracks lab metrics and evaluates projects across 5 key metrics:
+- Problem Importance
+- Technical Feasibility
+- Market Demand
+- Impact Potential
+- Development Complexity
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The admin generates an **Innovation Score** and can Approve, Reject, or Return the project for improvements.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 🌍 Global Activity Feed
+A real-time timeline tracks every update, stage transition, and note added by any team member across all active projects.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 🛠️ Tech Stack
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **Frontend Core**: React 19 + TypeScript + Vite
+- **Routing**: React Router v7
+- **Styling**: Tailwind CSS + `clsx` & `tailwind-merge`
+- **Icons & Utils**: `lucide-react`, `date-fns`
+- **Backend & Database**: Supabase (PostgreSQL with Row Level Security and Auth)
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🗄️ Database Architecture
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The backend relies on 5 core relational tables in Supabase:
+- `users`: Synchronized with Auth, stores designation and role.
+- `projects`: Top-level project metadata.
+- `project_stages`: Tracks the pipeline stages per project and their status.
+- `timeline_logs`: Audit trail tracking every single update a user makes.
+- `admin_ratings`: Stores the final metric scores evaluated by admins.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🚀 Getting Started
+
+To run this project locally, ensure you have Node.js installed and a configured Supabase project.
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd omma-labs
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Set up Environment Variables:**
+   Create a `.env` file in the root directory and add your Supabase credentials:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. **Initialize Supabase Schema:**
+   Run the SQL provided in `supabase_schema.sql` in your Supabase project's SQL Editor to create the necessary tables and RLS policies.
+
+5. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+The application will start on `http://localhost:5173`.

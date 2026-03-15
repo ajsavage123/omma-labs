@@ -3,17 +3,23 @@ import { supabase } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
+// Define an extended User type that includes workspaceName for convenience in the UI
+export interface AuthenticatedUser extends User {
+  workspaceName?: string;
+}
+
 interface AuthContextType {
-  user: User | null;
+  user: AuthenticatedUser | null;
   supabaseUser: SupabaseUser | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -44,18 +50,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (id: string) => {
     try {
-      const { data, error } = await supabase
+      // Use maybeSingle because a newly signed up user might not have a public.users record yet
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      setUser(data);
+      if (userError) throw userError;
+
+      if (userData && userData.workspace_id) {
+        const { data: workspaceData } = await supabase
+          .from('workspaces')
+          .select('name')
+          .eq('id', userData.workspace_id)
+          .single();
+          
+        setUser({ ...userData, workspaceName: workspaceData?.name });
+      } else {
+        setUser(userData);
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshUser = async () => {
+    if (supabaseUser) {
+      await fetchUserProfile(supabaseUser.id);
     }
   };
 
@@ -64,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, supabaseUser, loading, signOut }}>
+    <AuthContext.Provider value={{ user, supabaseUser, loading, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

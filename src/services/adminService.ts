@@ -1,16 +1,16 @@
 import { supabase } from '@/lib/supabase';
-import type { AdminRating, ProjectStatus, Project, ProjectStage } from '@/types';
+import type { AdminRating, ProjectStatus, Project, ProjectStage, User, Invitation } from '@/types';
 
 export const adminService = {
   async getAdminStats() {
     const { data: projects, error } = await supabase.from('projects').select('*, project_stages(*)') as { data: (Project & { project_stages: ProjectStage[] })[] | null, error: any };
     if (error) throw error;
-    if (!projects) return { activeProjects: 0, researchCount: 0, developmentCount: 0, launchCount: 0 };
+    if (!projects) return { activeProjects: 0, researchCount: 0, developmentCount: 0, launchCount: 0, mostActiveTeam: 'None' };
 
     // Calculate most active team from logs
     const { data: logs } = await supabase.from('timeline_logs').select('designation');
     const teamCounts: Record<string, number> = {};
-    logs?.forEach(log => {
+    logs?.forEach((log: any) => {
       teamCounts[log.designation] = (teamCounts[log.designation] || 0) + 1;
     });
 
@@ -69,5 +69,62 @@ export const adminService = {
       stage: 'admin_review',
       update_text: `Admin Decision: ${status.toUpperCase()}. Feedback: ${feedback}`
     });
+  },
+
+  // --- Team Management Functions ---
+  
+  async getTeamMembers(workspaceId: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as User[];
+  },
+
+  async getActiveInvitations(workspaceId: string) {
+    const { data, error } = await supabase
+      .from('invitations')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('used', false)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as Invitation[];
+  },
+
+  async generateInvite(role: 'admin' | 'partner', designation: string, workspaceId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Generate a secure random 8-character hex code
+    const code = Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    
+    const { data, error } = await supabase
+      .from('invitations')
+      .insert({
+        workspace_id: workspaceId,
+        code,
+        role,
+        designation,
+        created_by: user.id
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Invitation;
+  },
+
+  async updateUserRole(userId: string, designation: string, role: string) {
+    const { error } = await supabase
+      .from('users')
+      .update({ designation, role })
+      .eq('id', userId);
+
+    if (error) throw error;
   }
 };

@@ -5,11 +5,30 @@ export type Designation =
   | 'Developer & Engineering Team'
   | 'Business Strategy & Marketing Team';
 
+export interface Workspace {
+  id: string;
+  name: string;
+  created_at: string;
+  created_by?: string;
+}
+
+export interface Invitation {
+  id: string;
+  workspace_id: string;
+  code: string;
+  role: UserRole;
+  designation: Designation;
+  used: boolean;
+  created_by: string;
+  created_at: string;
+}
+
 export interface User {
   id: string;
   username: string;
   designation: Designation;
   role: UserRole;
+  workspace_id: string;
   created_at: string;
 }
 
@@ -17,6 +36,7 @@ export type ProjectStatus = 'active' | 'completed' | 'rejected';
 
 export interface Project {
   id: string;
+  workspace_id: string;
   name: string;
   description: string;
   drive_link: string;
@@ -33,6 +53,7 @@ export type StageName =
   | 'development'
   | 'deployment'
   | 'business'
+  | 'marketing'
   | 'admin_review';
 
 export type StageStatus = 'pending' | 'in_progress' | 'completed';
@@ -40,6 +61,7 @@ export type StageStatus = 'pending' | 'in_progress' | 'completed';
 export interface ProjectStage {
   id: string;
   project_id: string;
+  workspace_id: string;
   stage_name: StageName;
   assigned_team: string;
   status: StageStatus;
@@ -50,6 +72,7 @@ export interface ProjectStage {
 export interface TimelineLog {
   id: string;
   project_id: string;
+  workspace_id: string;
   user_name: string;
   designation: string;
   stage: string;
@@ -60,6 +83,7 @@ export interface TimelineLog {
 export interface AdminRating {
   id: string;
   project_id: string;
+  workspace_id: string;
   problem_importance: number;
   technical_feasibility: number;
   market_demand: number;
