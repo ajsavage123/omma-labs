@@ -19,103 +19,99 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-[#121216] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-modal-in border border-[#1F1F26]"
+        className="bg-[#0c0c0e]/95 backdrop-blur-xl rounded-[24px] md:rounded-[32px] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-modal-in border border-white/10 m-4"
         onClick={(e: any) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-6 text-white">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mb-1">Project Details</p>
-              <h2 className="text-2xl font-extrabold leading-tight">{project.name}</h2>
+        <div className="bg-[#11111d] border-b border-white/5 p-6 md:p-8 shrink-0 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+          <div className="flex justify-between items-start z-10 relative">
+            <div className="flex-1 pr-4">
+              <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Project Profile</p>
+              <h2 className="text-2xl md:text-3xl font-black text-white leading-tight tracking-tight">{project.name}</h2>
+              <span className={`mt-4 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusStyles[project.status]}`}>
+                {project.status}
+              </span>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+              className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-gray-400 border border-white/5 flex-shrink-0"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" strokeWidth={2.5} />
             </button>
           </div>
-          <span className={`mt-3 inline-block px-3 py-1 rounded-full text-xs font-bold ${statusStyles[project.status]}`}>
-            {project.status.toUpperCase()}
-          </span>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 md:p-8 space-y-8 overflow-y-auto flex-1 scroll-smooth">
           {/* Description */}
           {project.description && (
-            <div className="flex gap-3">
-              <div className="h-8 w-8 rounded-lg bg-indigo-500/15 flex items-center justify-center flex-shrink-0">
-                <FileText className="h-4 w-4 text-indigo-400" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Description</p>
-                <p className="text-sm text-gray-300 leading-relaxed">{project.description}</p>
+            <div>
+              <p className="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-3">
+                 <FileText className="h-3.5 w-3.5" /> Description
+              </p>
+              <div className="bg-white/5 border border-white/5 rounded-[20px] p-5">
+                <p className="text-sm text-gray-300 leading-relaxed font-medium">{project.description}</p>
               </div>
             </div>
           )}
 
-          {/* Team Members */}
-          {project.team_members && (
-            <div className="flex gap-3">
-              <div className="h-8 w-8 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
-                <Users className="h-4 w-4 text-purple-400" />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Team Members */}
+            {project.team_members && (
               <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Team Members</p>
-                <div className="flex flex-wrap gap-1.5">
+                <p className="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-3">
+                   <Users className="h-3.5 w-3.5" /> Team Members
+                </p>
+                <div className="flex flex-wrap gap-2">
                   {project.team_members.split(',').map((m, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-purple-500/15 text-purple-400 text-xs font-medium rounded-full">
+                    <span key={i} className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold uppercase tracking-wide rounded-full border border-indigo-500/20">
                       {m.trim()}
                     </span>
                   ))}
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Created Date */}
-          <div className="flex gap-3">
-            <div className="h-8 w-8 rounded-lg bg-[#1F1F26] flex items-center justify-center flex-shrink-0">
-              <Calendar className="h-4 w-4 text-gray-400" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Created On</p>
-              <p className="text-sm text-gray-300">
-                {new Date(project.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-          </div>
-
-          {/* Status Tag */}
-          <div className="flex gap-3">
-            <div className="h-8 w-8 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-              <Tag className="h-4 w-4 text-amber-400" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Project ID</p>
-              <p className="text-xs text-gray-400 font-mono">{project.id}</p>
+            {/* Created Date & ID */}
+            <div className="space-y-6">
+              <div>
+                <p className="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-2">
+                   <Calendar className="h-3.5 w-3.5" /> Created On
+                </p>
+                <p className="text-sm text-gray-300 font-medium">
+                  {new Date(project.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+              </div>
+              <div>
+                <p className="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-2">
+                   <Tag className="h-3.5 w-3.5" /> Project ID
+                </p>
+                <p className="text-xs text-gray-500 font-mono bg-white/5 px-2 py-1 rounded-md inline-block border border-white/10">
+                  {project.id.split('-')[0]}...
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Links */}
-          <div className="pt-4 border-t border-[#1F1F26] space-y-3">
+          <div className="pt-6 border-t border-white/5 space-y-3">
+             <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-4">External Links</p>
             {project.drive_link && (
               <a
                 href={project.drive_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-blue-500/10 rounded-xl hover:bg-blue-500/20 transition-colors group border border-blue-500/20"
+                className="flex items-center gap-4 p-4 bg-[#11111d] rounded-[20px] hover:bg-white/5 transition-colors group border border-white/5 hover:border-indigo-500/30"
               >
-                <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/30 transition-colors">
-                  <ExternalLink className="h-4 w-4 text-blue-400" />
+                <div className="h-10 w-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-500/20 transition-colors">
+                  <ExternalLink className="h-4 w-4 text-indigo-400 group-hover:scale-110 transition-transform" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-blue-400 uppercase tracking-wider">Google Drive Folder</p>
-                  <p className="text-xs text-blue-500/70 truncate">{project.drive_link}</p>
+                  <p className="text-[11px] font-black text-white uppercase tracking-widest">Drive Folder</p>
+                  <p className="text-[10px] text-gray-500 truncate mt-0.5">{project.drive_link}</p>
                 </div>
-                <ExternalLink className="h-3.5 w-3.5 text-blue-500/50 flex-shrink-0" />
+                <ExternalLink className="h-4 w-4 text-gray-600 group-hover:text-indigo-400 flex-shrink-0 transition-colors" />
               </a>
             )}
             {project.github_link && (
@@ -123,16 +119,16 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
                 href={project.github_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors group"
+                className="flex items-center gap-4 p-4 bg-[#11111d] rounded-[20px] hover:bg-white/5 transition-colors group border border-white/5 hover:border-gray-500/50"
               >
-                <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                  <Github className="h-4 w-4 text-white" />
+                <div className="h-10 w-10 rounded-2xl bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
+                  <Github className="h-4 w-4 text-white group-hover:scale-110 transition-transform" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-gray-300 uppercase tracking-wider">GitHub Repository</p>
-                  <p className="text-xs text-gray-400 truncate">{project.github_link}</p>
+                  <p className="text-[11px] font-black text-white uppercase tracking-widest">GitHub Repository</p>
+                  <p className="text-[10px] text-gray-500 truncate mt-0.5">{project.github_link}</p>
                 </div>
-                <ExternalLink className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                <ExternalLink className="h-4 w-4 text-gray-600 group-hover:text-white flex-shrink-0 transition-colors" />
               </a>
             )}
           </div>

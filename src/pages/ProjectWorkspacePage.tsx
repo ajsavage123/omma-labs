@@ -8,7 +8,7 @@ import { StageCard } from '@/components/StageCard';
 import { ProjectInfoModal } from '@/components/ProjectInfoModal';
 import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { ChevronLeft, Info, Briefcase, Code, Lightbulb, Clock, ExternalLink, Sparkles, ShieldAlert, Microscope } from 'lucide-react';
+import { ChevronLeft, Info, Briefcase, Code, Clock, ExternalLink, Sparkles, ShieldAlert, Microscope } from 'lucide-react';
 
 export default function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -95,50 +95,59 @@ export default function ProjectWorkspacePage() {
 
   if (!selectedTeam) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-[#080808] flex items-center justify-center p-6">
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-[#6366f1]/5 blur-[120px] rounded-full pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#8b5cf6]/5 blur-[120px] rounded-full pointer-events-none"></div>
+      <div className="h-screen relative overflow-hidden bg-[#050505] flex flex-col font-sans">
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/5 blur-[120px] rounded-full pointer-events-none"></div>
 
-        <div className="max-w-5xl w-full">
-           <button onClick={() => navigate('/')} className="flex items-center text-xs font-bold uppercase tracking-widest text-gray-600 mb-12 hover:text-indigo-400 transition-colors bg-[#11111d] border border-white/5 px-4 py-2 rounded-xl">
-             <ChevronLeft className="mr-2 h-4 w-4" />
+        {/* Fixed Header */}
+        <div className="flex-none p-4 md:p-6 sticky top-0 bg-[#050505]/95 backdrop-blur-xl z-20 border-b border-white/5 flex items-center">
+           <button onClick={() => navigate('/')} className="inline-flex items-center text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-3 rounded-2xl transition-colors active:scale-95 shadow-md">
+             <ChevronLeft className="mr-2 h-4 w-4" strokeWidth={3} />
              Back to Dashboard
            </button>
+        </div>
 
-           <div className="text-center mb-16">
-              <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">
-                Workspace Router
-              </div>
-              <h1 className="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight flex items-center justify-center gap-4">
-                <Sparkles className="h-8 w-8 text-[#f59e0b] animate-pulse" />
-                {project.name}
-              </h1>
-              <p className="text-gray-500 font-bold text-sm md:text-base px-10">Choose your department to access the specialized task boards</p>
-           </div>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 scroll-smooth">
+          <div className="max-w-5xl mx-auto w-full pt-4 md:pt-10">
+             <div className="text-center mb-12 md:mb-16">
+                <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6">
+                  Workspace Router
+                </div>
+                <h1 className="text-2xl md:text-5xl font-black text-white mb-3 md:mb-4 tracking-tight flex items-center justify-center gap-3">
+                  <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-[#f59e0b] animate-pulse" />
+                  {project.name}
+                </h1>
+                <p className="text-gray-400 font-bold text-xs md:text-base px-5">Choose your department to access specialized task boards</p>
+             </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <TeamCard
-                name="Innovation & Research Team"
-                icon={<Microscope className="h-8 w-8 text-blue-500" />}
-                description="Idea validation & conceptual research."
-                isHighlighted={highlightedTeam === 'Innovation & Research Team'}
-                onClick={() => setSelectedTeam('Innovation & Research Team')}
-              />
-              <TeamCard
-                name="Developer & Engineering Team"
-                icon={<Code className="h-8 w-8 text-indigo-500" />}
-                description="Technical architecture & development."
-                isHighlighted={highlightedTeam === 'Developer & Engineering Team'}
-                onClick={() => setSelectedTeam('Developer & Engineering Team')}
-              />
-              <TeamCard
-                name="Business Strategy & Marketing Team"
-                icon={<Briefcase className="h-8 w-8 text-emerald-500" />}
-                description="Business scaling & marketing growth."
-                isHighlighted={highlightedTeam === 'Business Strategy & Marketing Team'}
-                onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
-              />
-           </div>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+                <TeamCard
+                  name="Innovation & Research Team"
+                  icon={<Microscope className="h-8 w-8 text-cyan-400" />}
+                  description="Idea validation & conceptual research."
+                  isHighlighted={highlightedTeam === 'Innovation & Research Team'}
+                  onClick={() => setSelectedTeam('Innovation & Research Team')}
+                  colorClass="cyan"
+                />
+                <TeamCard
+                  name="Developer & Engineering Team"
+                  icon={<Code className="h-8 w-8 text-indigo-400" />}
+                  description="Technical architecture & development."
+                  isHighlighted={highlightedTeam === 'Developer & Engineering Team'}
+                  onClick={() => setSelectedTeam('Developer & Engineering Team')}
+                  colorClass="indigo"
+                />
+                <TeamCard
+                  name="Business Strategy & Marketing Team"
+                  icon={<Briefcase className="h-8 w-8 text-emerald-400" />}
+                  description="Business scaling & marketing growth."
+                  isHighlighted={highlightedTeam === 'Business Strategy & Marketing Team'}
+                  onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
+                  colorClass="emerald"
+                />
+             </div>
+          </div>
         </div>
       </div>
     );
@@ -149,46 +158,47 @@ export default function ProjectWorkspacePage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#080808] flex flex-col">
+    <div className="h-screen bg-[#080808] flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#0c0c0e]/80 backdrop-blur-xl border-b border-white/5 py-4">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4">
-           <div className="flex items-center gap-4 overflow-hidden">
-              <button 
-                onClick={() => setSelectedTeam(null)} 
-                className="h-9 w-9 flex items-center justify-center rounded-full bg-white/5 transition-colors hover:bg-white/10 shrink-0"
-              >
-                <ChevronLeft className="h-5 w-5 text-gray-400" />
-              </button>
-              <div className="min-w-0">
-                <h2 className="text-lg font-black text-white truncate leading-tight">{project.name}</h2>
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#6366f1] truncate">{selectedTeam}</p>
-              </div>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 h-16 shrink-0 transition-all">
+        <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between gap-4">
+           <button 
+             onClick={() => setSelectedTeam(null)} 
+             className="h-10 w-10 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 transition-all active:scale-90 shrink-0"
+           >
+             <ChevronLeft className="h-5 w-5 text-gray-400" />
+           </button>
+           
+           <div className="flex flex-col items-center min-w-0 flex-1">
+             <h2 className="text-[16px] md:text-lg font-black text-white truncate leading-tight uppercase tracking-[0.05em]">{project.name}</h2>
+             <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+                <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] text-indigo-300 truncate">{selectedTeam}</p>
+             </div>
            </div>
            
-           <div className="flex items-center gap-2 md:gap-4 shrink-0">
+           <div className="flex items-center gap-2 shrink-0">
               <a 
                 href={project.drive_link} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-3 px-6 py-2.5 bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest rounded-full shadow-lg hover:scale-[1.05] transition-all"
+                className="flex items-center justify-center h-10 w-10 bg-indigo-600/10 border border-indigo-600/20 text-indigo-400 rounded-2xl active:scale-90 transition-all"
+                title="Open Project Drive"
               >
                 <ExternalLink className="h-4 w-4" />
-                Open Project Drive
               </a>
               <button 
                 onClick={() => setInfoModalOpen(true)}
-                className="h-10 px-4 rounded-xl bg-[#11111d] border border-white/5 flex items-center gap-3 text-gray-500 hover:text-white transition-all"
+                className="h-10 w-10 bg-white/5 border border-white/10 flex items-center justify-center rounded-2xl text-gray-400 active:scale-90 transition-all"
               >
-                <Info className="h-4 w-4 text-indigo-400" />
-                <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Project Info</span>
+                <Info className="h-4 w-4" />
               </button>
            </div>
         </div>
       </header>
  
-      <main className="max-w-7xl mx-auto px-6 py-12 flex-1 w-full flex flex-col">
-        <PipelineBar stages={project.project_stages} />
+      <main className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pt-16 scrollbar-hide">
+        <PipelineBar stages={project.project_stages} activeDepartmentStages={visibleStages} />
 
         {/* Admin Review Banner */}
         {isAdminReviewing && (
@@ -216,15 +226,15 @@ export default function ProjectWorkspacePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-12 mt-12 pb-12">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 md:gap-12 mt-4 md:mt-12 pb-12 px-4 md:px-8">
           {/* Main Content: Task Boards */}
           <div className="xl:col-span-3">
-             <div className="flex items-center justify-between mb-10">
-                <h3 className="text-2xl font-black text-white tracking-tight">Task Boards</h3>
-                <div className="h-1 w-12 bg-indigo-500 rounded-full"></div>
+             <div className="flex items-center justify-between mb-5 md:mb-10">
+                <h3 className="text-lg md:text-2xl font-black text-white tracking-tight">Task Boards</h3>
+                <div className="h-0.5 md:h-1 w-8 md:w-12 bg-indigo-500 rounded-full"></div>
              </div>
              
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 items-stretch">
                {visibleStages.map(stage => (
                  <StageCard
                    key={stage.id}
@@ -282,27 +292,34 @@ export default function ProjectWorkspacePage() {
   );
 }
 
-function TeamCard({ name, icon, description, isHighlighted, onClick }: {
-  name: string; icon: React.ReactNode; description: string; isHighlighted: boolean; onClick: () => void;
+function TeamCard({ name, icon, description, isHighlighted, onClick, colorClass }: {
+  name: string; icon: React.ReactNode; description: string; isHighlighted: boolean; onClick: () => void; colorClass: 'cyan' | 'indigo' | 'emerald';
 }) {
+  const colorMap = {
+    cyan: { bgHighlight: 'bg-cyan-600', textHighlight: 'text-cyan-400', borderHighlight: 'border-cyan-500/30' },
+    indigo: { bgHighlight: 'bg-indigo-600', textHighlight: 'text-indigo-400', borderHighlight: 'border-indigo-500/30' },
+    emerald: { bgHighlight: 'bg-emerald-600', textHighlight: 'text-emerald-400', borderHighlight: 'border-emerald-500/30' }
+  };
+  const c = colorMap[colorClass];
+
   return (
     <div
       onClick={onClick}
-      className={`p-10 rounded-[40px] cursor-pointer transition-all relative overflow-hidden group border-2 h-full flex flex-col ${
-        isHighlighted ? 'bg-[#11111d] border-indigo-500/20 shadow-[0_20px_80px_rgba(99,102,241,0.1)]' : 'bg-[#11111d] border-white/5 hover:border-indigo-500/10'
+      className={`p-8 md:p-10 rounded-[32px] md:rounded-[40px] cursor-pointer transition-all relative overflow-hidden group border-2 h-full flex flex-col active:scale-[0.98] ${
+        isHighlighted ? `bg-[#0c0c0e] ${c.borderHighlight} shadow-2xl shadow-${colorClass}-500/10` : 'bg-[#0c0c0e] border-white/5 hover:border-white/20'
       }`}
     >
-      <div className={`h-16 w-16 rounded-[20px] flex items-center justify-center mb-10 transition-all ${
-        isHighlighted ? 'bg-indigo-600 text-white shadow-[0_10px_30px_rgba(99,102,241,0.4)]' : 'bg-white/5 text-gray-600 group-hover:bg-white/10'
+      <div className={`h-14 w-14 md:h-16 md:w-16 rounded-[20px] flex items-center justify-center mb-8 md:mb-10 transition-all ${
+        isHighlighted ? `${c.bgHighlight} text-white shadow-lg` : 'bg-white/5 text-gray-500 group-hover:bg-white/10 group-hover:text-white'
       }`}>
         {icon}
       </div>
-      <h3 className="text-xl font-black text-white mb-4 leading-tight">{name}</h3>
-      <p className="text-sm text-gray-500 font-semibold leading-relaxed mb-10 flex-1">{description}</p>
+      <h3 className="text-lg md:text-xl font-black text-white mb-3 md:mb-4 leading-tight">{name}</h3>
+      <p className="text-xs md:text-sm text-gray-500 font-semibold leading-relaxed mb-8 md:mb-10 flex-1">{description}</p>
       
       <div className="flex items-center justify-between mt-auto">
-        <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isHighlighted ? 'text-indigo-400' : 'text-gray-800'}`}>Enter Workroom</span>
-        <ChevronLeft className={`h-5 w-5 rotate-180 transition-all ${isHighlighted ? 'text-indigo-400' : 'text-gray-800'}`} strokeWidth={3} />
+        <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] ${isHighlighted ? c.textHighlight : 'text-gray-600 group-hover:text-gray-400'}`}>Enter Workroom</span>
+        <ChevronLeft className={`h-4 w-4 md:h-5 md:w-5 rotate-180 transition-all ${isHighlighted ? c.textHighlight : 'text-gray-600 group-hover:text-gray-400'}`} strokeWidth={3} />
       </div>
     </div>
   );

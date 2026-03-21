@@ -3,33 +3,34 @@ import type { FC } from 'react';
 interface OomaLogoProps {
   className?: string;
   size?: number;
+  id?: string;
 }
 
 export const OomaLogo: FC<OomaLogoProps> = ({ className = '', size = 24 }) => {
+  // Use a stable unique id per component instance to avoid SVG gradient conflicts
+  const uid = `ooma-grad-${Math.random().toString(36).slice(2, 7)}`;
   return (
-    <div className={`flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+    <div className={`flex-shrink-0 flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       <svg
-        width="100%"
-        height="100%"
+        width={size}
+        height={size}
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="overflow-visible"
       >
         <defs>
-          <linearGradient id="ooma-sleek-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#818cf8" />
-            <stop offset="100%" stopColor="#c084fc" />
+          <linearGradient id={uid} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#6366f1" />
+            <stop offset="100%" stopColor="#a855f7" />
           </linearGradient>
         </defs>
-        
-        {/* Sleek, Thin, Half-Cutted Circle (Arc) - radius reduced for a smaller look */}
+        {/* Elegant thin 3/4 arc — 1/4 cut at bottom-left */}
         <path
-          d="M 12 4 A 8 8 0 1 1 6.5 8.5"
-          stroke="url(#ooma-sleek-grad)"
-          strokeWidth="1"
+          d="M 12 3 A 9 9 0 1 1 5.4 7"
+          stroke={`url(#${uid})`}
+          strokeWidth="2"
           strokeLinecap="round"
-          className="opacity-90"
+          fill="none"
         />
       </svg>
     </div>

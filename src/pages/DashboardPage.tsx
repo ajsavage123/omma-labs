@@ -8,7 +8,7 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, MessageCircle, Clock, Menu, X, Trash2, History } from 'lucide-react';
+import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
@@ -164,55 +164,89 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#080808] text-white font-sans selection:bg-[#6366f1]/30 overflow-x-hidden">
+    <div className="h-screen flex flex-col md:flex-row bg-[#050505] text-white font-sans selection:bg-[#6366f1]/30 overflow-hidden">
       
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex w-[250px] flex-shrink-0 flex-col bg-[#0c0c0e] border-r border-white/5 h-screen sticky top-0">
+      <aside className="hidden md:flex w-[260px] flex-shrink-0 flex-col bg-[#0c0c0e] border-r border-white/5 h-screen sticky top-0">
         <SidebarContent />
       </aside>
 
-      {/* Mobile Top Header */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-[#0c0c0e] border-b border-white/5 sticky top-0 z-[60]">
-        <div className="flex items-center gap-3">
-          <OomaLogo className="text-[#6366f1]" size={24} />
-          <span className="text-sm font-black tracking-tight uppercase">Ooma Workspace</span>
-        </div>
-        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-white/5 rounded-lg border border-white/10">
-          <Menu className="h-6 w-6 text-gray-400" />
+      {/* Mobile Header - Premium Centered Layout */}
+      <div className="md:hidden flex items-center justify-between h-16 px-4 bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 fixed top-0 left-0 right-0 z-[60]">
+        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2.5 bg-white/5 rounded-2xl border border-white/10 active:scale-90 transition-all">
+          <Menu className="h-5 w-5 text-gray-400" />
         </button>
+        
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2">
+            <OomaLogo size={28} />
+            <h1 className="text-[15px] font-black tracking-tight uppercase text-white">Ooma Workspace</h1>
+          </div>
+          <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-[0.2em] mt-0.5">Innovation Lab</p>
+        </div>
+
+        {/* Empty spacer to balance flex-between and keep center logo perfectly centered */}
+        <div className="w-9"></div>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu Overlay - Solid Premium Drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black/95 z-[70] md:hidden">
-           <SidebarContent />
+        <div className="fixed inset-0 z-[100] md:hidden flex">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsMobileMenuOpen(false)}></div>
+          <div className="relative w-[85%] max-w-[320px] bg-[#0c0c0e] h-full shadow-2xl border-r border-white/5 animate-slide-in-left flex flex-col">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                 <OomaLogo className="text-[#6366f1]" size={28} />
+                 <span className="text-sm font-black uppercase tracking-tight text-white">Workspace</span>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 text-gray-500">
+                 <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <SidebarContent />
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-[1300px] mx-auto p-6 md:p-10">
+      {/* Page Content */}
+      <main className="flex-1 overflow-y-auto scroll-smooth pt-16 md:pt-0 pb-20 md:pb-0 relative">
+        <div className="max-w-[1300px] mx-auto p-5 md:p-10">
           
           {/* Page Header */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-10 gap-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-6">
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-                Welcome back, <span className="text-indigo-400">{user?.full_name?.split(' ')[0] || user?.username}</span>
+              <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+                Welcome back, <br className="md:hidden" />
+                <span className="text-indigo-500">{user?.full_name?.split(' ')[0] || user?.username}</span>
               </h2>
-              <p className="text-xs md:text-sm mt-1 text-gray-500 font-bold">
-                You are currently monitoring the <span className="text-gray-300 font-bold">Ooma Workflow</span>
+              <p className="text-xs md:text-sm mt-1.5 text-gray-400 font-bold uppercase tracking-wider">
+                Monitoring <span className="text-indigo-400">Ooma Workflow</span>
               </p>
             </div>
+            
+            {/* Desktop Create Project Button */}
             {canCreateProject && (
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="px-6 py-3.5 rounded-[16px] bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-[10px] md:text-[11px] uppercase tracking-widest shadow-[0_4px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all flex items-center justify-center gap-2"
+                className="hidden lg:flex px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-[11px] uppercase tracking-widest shadow-[0_4px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all items-center justify-center gap-2"
               >
                 <Plus className="h-4 w-4" strokeWidth={3} />
                 Create Project
               </button>
             )}
           </div>
+
+          {/* Mobile Create Project FAB */}
+          {canCreateProject && (
+            <button
+               onClick={() => setIsModalOpen(true)}
+               className="lg:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-2xl shadow-indigo-600/40 flex items-center justify-center z-[100] active:scale-90 transition-all border border-white/10"
+            >
+               <Plus className="h-6 w-6" strokeWidth={3} />
+            </button>
+          )}
 
           {/* Search bar row */}
            <div className="flex flex-col xl:flex-row gap-4 mb-10">
@@ -246,7 +280,7 @@ export default function DashboardPage() {
             {/* Project List */}
             <div className="xl:col-span-3">
               {filteredProjects.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                   {filteredProjects.map(project => (
                     <ProjectCard key={project.id} project={project} />
                   ))}
