@@ -6,6 +6,8 @@ import DashboardPage from '@/pages/DashboardPage';
 import ProjectWorkspacePage from '@/pages/ProjectWorkspacePage';
 import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import OnboardingPage from '@/pages/OnboardingPage';
+import IdeaVaultPage from '@/pages/IdeaVaultPage';
+import ClientContactsPage from '@/pages/ClientContactsPage';
 import ChatWidget from '@/components/ChatWidget';
 
 // Helper for the Onboarding route to ensure they are logged in to Supabase first
@@ -43,6 +45,8 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/project/:id" element={<ProjectWorkspacePage />} />
+            <Route path="/ideas" element={<IdeaVaultPage />} />
+            <Route path="/contacts" element={<ClientContactsPage />} />
 
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboardPage />} />

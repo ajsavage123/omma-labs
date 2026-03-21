@@ -8,7 +8,7 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History } from 'lucide-react';
+import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History, Lightbulb, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
@@ -136,6 +136,14 @@ export default function DashboardPage() {
         <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group">
           <LayoutDashboard className="mr-3 h-4 w-4" />
           Dashboard
+        </Link>
+        <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-500 rounded-xl hover:bg-white/[0.02] transition-colors">
+          <Lightbulb className="mr-3 h-4 w-4 text-yellow-500" />
+          Idea Vault
+        </Link>
+        <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-500 rounded-xl hover:bg-white/[0.02] transition-colors">
+          <Users className="mr-3 h-4 w-4 text-emerald-500" />
+          Directory
         </Link>
         {user?.role === 'admin' && (
           <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-500 rounded-xl hover:bg-white/[0.02] transition-colors">

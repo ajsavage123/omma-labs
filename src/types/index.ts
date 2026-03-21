@@ -110,3 +110,25 @@ export interface ChatMessage {
     designation: string;
   };
 }
+
+export interface Idea {
+  id: string;
+  name: string;
+  drive_link: string;
+  workspace_id: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ClientContact {
+  id: string;
+  name: string;
+  contact_number: string;
+  website_link: string;
+  email: string;
+  about: string;
+  status: 'online' | 'offline';
+  workspace_id: string;
+  created_by: string;
+  created_at: string;
+}
