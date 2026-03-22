@@ -128,7 +128,17 @@ export const adminService = {
     if (error) throw error;
   },
 
+  async deleteUser(userId: string) {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (error) throw error;
+  },
+
   async deleteTimelineLog(logId: string) {
+
     const { error } = await supabase
       .from('timeline_logs')
       .delete()

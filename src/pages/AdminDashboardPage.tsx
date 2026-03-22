@@ -124,6 +124,22 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleDeleteMember = async (memberId: string) => {
+    if (memberId === user?.id) {
+       alert("You cannot delete your own account.");
+       return;
+    }
+    if (!window.confirm("Are you sure you want to remove this user from the workspace?")) return;
+    try {
+      await adminService.deleteUser(memberId);
+      await fetchData();
+    } catch (err) {
+      console.error("Failed to delete user", err);
+      alert("Failed to delete user. Please check permissions.");
+    }
+  };
+
+
   const handleRatingChange = (field: string, value: number) => {
     setRatings(prev => ({ ...prev, [field]: value }));
   };
@@ -509,6 +525,16 @@ export default function AdminDashboardPage() {
                              >
                                Edit
                              </button>
+                             {member.id !== user?.id && (
+                               <button
+                                 onClick={() => handleDeleteMember(member.id)}
+                                 className="opacity-0 group-hover:opacity-100 p-1.5 bg-white/5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs border border-white/5"
+                                 title="Delete User"
+                               >
+                                 <Trash2 className="h-3.5 w-3.5" />
+                               </button>
+                             )}
+
                           </div>
                         </div>
                       )}
