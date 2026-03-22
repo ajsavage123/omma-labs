@@ -40,6 +40,9 @@ export interface Project {
   workspace_id: string;
   name: string;
   description: string;
+  deadline?: string;
+  client_name?: string;
+  client_phone?: string;
   drive_link: string;
   team_members?: string;
   github_link?: string;

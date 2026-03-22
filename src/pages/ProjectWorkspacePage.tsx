@@ -63,7 +63,6 @@ export default function ProjectWorkspacePage() {
       { name: 'Postman', url: 'https://postman.com' },
       { name: 'Docker', url: 'https://docker.com' },
       { name: 'Supabase', url: 'https://supabase.com' },
-      { name: 'Vercel', url: 'https://vercel.com' },
     ],
     'Business Strategy & Marketing Team': [
       { name: 'Canva', url: 'https://canva.com' },
@@ -108,39 +107,39 @@ export default function ProjectWorkspacePage() {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 scroll-smooth scrollbar-hide">
           <div className="max-w-5xl mx-auto w-full pt-4 md:pt-10">
-             <div className="text-center mb-12 md:mb-16">
-                <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6">
+             <div className="text-center mb-8 md:mb-16">
+                <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-[9px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6">
                   Workspace Router
                 </div>
-                <h1 className="text-2xl md:text-5xl font-black text-white mb-3 md:mb-4 tracking-tight flex items-center justify-center gap-3">
-                  <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-[#f59e0b] animate-pulse" />
+                <h1 className="text-2xl md:text-5xl font-black text-white mb-2 md:mb-4 tracking-tight flex items-center justify-center gap-2 md:gap-3">
+                  <Sparkles className="h-5 w-5 md:h-8 md:w-8 text-[#f59e0b] animate-pulse" />
                   {project.name}
                 </h1>
-                <p className="text-gray-400 font-bold text-xs md:text-base px-5">Choose your department to access specialized task boards</p>
+                <p className="text-gray-400 font-bold text-[10px] md:text-base px-5 uppercase tracking-widest opacity-60">Select Department</p>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                 <TeamCard
-                  name="Innovation & Research Team"
-                  icon={<Microscope className="h-8 w-8 text-cyan-400" />}
+                  name="Innovation & Research"
+                  icon={<Microscope className="h-7 w-7 md:h-8 md:w-8 text-cyan-400" />}
                   description="Idea validation & conceptual research."
                   isHighlighted={highlightedTeam === 'Innovation & Research Team'}
                   onClick={() => setSelectedTeam('Innovation & Research Team')}
                   colorClass="cyan"
                 />
                 <TeamCard
-                  name="Developer & Engineering Team"
-                  icon={<Code className="h-8 w-8 text-indigo-400" />}
+                  name="Engineering Group"
+                  icon={<Code className="h-7 w-7 md:h-8 md:w-8 text-indigo-400" />}
                   description="Technical architecture & development."
                   isHighlighted={highlightedTeam === 'Developer & Engineering Team'}
                   onClick={() => setSelectedTeam('Developer & Engineering Team')}
                   colorClass="indigo"
                 />
                 <TeamCard
-                  name="Business Strategy & Marketing Team"
-                  icon={<Briefcase className="h-8 w-8 text-emerald-400" />}
+                  name="Strategy & Marketing"
+                  icon={<Briefcase className="h-7 w-7 md:h-8 md:w-8 text-emerald-400" />}
                   description="Business scaling & marketing growth."
                   isHighlighted={highlightedTeam === 'Business Strategy & Marketing Team'}
                   onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
@@ -169,8 +168,8 @@ export default function ProjectWorkspacePage() {
              <ChevronLeft className="h-5 w-5 text-gray-400" />
            </button>
            
-           <div className="flex flex-col items-center min-w-0 flex-1">
-             <h2 className="text-[16px] md:text-lg font-black text-white truncate leading-tight uppercase tracking-[0.05em]">{project.name}</h2>
+           <div className="flex flex-col items-center min-w-0 flex-1 px-2">
+             <h2 className="text-[14px] md:text-lg font-black text-white truncate leading-tight uppercase tracking-tight">{project.name}</h2>
              <div className="flex items-center gap-1.5 mt-0.5">
                 <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
                 <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] text-indigo-300 truncate">{selectedTeam}</p>
@@ -305,21 +304,21 @@ function TeamCard({ name, icon, description, isHighlighted, onClick, colorClass 
   return (
     <div
       onClick={onClick}
-      className={`p-8 md:p-10 rounded-[32px] md:rounded-[40px] cursor-pointer transition-all relative overflow-hidden group border-2 h-full flex flex-col active:scale-[0.98] ${
+      className={`p-6 md:p-10 rounded-[28px] md:rounded-[40px] cursor-pointer transition-all relative overflow-hidden group border-2 h-full flex flex-col active:scale-[0.98] ${
         isHighlighted ? `bg-[#0c0c0e] ${c.borderHighlight} shadow-2xl shadow-${colorClass}-500/10` : 'bg-[#0c0c0e] border-white/5 hover:border-white/20'
       }`}
     >
-      <div className={`h-14 w-14 md:h-16 md:w-16 rounded-[20px] flex items-center justify-center mb-8 md:mb-10 transition-all ${
+      <div className={`h-12 w-12 md:h-16 md:w-16 rounded-[18px] flex items-center justify-center mb-6 md:mb-10 transition-all ${
         isHighlighted ? `${c.bgHighlight} text-white shadow-lg` : 'bg-white/5 text-gray-500 group-hover:bg-white/10 group-hover:text-white'
       }`}>
         {icon}
       </div>
-      <h3 className="text-lg md:text-xl font-black text-white mb-3 md:mb-4 leading-tight">{name}</h3>
-      <p className="text-xs md:text-sm text-gray-500 font-semibold leading-relaxed mb-8 md:mb-10 flex-1">{description}</p>
+      <h3 className="text-base md:text-xl font-black text-white mb-2 md:mb-4 leading-tight">{name}</h3>
+      <p className="text-[11px] md:text-sm text-gray-500 font-semibold leading-relaxed mb-6 md:mb-10 flex-1">{description}</p>
       
       <div className="flex items-center justify-between mt-auto">
-        <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] ${isHighlighted ? c.textHighlight : 'text-gray-600 group-hover:text-gray-400'}`}>Enter Workroom</span>
-        <ChevronLeft className={`h-4 w-4 md:h-5 md:w-5 rotate-180 transition-all ${isHighlighted ? c.textHighlight : 'text-gray-600 group-hover:text-gray-400'}`} strokeWidth={3} />
+        <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] ${isHighlighted ? c.textHighlight : 'text-gray-600 group-hover:text-gray-400'}`}>Enter Workroom</span>
+        <ChevronLeft className={`h-3 w-3 md:h-5 md:w-5 rotate-180 transition-all ${isHighlighted ? c.textHighlight : 'text-gray-600 group-hover:text-gray-400'}`} strokeWidth={3} />
       </div>
     </div>
   );

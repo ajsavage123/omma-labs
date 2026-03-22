@@ -46,10 +46,9 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/project/:id" element={<ProjectWorkspacePage />} />
             <Route path="/ideas" element={<IdeaVaultPage />} />
-            <Route path="/contacts" element={<ClientContactsPage />} />
-
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/contacts" element={<ClientContactsPage />} />
             </Route>
           </Route>
         </Routes>

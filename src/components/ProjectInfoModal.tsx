@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import type { Project } from '@/types';
-import { X, ExternalLink, Github, Users, Calendar, FileText, Tag } from 'lucide-react';
+import { X, ExternalLink, Github, Users, Calendar, FileText, Tag, User, Phone, Copy, Check } from 'lucide-react';
 
 interface ProjectInfoModalProps {
   project: Project;
@@ -13,6 +14,14 @@ const statusStyles: Record<string, string> = {
 };
 
 export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -56,22 +65,50 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Team Members */}
-            {project.team_members && (
-              <div>
-                <p className="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-3">
-                   <Users className="h-3.5 w-3.5" /> Team Members
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {project.team_members.split(',').map((m, i) => (
-                    <span key={i} className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold uppercase tracking-wide rounded-full border border-indigo-500/20">
-                      {m.trim()}
-                    </span>
-                  ))}
+            {/* Client & Team */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {(project.client_name || project.client_phone) && (
+                <div>
+                  <p className="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-3">
+                    <User className="h-3.5 w-3.5" /> Client Informaton
+                  </p>
+                  <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm text-white font-bold truncate">{project.client_name || 'Anonymous Client'}</p>
+                      {project.client_name && (
+                        <button onClick={() => copyToClipboard(project.client_name!, 'name')} className="p-1 hover:bg-white/5 rounded transition-colors">
+                           {copiedField === 'name' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-2.5 w-2.5 text-gray-600" />}
+                        </button>
+                      )}
+                    </div>
+                    {project.client_phone && (
+                      <div className="flex items-center justify-between">
+                        <a href={`tel:${project.client_phone.replace(/[^\d+]/g, '')}`} className="text-xs text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-1.5 overflow-hidden">
+                          <Phone className="h-3 w-3 shrink-0" /> <span className="truncate">{project.client_phone}</span>
+                        </a>
+                        <button onClick={() => copyToClipboard(project.client_phone!, 'phone')} className="p-1 hover:bg-white/5 rounded transition-colors">
+                           {copiedField === 'phone' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-2.5 w-2.5 text-gray-600" />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {project.team_members && (
+                <div>
+                  <p className="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-3">
+                     <Users className="h-3.5 w-3.5" /> Team Members
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {project.team_members.split(',').map((m, i) => (
+                      <span key={i} className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold uppercase tracking-wide rounded-full border border-indigo-500/20">
+                        {m.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Created Date & ID */}
             <div className="space-y-6">
@@ -132,7 +169,6 @@ export function ProjectInfoModal({ project, onClose }: ProjectInfoModalProps) {
               </a>
             )}
           </div>
-        </div>
       </div>
     </div>
   );

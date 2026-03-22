@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, Rocket, Workflow, PieChart } from 'lucide-react';
+import { OomaLogo } from '@/components/OomaLogo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -94,14 +95,14 @@ export default function LoginPage() {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-purple-500"></div>
 
             <div className="text-center mb-10">
-              <div className="h-16 w-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-6 border border-white/10">
-                <Lock className="h-8 w-8 text-white" />
+              <div className="flex justify-center mb-6">
+                 <OomaLogo size={64} className="drop-shadow-[0_0_15px_rgba(99,102,241,0.4)]" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
                  {isSignUp ? 'Join Innovation Network' : 'Access Workspace'}
               </h2>
               <p className="text-gray-400 text-sm">
-                 {isSignUp ? 'Create an account to join or create workspaces.' : 'Sign in with your team credentials.'}
+                 {isSignUp ? 'Create an account, then use your invite code to join the workspace.' : 'Sign in with your team credentials.'}
               </p>
             </div>
 
@@ -115,7 +116,7 @@ export default function LoginPage() {
                     type="email"
                     required
                     className="block w-full pl-12 pr-4 py-3.5 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:bg-black/50 transition-all sm:text-sm"
-                    placeholder="Work Email"
+                    placeholder="Username"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />

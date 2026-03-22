@@ -1,5 +1,6 @@
 import type { Project, ProjectStage, StageName } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { Clock, User, Users } from 'lucide-react';
 
 interface ProjectCardProps {
   project: Project & { project_stages: ProjectStage[] };
@@ -16,15 +17,15 @@ const stageLabelShort: Record<string, string> = {
 };
 
 const stageColor: Record<string, string> = {
-  ideology: '#f59e0b',
-  research: '#f59e0b',
-  development: '#a855f7',
-  deployment: '#a855f7',
-  business: '#10b981',
-  marketing: '#10b981',
-  admin_review: '#22c55e',
-  completed: '#22c55e',
-  pending: '#374151',
+  ideology: '#6366f1', // Unified Indigo
+  research: '#818cf8', // Soft Indigo
+  development: '#6366f1',
+  deployment: '#6366f1',
+  business: '#6366f1',
+  marketing: '#6366f1',
+  admin_review: '#a78bfa', // Violet accent
+  completed: '#10b981', // Success remains green
+  pending: '#4b5563',
 };
 
 export function ProjectCard({ project }: ProjectCardProps) {
@@ -37,7 +38,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   const currentStage = stages.find(s => s.status === 'in_progress');
   const currentKey = currentStage?.stage_name || (completedCount === totalStages ? 'completed' : 'pending');
-  const accentColor = stageColor[currentKey] || '#6366f1';
+  const accentColor = stageColor[currentKey] || '#10b981';
 
   return (
     <div
@@ -48,65 +49,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
       {/* Top accent bar */}
       <div className="h-[3px] w-full flex-shrink-0" style={{ background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})` }} />
 
-      {/* === MOBILE CARD (shown on mobile/tablet, hidden md+) === */}
-      <div className="md:hidden flex flex-col gap-4 p-5 flex-1">
-
-        {/* Project Name */}
-        <h3 className="text-[15px] font-black text-white leading-tight">{project.name}</h3>
-
-        {/* Status badge */}
-        <div className="flex items-center gap-2">
-          <span
-            className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider"
-            style={{
-              backgroundColor: project.status === 'active' ? 'rgba(99,102,241,0.12)' : project.status === 'completed' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-              color: project.status === 'active' ? '#818cf8' : project.status === 'completed' ? '#4ade80' : '#f87171',
-              border: `1px solid ${project.status === 'active' ? 'rgba(99,102,241,0.2)' : project.status === 'completed' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`
-            }}
-          >
-            {project.status}
-          </span>
-        </div>
-
-        {/* Current stage pill */}
-        <div
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl self-start"
-          style={{ backgroundColor: `${accentColor}15`, border: `1px solid ${accentColor}30` }}
-        >
-          <div className="h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: accentColor }} />
-          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accentColor }}>
-            {stageLabelShort[currentKey] || 'Pending'}
-          </span>
-        </div>
-
-        {/* Segmented progress bar */}
-        <div className="flex gap-[4px] mt-2">
-          {orderedStages.map(name => {
-            const s = stages.find(x => x.stage_name === name);
-            return (
-              <div
-                key={name}
-                className="flex-1 h-[5px] rounded-full"
-                style={{ backgroundColor: s?.status === 'completed' || s?.status === 'in_progress' ? accentColor : '#1e1e2d' }}
-              />
-            );
-          })}
-        </div>
-
-        {/* Progress % + cleared */}
-        <div className="flex items-center justify-between pb-1">
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{completedCount}/{totalStages} Complete</span>
-          <span className="text-[13px] font-black text-white">{progress}%</span>
-        </div>
-      </div>
-
-      {/* === DESKTOP CARD (hidden on mobile) === */}
-      <div className="hidden md:flex flex-col gap-0 p-7 flex-1">
+      <div className="flex flex-col gap-0 p-5 md:p-7 flex-1">
         {/* Header */}
         <div className="flex justify-between items-start mb-2">
-          <h3 className="text-xl font-bold text-white tracking-tight flex-1 mr-2">{project.name}</h3>
+          <h3 className="text-lg md:text-xl font-bold text-white tracking-tight flex-1 mr-2">{project.name}</h3>
           <span
-            className="px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider flex-shrink-0"
+            className="px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider flex-shrink-0 mt-0.5 md:mt-0"
             style={{
               backgroundColor: 'rgba(34,197,94,0.1)',
               color: project.status === 'completed' ? '#4ade80' : project.status === 'active' ? '#818cf8' : '#f87171',
@@ -117,7 +65,25 @@ export function ProjectCard({ project }: ProjectCardProps) {
           </span>
         </div>
 
-        <p className="text-[12px] text-gray-500 mb-5 font-semibold line-clamp-2">{project.description || 'No description'}</p>
+        <p className="text-[11px] md:text-[12px] text-gray-500 mb-5 font-semibold line-clamp-2">{project.description || 'No description'}</p>
+
+        {/* Client & Team Desktop UI */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+           <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/5">
+              <User className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="text-[7px] uppercase tracking-widest text-gray-500 font-bold">Client</span>
+                <span className="text-[10px] text-white font-bold truncate">{project.client_name || 'N/A'}</span>
+              </div>
+           </div>
+           <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/5">
+              <Users className="h-3.5 w-3.5 text-indigo-400 flex-shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="text-[7px] uppercase tracking-widest text-gray-500 font-bold">Core Team</span>
+                <span className="text-[10px] text-white font-bold truncate">{project.team_members || 'Assigned'}</span>
+              </div>
+           </div>
+        </div>
 
         {/* Stage block */}
         <div
@@ -140,8 +106,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
         {/* Progress */}
         <div className="flex justify-between items-center mb-2">
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Progress</span>
-          <span className="text-white font-black text-xl">{progress}%</span>
+          <span className="text-[9px] md:text-[10px] font-bold text-gray-500 uppercase tracking-wider">Progress</span>
+          <span className="text-white font-black text-lg md:text-xl">{progress}%</span>
         </div>
 
         <div className="flex gap-[5px] mb-4">
@@ -154,14 +120,19 @@ export function ProjectCard({ project }: ProjectCardProps) {
           })}
         </div>
 
-        <div className="flex justify-between text-[9px] font-bold uppercase tracking-wide text-gray-600 mb-6">
+        <div className="flex justify-between text-[8px] md:text-[9px] font-bold uppercase tracking-wide text-gray-600 mb-6">
           <span>{completedCount} of {totalStages} cleared</span>
           <span style={{ color: accentColor }}>{currentKey.replace('_', ' ')}</span>
         </div>
 
-        <div className="pt-4 flex justify-between items-center text-[10px] font-bold border-t border-white/5 text-gray-600 mt-auto">
-          <span>Updated {new Date(project.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
-          <span className="text-emerald-500">{project.team_members?.split(',')[0]?.trim() || 'Team'}</span>
+        <div className="pt-4 flex justify-between items-start md:items-center flex-col md:flex-row gap-1.5 md:gap-0 text-[10px] font-bold border-t border-white/5 text-gray-600 mt-auto">
+          <span>Started {new Date(project.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+          {project.deadline && (
+            <span className="flex items-center gap-1.5 text-amber-500/80">
+              <Clock className="h-3 w-3" />
+              Deadline: {new Date(project.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          )}
         </div>
       </div>
     </div>

@@ -6,8 +6,11 @@
 
 @layer base {
   body {
-    @apply bg-[#080808] text-white antialiased;
-    font-family: 'Inter', sans-serif;
+    background-color: #080808;
+    color: #ffffff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -35,4 +38,13 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #252535;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
 }

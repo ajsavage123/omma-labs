@@ -138,14 +138,7 @@ export const adminService = {
   },
 
   async deleteProject(projectId: string) {
-    // Delete project_stages first if not cascading
-    await supabase.from('project_stages').delete().eq('project_id', projectId);
-    // Delete timeline_logs
-    await supabase.from('timeline_logs').delete().eq('project_id', projectId);
-    // Delete admin_ratings
-    await supabase.from('admin_ratings').delete().eq('project_id', projectId);
-    
-    // Finally delete the project
+    // Rely on DB cascade for stages, logs, and ratings
     const { error } = await supabase
       .from('projects')
       .delete()

@@ -47,13 +47,16 @@ export const projectService = {
     }
   },
 
-  async createProject(name: string, description: string, driveLink: string, teamMembers: string, userId: string, workspaceId: string) {
+  async createProject(name: string, description: string, driveLink: string, teamMembers: string, userId: string, workspaceId: string, deadline: string | null = null, clientName: string | null = null, clientPhone: string | null = null) {
     // 1. Create Project
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .insert({
         name,
         description,
+        deadline,
+        client_name: clientName,
+        client_phone: clientPhone,
         drive_link: driveLink,
         team_members: teamMembers,
         created_by: userId,

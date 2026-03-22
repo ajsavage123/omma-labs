@@ -8,7 +8,7 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History, Lightbulb, Users } from 'lucide-react';
+import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History, Lightbulb, Users, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isActivityOpen, setIsActivityOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
   
   // Search + filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +34,9 @@ export default function DashboardPage() {
   const [newMembers, setNewMembers] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newLink, setNewLink] = useState('');
+  const [newDeadline, setNewDeadline] = useState('');
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
   const [creating, setCreating] = useState(false);
 
   useEffect(() => { 
@@ -63,11 +67,14 @@ export default function DashboardPage() {
     const creationToastId = toast.info('Creating project and setting up pipeline...');
     
     try {
-      const project = await projectService.createProject(newName, newDesc, newLink, newMembers, user.id, user.workspace_id);
+      const project = await projectService.createProject(
+        newName, newDesc, newLink, newMembers, user.id, user.workspace_id, 
+        newDeadline || null, newClientName || null, newClientPhone || null
+      );
       
       setIsModalOpen(false);
       const createdName = newName;
-      setNewName(''); setNewMembers(''); setNewDesc(''); setNewLink('');
+      setNewName(''); setNewMembers(''); setNewDesc(''); setNewLink(''); setNewDeadline(''); setNewClientName(''); setNewClientPhone('');
       
       toast.success(`Project "${createdName}" created successfully!`);
       if (creationToastId) removeToast(creationToastId);
@@ -118,7 +125,7 @@ export default function DashboardPage() {
   );
 
   const SidebarContent = () => (
-    <>
+    <div className="flex flex-col h-full overflow-hidden">
       <div className="p-6 flex items-center justify-between border-b border-white/5 md:border-none">
         <div className="flex items-center gap-3">
           <OomaLogo className="text-[#6366f1]" size={32} />
@@ -132,43 +139,45 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <nav className="mt-6 px-3 space-y-1.5 flex-1">
+      <nav className="mt-4 px-3 space-y-1.5 overflow-y-auto scrollbar-hide">
         <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group">
           <LayoutDashboard className="mr-3 h-4 w-4" />
           Dashboard
         </Link>
-        <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-500 rounded-xl hover:bg-white/[0.02] transition-colors">
+        <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
           <Lightbulb className="mr-3 h-4 w-4 text-yellow-500" />
           Idea Vault
         </Link>
-        <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-500 rounded-xl hover:bg-white/[0.02] transition-colors">
-          <Users className="mr-3 h-4 w-4 text-emerald-500" />
-          Directory
-        </Link>
         {user?.role === 'admin' && (
-          <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-500 rounded-xl hover:bg-white/[0.02] transition-colors">
+          <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
+            <Users className="mr-3 h-4 w-4 text-emerald-500" />
+            Directory
+          </Link>
+        )}
+        {user?.role === 'admin' && (
+          <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
             <Settings className="mr-3 h-4 w-4" />
             Admin Panel
           </Link>
         )}
       </nav>
 
-      <div className="p-4 mt-auto space-y-3">
-        <div className="flex items-center p-3 rounded-2xl bg-[#11111d] border border-white/5">
-          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 border border-[#6366f1]/40 flex items-center justify-center font-bold text-white text-[10px]">
+      <div className="mt-auto p-4 border-t border-white/5 space-y-4 bg-black/20">
+        <div className="flex items-center p-2.5 rounded-2xl bg-[#11111d] border border-white/5">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 border border-[#6366f1]/40 flex items-center justify-center font-bold text-white text-[10px]">
              {(user?.full_name || user?.username || 'U').substring(0,2).toUpperCase()}
           </div>
           <div className="ml-3 overflow-hidden">
-            <p className="text-xs font-bold text-white truncate">{user?.full_name || user?.username}</p>
-            <p className="text-[9px] text-gray-600 font-bold uppercase tracking-wider truncate">{user?.designation}</p>
+            <p className="text-[11px] font-bold text-white truncate">{user?.full_name || user?.username}</p>
+            <p className="text-[8px] text-gray-600 font-bold uppercase tracking-wider truncate">{user?.designation}</p>
           </div>
         </div>
-        <button onClick={() => signOut()} className="w-full py-2.5 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-red-500 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all">
+        <button onClick={() => signOut()} className="w-full py-2.5 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-[#94a3b8] hover:text-red-500 rounded-xl border border-white/5 hover:border-red-500/20 bg-white/5 hover:bg-red-500/5 transition-all">
           <LogOut className="mr-2 h-3 w-3" />
           Sign Out
         </button>
       </div>
-    </>
+    </div>
   );
 
   return (
@@ -201,51 +210,69 @@ export default function DashboardPage() {
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[100] md:hidden flex">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsMobileMenuOpen(false)}></div>
-          <div className="relative w-[85%] max-w-[320px] bg-[#0c0c0e] h-full shadow-2xl border-r border-white/5 animate-slide-in-left flex flex-col">
-            <div className="p-6 border-b border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                 <OomaLogo className="text-[#6366f1]" size={28} />
-                 <span className="text-sm font-black uppercase tracking-tight text-white">Workspace</span>
-              </div>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 text-gray-500">
-                 <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <SidebarContent />
-            </div>
+          <div className="relative w-[85%] max-w-[300px] bg-[#0c0c0e] h-full shadow-2xl border-r border-white/5 animate-slide-in-left">
+            <SidebarContent />
           </div>
         </div>
       )}
 
       {/* Page Content */}
-      <main className="flex-1 overflow-y-auto scroll-smooth pt-16 md:pt-0 pb-20 md:pb-0 relative">
-        <div className="max-w-[1300px] mx-auto p-5 md:p-10">
+      <main className="flex-1 overflow-hidden flex flex-col relative pt-16 md:pt-0">
+        <div className="max-w-[1500px] w-full mx-auto px-5 md:px-10 flex flex-col h-[calc(100vh-64px)] md:h-screen min-h-0">
           
-          {/* Page Header */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-6">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-                Welcome back, <br className="md:hidden" />
-                <span className="text-indigo-500">{user?.full_name?.split(' ')[0] || user?.username}</span>
-              </h2>
-              <p className="text-xs md:text-sm mt-1.5 text-gray-400 font-bold uppercase tracking-wider">
-                Monitoring <span className="text-indigo-400">Ooma Workflow</span>
-              </p>
+          {/* Static / Sticky Header Area */}
+          <div className="flex-none pt-4 md:pt-10 pb-0 md:pb-6 border-b border-transparent">
+            {/* Page Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-6">
+              <div>
+                <h2 className="text-xl md:text-3xl font-black tracking-tight text-white flex flex-wrap items-center gap-x-2">
+                  <span>Welcome back,</span>
+                  <span className="text-indigo-500 truncate max-w-[200px] md:max-w-none">{user?.full_name?.split(' ')[0] || user?.username}</span>
+                </h2>
+                <p className="text-xs md:text-sm mt-1.5 text-gray-400 font-bold uppercase tracking-wider">
+                  Monitoring <span className="text-indigo-400">Ooma Workflow</span>
+                </p>
+              </div>
+              
+              {/* Desktop Create Project Button */}
+              {canCreateProject && (
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="hidden lg:flex px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-[11px] uppercase tracking-widest shadow-[0_4px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all items-center justify-center gap-2"
+                >
+                  <Plus className="h-4 w-4" strokeWidth={3} />
+                  Create Project
+                </button>
+              )}
             </div>
-            
-            {/* Desktop Create Project Button */}
-            {canCreateProject && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="hidden lg:flex px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-[11px] uppercase tracking-widest shadow-[0_4px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all items-center justify-center gap-2"
-              >
-                <Plus className="h-4 w-4" strokeWidth={3} />
-                Create Project
-              </button>
-            )}
-          </div>
 
+            {/* Search bar row */}
+             <div className="flex flex-col xl:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search projects or team members..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-12 py-3.5 bg-[#11111d] border border-white/5 rounded-2xl text-[14px] outline-none focus:border-indigo-500/30 transition-all font-medium text-white"
+                />
+                <Filter className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              </div>
+              <div className="flex overflow-x-auto pb-2 xl:pb-0 gap-2 scrollbar-hide">
+                {(['all', 'active', 'completed', 'rejected'] as StatusFilter[]).map(status => (
+                  <button 
+                    key={status}
+                    onClick={() => setStatusFilter(status)} 
+                    className={`px-5 py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === status ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-[#18181e] text-gray-500 border border-white/5 hover:border-indigo-500/30'}`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
           {/* Mobile Create Project FAB */}
           {canCreateProject && (
             <button
@@ -256,39 +283,13 @@ export default function DashboardPage() {
             </button>
           )}
 
-          {/* Search bar row */}
-           <div className="flex flex-col xl:flex-row gap-4 mb-10">
-            <div className="relative flex-1">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search projects or team members..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-12 py-3.5 bg-[#11111d] border border-white/5 rounded-2xl text-[14px] outline-none focus:border-indigo-500/30 transition-all font-medium text-white"
-              />
-              <Filter className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
-            <div className="flex overflow-x-auto pb-2 xl:pb-0 gap-2 scrollbar-hide">
-              {(['all', 'active', 'completed', 'rejected'] as StatusFilter[]).map(status => (
-                <button 
-                  key={status}
-                  onClick={() => setStatusFilter(status)} 
-                  className={`px-5 py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === status ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-[#18181e] text-gray-500 border border-white/5 hover:border-indigo-500/30'}`}
-                >
-                  {status}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Main Grid: Projects & Activity */}
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-10">
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col xl:flex-row gap-6 min-h-0 mt-4 pb-4">
             
-            {/* Project List */}
-            <div className="xl:col-span-3">
+            {/* Project List (Scrolls independently) */}
+            <div className="flex-1 w-full overflow-y-auto custom-scrollbar pr-1 md:pr-2 z-10">
               {filteredProjects.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                   {filteredProjects.map(project => (
                     <ProjectCard key={project.id} project={project} />
                   ))}
@@ -301,23 +302,29 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Global Activity Feed */}
-            <div className="xl:col-span-1">
-              <div className="rounded-2xl bg-[#11111d] border border-white/5 overflow-hidden sticky top-24 shadow-2xl">
-                <div className="p-4 border-b border-white/5 bg-white/[0.01] flex items-center gap-2">
+            {/* Global Activity Feed (Collapsible) */}
+            <div className={`w-full xl:w-[280px] 2xl:w-[340px] flex-none flex flex-col mt-2 xl:mt-0 xl:pb-4 transition-all duration-300 ease-in-out ${isActivityOpen ? 'h-[250px] xl:h-full' : 'h-14'}`}>
+              <div className="rounded-2xl bg-[#11111d] border border-white/5 overflow-hidden shadow-2xl flex flex-col h-full">
+                <div 
+                  className="p-4 border-b border-white/5 bg-white/[0.01] flex items-center gap-2 shrink-0 cursor-pointer hover:bg-white/[0.03] transition-colors"
+                  onClick={() => setIsActivityOpen(!isActivityOpen)}
+                >
                   <History className="h-4 w-4 text-indigo-500" />
-                  <h3 className="font-bold text-white text-xs uppercase tracking-widest">Global Activity</h3>
-                  <span className="ml-auto text-[10px] text-gray-400 font-black bg-white/5 px-2 py-0.5 rounded-full">
+                  <h3 className="font-bold text-white text-xs uppercase tracking-widest select-none">Global Activity</h3>
+                  <span className="ml-auto text-[10px] text-gray-400 font-black bg-white/5 px-2 py-0.5 rounded-full mr-2">
                     {logs.length}
                   </span>
+                  {isActivityOpen ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronUp className="h-4 w-4 text-gray-500" />}
                 </div>
-                <div className="divide-y divide-white/5 max-h-[500px] overflow-y-auto">
+                
+                {isActivityOpen && (
+                  <div className="divide-y divide-white/5 overflow-y-auto flex-1 custom-scrollbar animate-fade-in">
                   {logs.map((log: any) => {
                     const projectName = log.projects?.name || 'a project';
                     let shortText = log.update_text;
                     let icon = '💬';
 
-                    if (shortText.includes('Created project')) {
+                    if (shortText.includes('Project created')) {
                       shortText = `created project '${projectName}'`;
                       icon = '🚀';
                     } else if (shortText.includes('advanced to')) {
@@ -356,6 +363,7 @@ export default function DashboardPage() {
                     <div className="p-10 text-center text-gray-600 font-bold uppercase tracking-widest text-[10px]">No activity yet</div>
                   )}
                 </div>
+                )}
               </div>
             </div>
           </div>
@@ -364,39 +372,55 @@ export default function DashboardPage() {
 
       {/* Persistent Chat Bubble - handled by ChatWidget in App.tsx now */}
 
-      {/* Project Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-[#11111d] rounded-[32px] border border-white/10 w-full max-w-md overflow-hidden shadow-3xl animate-modal-in" onClick={e => e.stopPropagation()}>
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-8 text-white">
-              <h3 className="text-2xl font-black tracking-tight">Create Project</h3>
-              <p className="text-indigo-200 text-[10px] font-bold uppercase tracking-widest mt-1">Define the vision for a new innovation.</p>
-            </div>
-            <form onSubmit={handleCreateProject} className="p-8 space-y-6">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase tracking-widest text-gray-600 ml-1">Workspace Name</label>
-                <input required value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Project Hyperdrive" className="w-full bg-black/40 border border-white/5 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-sm font-semibold text-white" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase tracking-widest text-gray-600 ml-1">Team Members</label>
-                <input required value={newMembers} onChange={e => setNewMembers(e.target.value)} placeholder="e.g. Jane Doe, John Smith" className="w-full bg-black/40 border border-white/5 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-sm font-semibold text-white" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase tracking-widest text-gray-600 ml-1">Objectives</label>
-                <textarea required value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="What problem does this innovation solve?" className="w-full bg-black/40 border border-white/5 p-4 rounded-2xl outline-none focus:border-indigo-500/50 h-24 text-sm font-semibold resize-none text-white" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase tracking-widest text-gray-600 ml-1">Google Drive Folder Link</label>
-                <input type="url" required value={newLink} onChange={e => setNewLink(e.target.value)} placeholder="https://drive.google.com/..." className="w-full bg-black/40 border border-white/5 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-sm font-semibold text-white" />
-              </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setIsModalOpen(false)}></div>
+          <div className="relative w-full max-w-sm bg-[#0c0c0e] rounded-[32px] shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden animate-modal-in">
+             <div className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 p-5 border-b border-white/5 text-center">
+                <h2 className="text-xl font-black text-white tracking-tight uppercase">Assemble Project</h2>
+                <p className="text-indigo-400 text-[8px] font-bold uppercase tracking-widest mt-1">Deploying to Ooma Ecosystem</p>
+             </div>
+             
+             <form onSubmit={handleCreateProject} className="p-5 space-y-3.5">
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Project Name <span className="text-red-500">*</span></label>
+                  <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="Project identity..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Name</label>
+                    <input type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Phone</label>
+                    <input type="tel" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                  </div>
+                </div>
 
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all">Cancel</button>
-                <button disabled={creating} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all disabled:opacity-50 font-bold">
-                  {creating ? 'Launching...' : 'Create Project'}
-                </button>
-              </div>
-            </form>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Deadline Date</label>
+                    <input type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all [color-scheme:dark]" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Drive / Repository</label>
+                    <input type="url" required value={newLink} onChange={e => setNewLink(e.target.value)} placeholder="Link here" className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Brief Intent</label>
+                  <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Mission scope..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white h-14 resize-none transition-all" />
+                </div>
+
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all">Cancel</button>
+                  <button disabled={creating} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-600/20 transition-all font-bold">
+                    {creating ? 'Saving...' : 'Assemble'}
+                  </button>
+                </div>
+             </form>
           </div>
         </div>
       )}
