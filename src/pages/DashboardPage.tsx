@@ -229,9 +229,10 @@ export default function DashboardPage() {
                   <span>Welcome back,</span>
                   <span className="text-indigo-500 truncate max-w-[200px] md:max-w-none">{user?.full_name?.split(' ')[0] || user?.username}</span>
                 </h2>
-                <p className="text-xs md:text-sm mt-1.5 text-gray-400 font-bold uppercase tracking-wider">
+                <p className="hidden md:block text-xs md:text-sm mt-1.5 text-gray-400 font-bold uppercase tracking-wider">
                   Monitoring <span className="text-indigo-400">Ooma Workflow</span>
                 </p>
+
               </div>
               
               {/* Desktop Create Project Button */}
