@@ -8,6 +8,7 @@ import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import IdeaVaultPage from '@/pages/IdeaVaultPage';
 import ClientContactsPage from '@/pages/ClientContactsPage';
+import { InstallPWA } from '@/components/InstallPWA';
 import ChatWidget from '@/components/ChatWidget';
 
 // Helper for the Onboarding route to ensure they are logged in to Supabase first
@@ -53,6 +54,7 @@ function App() {
           </Route>
         </Routes>
         <ChatWidget />
+        <InstallPWA />
       </BrowserRouter>
     </AuthProvider>
   );
