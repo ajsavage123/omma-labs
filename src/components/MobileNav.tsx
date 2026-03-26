@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Lightbulb, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Users, ShieldCheck, Wrench } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export function MobileNav() {
@@ -10,7 +10,7 @@ export function MobileNav() {
   const navItems = [
     { to: '/', icon: <LayoutDashboard size={20} />, label: 'Home', end: true },
     { to: '/contacts', icon: <Users size={20} />, label: 'Directory' },
-    { to: '/ideas', icon: <Lightbulb size={20} />, label: 'Ideas' },
+    { to: '/ideas', icon: <Wrench size={20} className="text-emerald-400" />, label: 'Tools' },
   ];
 
   if (user.role === 'admin') {
@@ -30,9 +30,7 @@ export function MobileNav() {
               ${isActive ? 'text-indigo-400' : 'text-gray-500 hover:text-gray-300'}
             `}
           >
-            <div className="relative">
-              {item.icon}
-            </div>
+            {item.icon && <div className="relative">{item.icon}</div>}
             <span className="text-[9px] font-black uppercase tracking-widest">{item.label}</span>
           </NavLink>
         ))}

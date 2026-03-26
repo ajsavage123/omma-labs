@@ -7,6 +7,7 @@ import ProjectWorkspacePage from '@/pages/ProjectWorkspacePage';
 import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import IdeaVaultPage from '@/pages/IdeaVaultPage';
+import QuotationPage from '@/pages/QuotationPage';
 import ClientContactsPage from '@/pages/ClientContactsPage';
 import { InstallPWA } from '@/components/InstallPWA';
 import ChatWidget from '@/components/ChatWidget';
@@ -47,6 +48,7 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/project/:id" element={<ProjectWorkspacePage />} />
             <Route path="/ideas" element={<IdeaVaultPage />} />
+            <Route path="/quotation" element={<QuotationPage />} />
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/contacts" element={<ClientContactsPage />} />
