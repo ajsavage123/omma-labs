@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { 
-  Video, 
   Plus, 
   Calendar, 
   ExternalLink, 
@@ -14,6 +13,7 @@ import {
   X,
   ChevronLeft
 } from 'lucide-react';
+import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
 import { Link, useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
 import { useToast } from '@/hooks/useToast';
@@ -137,8 +137,8 @@ export default function MeetingSchedulerPage() {
             <LayoutDashboard className="mr-3 h-4 w-4" />
             Dashboard
           </Link>
-          <Link to="/meetings" className="flex items-center px-4 py-3 text-[13px] font-bold rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <Video className="mr-3 h-4 w-4" />
+          <Link to="/meetings" className="flex items-center px-4 py-3 text-[13px] font-bold rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <GoogleMeetIcon size={18} className="mr-3" />
             Meetings
           </Link>
           <Link to="/ideas" className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
@@ -160,7 +160,7 @@ export default function MeetingSchedulerPage() {
               </button>
               <div>
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-3 md:gap-4">
-                  <Video className="h-6 w-6 md:h-8 md:w-8 text-indigo-500 hidden sm:block" />
+                  <GoogleMeetIcon size={32} className="hidden sm:block" />
                   Meeting Hub
                 </h2>
                 <p className="text-[10px] md:text-sm text-gray-400 font-bold uppercase tracking-wider mt-0.5 md:mt-1">Schedule Google Meet sessions</p>
@@ -173,7 +173,7 @@ export default function MeetingSchedulerPage() {
                 href="https://meet.google.com/new" 
                 target="_blank" 
                 rel="noreferrer"
-                className="flex items-center justify-center px-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-500/10 hover:border-indigo-500/30 text-indigo-400 transition-all gap-3"
+                className="flex items-center justify-center px-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-500/10 hover:border-emerald-500/30 text-emerald-400 transition-all gap-3"
               >
                 <Plus className="h-4 w-4" />
                 Create Instant Meet
@@ -181,7 +181,7 @@ export default function MeetingSchedulerPage() {
 
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="px-6 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 transition-all flex items-center justify-center gap-3"
+                className="px-6 py-3.5 rounded-2xl bg-emerald-600 text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/40 transition-all flex items-center justify-center gap-3"
               >
                 <Calendar className="h-4 w-4" />
                 Schedule Meeting
@@ -207,7 +207,7 @@ export default function MeetingSchedulerPage() {
               {filteredMeetings.map(meeting => (
                 <div key={meeting.id} className="bg-[#11111d] border border-white/5 rounded-[24px] p-6 group hover:border-indigo-500/30 transition-all relative overflow-hidden">
                   {/* Decorative background icon */}
-                  <Video className="absolute -bottom-6 -right-6 h-32 w-32 text-white/[0.02] transition-transform group-hover:scale-110" />
+                  <GoogleMeetIcon size={120} className="absolute -bottom-6 -right-6 text-white/[0.02] opacity-20 pointer-events-none" />
                   
                   <div className="flex justify-between items-start mb-4 relative z-10">
                     <div>
@@ -249,7 +249,7 @@ export default function MeetingSchedulerPage() {
             </div>
           ) : (
              <div className="bg-[#11111d]/50 border-2 border-dashed border-white/5 rounded-3xl py-24 text-center">
-                <Video className="h-16 w-16 text-gray-800 mx-auto mb-6" />
+                <GoogleMeetIcon size={64} className="mx-auto mb-6 opacity-30" />
                 <h3 className="text-xl font-bold text-gray-300 mb-2">No Meetings Scheduled</h3>
                 <p className="text-gray-600 max-w-sm mx-auto text-sm">Create an instant meeting or schedule one for the team using Google Meet links.</p>
              </div>
@@ -268,8 +268,8 @@ export default function MeetingSchedulerPage() {
               <X className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-4 mb-6 sm:mb-8">
-               <div className="h-12 w-12 rounded-2xl bg-indigo-600/20 flex items-center justify-center text-indigo-500">
-                  <Video className="h-6 w-6" />
+               <div className="h-12 w-12 rounded-2xl bg-white/[0.03] flex items-center justify-center">
+                  <GoogleMeetIcon size={28} />
                </div>
                <div>
                   <h3 className="text-xl font-bold text-white">Schedule Meeting</h3>
@@ -326,7 +326,7 @@ export default function MeetingSchedulerPage() {
 
               <button
                 type="submit"
-                className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-4"
+                className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-emerald-600/20 active:scale-95 transition-all mt-4"
               >
                 Confirm Scheduling
               </button>

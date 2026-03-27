@@ -8,7 +8,8 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book, Video } from 'lucide-react';
+import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
+import { Plus, LayoutDashboard, LogOut, Settings, Search, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
@@ -114,7 +115,7 @@ export default function DashboardPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const canCreateProject = user?.designation === 'Innovation & Research Team';
+  const canCreateProject = user?.role === 'admin' || user?.designation === 'Innovation & Research Team';
 
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#050505] z-50">
@@ -146,7 +147,7 @@ export default function DashboardPage() {
           Dashboard
         </Link>
         <Link to="/meetings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <Video className="mr-3 h-4 w-4 text-indigo-400" />
+          <GoogleMeetIcon size={16} className="mr-3" />
           Meetings
         </Link>
         <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
@@ -227,54 +228,51 @@ export default function DashboardPage() {
 
       {/* Page Content */}
       <main className="flex-1 overflow-hidden flex flex-col relative pt-16 md:pt-0">
-        <div className="max-w-[1900px] w-full mx-auto px-5 md:px-10 flex flex-col h-[calc(100vh-64px)] md:h-screen min-h-0">
+        <div className="max-w-[1900px] w-full mx-auto px-4 md:px-10 flex flex-col h-[calc(100vh-64px)] md:h-screen min-h-0 pt-1 sm:pt-4">
           
           {/* Static / Sticky Header Area */}
-          <div className="flex-none pt-4 md:pt-10 pb-0 md:pb-6 border-b border-transparent">
+          <div className="flex-none pt-2 md:pt-10 pb-2 md:pb-6 border-b border-transparent">
             {/* Page Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-6">
-              <div>
+            <div className="flex items-center justify-between mb-3 md:mb-6 gap-2 md:gap-6">
+              <div className="min-w-0">
                 <h2 className="text-xl md:text-3xl font-black tracking-tight text-white flex flex-wrap items-center gap-x-2">
-                  <span>Welcome back,</span>
-                  <span className="text-indigo-500 truncate max-w-[200px] md:max-w-none">{user?.full_name?.split(' ')[0] || user?.username}</span>
+                  <span className="text-gray-400">Hey,</span>
+                  <span className="text-indigo-500 truncate max-w-[150px] sm:max-w-none">{user?.full_name?.split(' ')[0] || user?.username}</span>
                 </h2>
-                <p className="hidden md:block text-xs md:text-sm mt-1.5 text-gray-400 font-bold uppercase tracking-wider">
+                <p className="hidden md:block text-xs md:text-sm mt-0.5 text-gray-500 font-bold uppercase tracking-wider">
                   Monitoring <span className="text-indigo-400">Ooma Workflow</span>
                 </p>
-
               </div>
               
-              {/* Desktop Create Project Button */}
               {canCreateProject && (
                 <button
                   onClick={() => setIsModalOpen(true)}
-                  className="hidden lg:flex px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-[11px] uppercase tracking-widest shadow-[0_4px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all items-center justify-center gap-2"
+                  className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_15px_rgba(99,102,241,0.3)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all flex items-center justify-center active:scale-90 shrink-0"
+                  title="Create New Project"
                 >
-                  <Plus className="h-4 w-4" strokeWidth={3} />
-                  Create Project
+                  <Plus className="h-5 w-5 md:h-6 md:w-6" strokeWidth={3} />
                 </button>
               )}
             </div>
 
             {/* Search bar row */}
-             <div className="flex flex-col xl:flex-row gap-4">
+             <div className="flex flex-col xl:flex-row gap-2 md:gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
                 <input
                   type="text"
-                  placeholder="Search projects or team members..."
+                  placeholder="Seach projects..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3.5 bg-[#11111d] border border-white/5 rounded-2xl text-[14px] outline-none focus:border-indigo-500/30 transition-all font-medium text-white"
+                  className="w-full pl-10 pr-10 py-2.5 md:py-3.5 bg-[#11111d] border border-white/5 rounded-2xl text-[13px] outline-none focus:border-indigo-500/30 transition-all font-medium text-white"
                 />
-                <Filter className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               </div>
-              <div className="flex overflow-x-auto pb-2 xl:pb-0 gap-2 scrollbar-hide">
-                {(['all', 'active', 'code_red', 'paused', 'completed', 'rejected'] as const).map(status => (
+              <div className="flex overflow-x-auto gap-1.5 scrollbar-hide py-1">
+                {(['all', 'active', 'code_red', 'paused', 'completed'] as const).map(status => (
                   <button 
                     key={status}
                     onClick={() => setStatusFilter(status as any)} 
-                    className={`px-5 py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === status ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-[#18181e] text-gray-500 border border-white/5 hover:border-indigo-500/30'}`}
+                    className={`px-4 py-2.5 rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === status ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-[#18181e] text-gray-500 border border-white/5 hover:border-indigo-500/30'}`}
                   >
                     {status.replace('_', ' ')}
                   </button>
@@ -385,60 +383,60 @@ export default function DashboardPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative w-full max-w-sm bg-[#0c0c0e] rounded-[32px] shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden animate-modal-in">
-             <div className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 p-4 sm:p-5 border-b border-white/5 text-center relative">
+          <div className="relative w-full max-w-sm bg-[#0c0c0e] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-y-auto max-h-[95vh] animate-modal-in scrollbar-hide">
+             <div className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 p-3 sm:p-5 border-b border-white/5 text-center relative">
                 <button 
                   onClick={() => setIsModalOpen(false)}
-                  className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all active:scale-95"
+                  className="absolute top-3 right-3 p-1.5 text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all active:scale-95"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
-                <h2 className="text-xl font-black text-white tracking-tight uppercase">Assemble Project</h2>
-                <p className="text-indigo-400 text-[8px] font-bold uppercase tracking-widest mt-1">Deploying to Ooma Ecosystem</p>
+                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight uppercase">Assemble Project</h2>
+                <p className="text-indigo-400 text-[7px] sm:text-[8px] font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Deploying to Ooma Ecosystem</p>
              </div>
              
-             <form onSubmit={handleCreateProject} className="p-4 sm:p-5 space-y-2.5 sm:space-y-3.5">
-                <div className="space-y-1">
-                  <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Project Name <span className="text-red-500">*</span></label>
-                  <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="Project identity..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+             <form onSubmit={handleCreateProject} className="p-3 sm:p-5 space-y-2 sm:space-y-3.5">
+                <div className="space-y-0.5 sm:space-y-1">
+                  <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Project Name <span className="text-red-500">*</span></label>
+                  <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="Project identity..." className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Name</label>
-                    <input type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Name</label>
+                    <input type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Phone</label>
-                    <input type="tel" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Deadline Date</label>
-                    <input type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all [color-scheme:dark]" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Brief Intent</label>
-                    <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Mission scope..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Phone</label>
+                    <input type="tel" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Document Link <span className="text-red-500">*</span></label>
-                    <input type="url" required value={newLink} onChange={e => setNewLink(e.target.value)} placeholder="Drive / Docs..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Deadline Date</label>
+                    <input type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all [color-scheme:dark]" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Repository Link</label>
-                    <input type="url" value={newGithubLink} onChange={e => setNewGithubLink(e.target.value)} placeholder="GitHub / Repo..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Brief Intent</label>
+                    <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Mission scope..." className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Document Link <span className="text-red-500">*</span></label>
+                    <input type="url" required value={newLink} onChange={e => setNewLink(e.target.value)} placeholder="Drive / Docs..." className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
+                  </div>
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Repository Link</label>
+                    <input type="url" value={newGithubLink} onChange={e => setNewGithubLink(e.target.value)} placeholder="GitHub / Repo..." className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all">Cancel</button>
-                  <button disabled={creating} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-600/20 transition-all font-bold">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all">Cancel</button>
+                  <button disabled={creating} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] shadow-lg shadow-indigo-600/20 transition-all font-bold">
                     {creating ? 'Saving...' : 'Assemble'}
                   </button>
                 </div>
