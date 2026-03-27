@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { KeyRound, Loader2, Rocket, LogOut, ShieldCheck } from 'lucide-react';
+import { ThreeDBackground } from '@/components/ThreeDBackground';
 
 export default function OnboardingPage() {
   const { supabaseUser, refreshUser, signOut } = useAuth();
@@ -58,11 +59,8 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center bg-[#0a0f1c] overflow-hidden font-sans selection:bg-indigo-500/30">
-      {/* Animated Background Glows */}
-      <div className="absolute top-[-15%] left-[-10%] w-[45%] h-[45%] bg-indigo-600/15 rounded-full animate-pulse" style={{ filter: 'blur(150px)', animationDuration: '8s' }}></div>
-      <div className="absolute bottom-[-15%] right-[-10%] w-[50%] h-[50%] bg-blue-600/15 rounded-full animate-pulse" style={{ filter: 'blur(150px)', animationDuration: '6s', animationDelay: '2s' }}></div>
-      <div className="absolute top-[30%] left-[55%] w-[25%] h-[25%] bg-purple-600/10 rounded-full animate-pulse" style={{ filter: 'blur(120px)', animationDuration: '10s' }}></div>
+    <div className="min-h-screen relative flex items-center justify-center bg-transparent overflow-hidden font-sans selection:bg-indigo-500/30">
+      <ThreeDBackground />
 
       {/* Top Bar */}
       <div className="fixed top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4 bg-[#0a0f1c]/80 backdrop-blur-xl border-b border-white/5">
@@ -86,7 +84,7 @@ export default function OnboardingPage() {
 
       {/* Main Content */}
       <div className="relative z-10 w-full max-w-lg mx-auto px-4 pt-20">
-        <div className="bg-[#111827]/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 relative overflow-hidden">
+        <div className="bg-white/10 backdrop-blur-2xl rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] border border-white/20 relative overflow-hidden">
           {/* Gradient Top Bar */}
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-purple-500"></div>
 
@@ -120,7 +118,7 @@ export default function OnboardingPage() {
                   type="text"
                   value={inviteCode}
                   onChange={e => setInviteCode(e.target.value)}
-                  className="block w-full px-4 py-4 bg-black/30 border border-white/10 rounded-xl text-indigo-300 placeholder-gray-600 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:bg-black/50 transition-all text-center uppercase font-mono tracking-[0.3em] text-lg outline-none"
+                  className="block w-full px-4 py-4 bg-white/5 border border-white/10 rounded-xl text-indigo-300 placeholder-gray-500 focus:ring-2 focus:ring-indigo-500/50 focus:border-white/30 focus:bg-white/10 transition-all text-center uppercase font-mono tracking-[0.3em] text-lg outline-none shadow-inner"
                   placeholder="XXXX-XXXX"
                   autoComplete="off"
                   spellCheck="false"
@@ -134,7 +132,7 @@ export default function OnboardingPage() {
                   value={joinUsername}
                   onChange={e => setJoinUsername(e.target.value)}
                   placeholder="e.g. Alex Johnson"
-                  className="block w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:bg-black/50 transition-all sm:text-sm outline-none"
+                  className="block w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-white/30 focus:bg-white/10 transition-all sm:text-sm outline-none shadow-inner"
                 />
               </div>
 
@@ -158,7 +156,7 @@ export default function OnboardingPage() {
 
         {/* Footer */}
         <p className="text-center text-gray-600 text-xs mt-8">
-          &copy; {new Date().getFullYear()} Ooma Labs Innovation Group.<br/> All rights reserved. Secure environment.
+          &copy; {new Date().getFullYear()} Ooma Labs Innovation Group.<br /> All rights reserved. Secure environment.
         </p>
       </div>
     </div>

@@ -33,7 +33,7 @@ export interface User {
   created_at: string;
 }
 
-export type ProjectStatus = 'active' | 'completed' | 'rejected';
+export type ProjectStatus = 'active' | 'completed' | 'rejected' | 'code_red' | 'paused';
 
 export interface Project {
   id: string;

@@ -47,7 +47,7 @@ export const projectService = {
     }
   },
 
-  async createProject(name: string, description: string, driveLink: string, teamMembers: string, userId: string, workspaceId: string, deadline: string | null = null, clientName: string | null = null, clientPhone: string | null = null) {
+  async createProject(name: string, description: string, driveLink: string, githubLink: string | null, teamMembers: string, userId: string, workspaceId: string, deadline: string | null = null, clientName: string | null = null, clientPhone: string | null = null) {
     // 1. Create Project
     const { data: project, error: projectError } = await supabase
       .from('projects')
@@ -58,6 +58,7 @@ export const projectService = {
         client_name: clientName,
         client_phone: clientPhone,
         drive_link: driveLink,
+        github_link: githubLink,
         team_members: teamMembers,
         created_by: userId,
         workspace_id: workspaceId,
@@ -83,9 +84,11 @@ export const projectService = {
       .from('project_stages')
       .insert(stages);
 
-    if (stagesError) {
+    if (stagesError && stagesError.code !== '23505') {
       console.error('Error inserting project stages:', stagesError);
       throw stagesError;
+    } else if (stagesError?.code === '23505') {
+      console.warn('Stages already exist for this project, continuing safely.');
     }
 
     // 3. Log Activity

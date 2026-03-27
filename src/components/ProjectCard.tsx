@@ -38,7 +38,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   const currentStage = stages.find(s => s.status === 'in_progress');
   const currentKey = currentStage?.stage_name || (completedCount === totalStages ? 'completed' : 'pending');
-  const accentColor = stageColor[currentKey] || '#10b981';
+  let accentColor = stageColor[currentKey] || '#10b981';
+
+  if (project.status === 'code_red') {
+    accentColor = '#ef4444';
+  } else if (project.status === 'paused') {
+    accentColor = '#6b7280';
+  }
 
   return (
     <div
@@ -54,14 +60,16 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-lg md:text-xl font-bold text-white tracking-tight flex-1 mr-2">{project.name}</h3>
           <span
-            className="px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider flex-shrink-0 mt-0.5 md:mt-0"
+            className={`px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider flex-shrink-0 mt-0.5 md:mt-0 ${
+              project.status === 'code_red' ? 'animate-pulse' : ''
+            }`}
             style={{
-              backgroundColor: 'rgba(34,197,94,0.1)',
-              color: project.status === 'completed' ? '#4ade80' : project.status === 'active' ? '#818cf8' : '#f87171',
-              border: '1px solid rgba(34,197,94,0.15)'
+              backgroundColor: project.status === 'completed' ? 'rgba(34,197,94,0.1)' : project.status === 'active' ? 'rgba(99,102,241,0.1)' : project.status === 'code_red' ? 'rgba(239,68,68,0.2)' : project.status === 'paused' ? 'rgba(156,163,175,0.1)' : 'rgba(248,113,113,0.1)',
+              color: project.status === 'completed' ? '#4ade80' : project.status === 'active' ? '#818cf8' : project.status === 'code_red' ? '#fca5a5' : project.status === 'paused' ? '#9ca3af' : '#f87171',
+              border: `1px solid ${project.status === 'completed' ? 'rgba(34,197,94,0.2)' : project.status === 'active' ? 'rgba(99,102,241,0.2)' : project.status === 'code_red' ? 'rgba(239,68,68,0.5)' : project.status === 'paused' ? 'rgba(156,163,175,0.2)' : 'rgba(248,113,113,0.2)'}`
             }}
           >
-            {project.status.toUpperCase()}
+            {project.status.replace('_', ' ').toUpperCase()}
           </span>
         </div>
 
@@ -125,13 +133,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <span style={{ color: accentColor }}>{currentKey.replace('_', ' ')}</span>
         </div>
 
-        <div className="pt-4 flex justify-between items-start md:items-center flex-col md:flex-row gap-1.5 md:gap-0 text-[10px] font-bold border-t border-white/5 text-gray-600 mt-auto">
-          <span>Started {new Date(project.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+        <div className="pt-4 flex justify-between items-center flex-wrap gap-2 text-[10px] font-extrabold border-t border-white/5 text-gray-600 mt-auto">
+          <span className="whitespace-nowrap italic">Started {new Date(project.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
           {project.deadline && (
-            <span className="flex items-center gap-1.5 text-amber-500/80">
+            <div className="flex items-center gap-1.5 text-amber-500/80 whitespace-nowrap bg-amber-500/5 px-2 py-0.5 rounded-lg border border-amber-500/10">
               <Clock className="h-3 w-3" />
-              Deadline: {new Date(project.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </span>
+              <span>Deadline: {new Date(project.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+            </div>
           )}
         </div>
       </div>

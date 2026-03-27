@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
@@ -191,6 +192,24 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleToggleCodeRed = async (project: Project) => {
+    if (!user?.workspace_id) return;
+    const isCodeRed = project.status === 'code_red';
+    const msg = isCodeRed 
+      ? `Are you sure you want to lift Code Red from "${project.name}" and unpause all other projects?`
+      : `Are you sure you want to declare CODE RED on "${project.name}"? This will pause all other active projects in the workspace instantly.`;
+      
+    if (!window.confirm(msg)) return;
+    
+    try {
+      await adminService.toggleCodeRed(project.id, user.workspace_id, !isCodeRed);
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to toggle code red', err);
+      alert('Action failed.');
+    }
+  };
+
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#0a0f1c] z-50">
       <div className="flex flex-col items-center relative">
@@ -301,9 +320,12 @@ export default function AdminDashboardPage() {
                               <td className="px-6 py-4">
                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border ${
                                   project.status === 'active' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                  project.status === 'completed' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'
+                                  project.status === 'completed' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                                  project.status === 'code_red' ? 'bg-red-600 border-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.7)]' : 
+                                  project.status === 'paused' ? 'bg-gray-500/10 text-gray-500 border-gray-500/20' :
+                                  'bg-red-500/10 text-red-500 border-red-500/20'
                                 }`}>
-                                  {project.status.toUpperCase()}
+                                  {project.status.replace('_', ' ').toUpperCase()}
                                 </span>
                               </td>
                                <td className="px-6 py-4">
@@ -327,6 +349,13 @@ export default function AdminDashboardPage() {
                                     </button>
                                   )}
                                   <button
+                                    onClick={() => handleToggleCodeRed(project)}
+                                    className={`p-1.5 transition-colors rounded-lg flex items-center justify-center ${project.status === 'code_red' ? 'bg-red-500 text-white shadow-[0_0_10px_rgba(220,38,38,0.5)]' : 'text-gray-600 hover:text-red-500 hover:bg-red-500/10'}`}
+                                    title={project.status === 'code_red' ? "Lift Code Red" : "Declare Code Red"}
+                                  >
+                                    <AlertTriangle className="h-4 w-4" />
+                                  </button>
+                                  <button
                                     onClick={() => handleDeleteProject(project.id)}
                                     className="p-1.5 text-gray-600 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
                                     title="Delete Project"
@@ -349,7 +378,9 @@ export default function AdminDashboardPage() {
                 {selectedProject ? (
                   <div className="bg-[#111827]/80 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] border border-indigo-500/20 overflow-hidden sticky top-28 transform transition-all duration-500 ease-out animate-in fade-in slide-in-from-right-8 relative">
                     {/* Glowing border top */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-purple-500"></div>
+                    <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${
+                      selectedProject.status === 'code_red' ? 'from-red-600 via-red-500 to-red-600' : 'from-indigo-500 via-blue-500 to-purple-500'
+                    }`}></div>
                     
                     <div className="bg-gradient-to-br from-indigo-900/50 to-blue-900/20 p-6 border-b border-white/5">
                       <div className="flex items-center justify-between mb-2">
@@ -362,13 +393,31 @@ export default function AdminDashboardPage() {
                     <div className="p-6 space-y-6 max-h-[calc(100vh-250px)] overflow-y-auto custom-scrollbar">
                       
                       {actionError && (
-                        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start text-red-400 animate-in fade-in">
+                        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start text-red-400 animate-in fade-in mb-4">
                           <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
                           <div className="text-sm font-medium">{actionError}</div>
                         </div>
                       )}
 
-                      <div className="space-y-5">
+                      {/* Radar Chart */}
+                      <div className="h-52 w-full mb-6 bg-black/20 rounded-xl border border-white/5 pt-4 pb-2 shadow-inner">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadarChart cx="50%" cy="50%" outerRadius="75%" data={[
+                            { subject: 'Importance', A: ratings.problem_importance, fullMark: 10 },
+                            { subject: 'Feasibility', A: ratings.technical_feasibility, fullMark: 10 },
+                            { subject: 'Demand', A: ratings.market_demand, fullMark: 10 },
+                            { subject: 'Impact', A: ratings.impact_potential, fullMark: 10 },
+                            { subject: 'Complexity', A: ratings.development_complexity, fullMark: 10 },
+                          ]}>
+                            <PolarGrid stroke="#374151" strokeDasharray="3 3" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#9ca3af', fontSize: 10, fontWeight: 600 }} />
+                            <PolarRadiusAxis angle={30} domain={[0, 10]} fill="#6366f1" tick={false} axisLine={false} />
+                            <Radar name="Project" dataKey="A" stroke="#818cf8" strokeWidth={2} fill="#6366f1" fillOpacity={0.3} dot={{ r: 3, fill: '#818cf8', strokeWidth: 0 }} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div className="space-y-4">
                         <RatingInput label="Problem Importance" value={ratings.problem_importance} onChange={(v) => handleRatingChange('problem_importance', v)} />
                         <RatingInput label="Technical Feasibility" value={ratings.technical_feasibility} onChange={(v) => handleRatingChange('technical_feasibility', v)} />
                         <RatingInput label="Market Demand" value={ratings.market_demand} onChange={(v) => handleRatingChange('market_demand', v)} />

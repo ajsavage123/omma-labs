@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, ShieldCheck, Wrench } from 'lucide-react';
+import { LayoutDashboard, Users, ShieldCheck, Wrench, Book } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export function MobileNav() {
@@ -11,6 +11,7 @@ export function MobileNav() {
     { to: '/', icon: <LayoutDashboard size={20} />, label: 'Home', end: true },
     { to: '/contacts', icon: <Users size={20} />, label: 'Directory' },
     { to: '/ideas', icon: <Wrench size={20} className="text-emerald-400" />, label: 'Tools' },
+    { to: '/library', icon: <Book size={20} className="text-blue-400" />, label: 'Library' },
   ];
 
   if (user.role === 'admin') {

@@ -151,7 +151,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
 
   return (
     <div className={`bg-[#0c0c0e] rounded-[24px] border-2 flex flex-col h-full transition-all group overflow-hidden relative ${
-      isActive ? 'border-indigo-500/20 shadow-[0_0_50px_rgba(99,102,241,0.05)]' : 
+      isActive ? (project.status === 'code_red' ? 'border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.1)]' : 'border-indigo-500/20 shadow-[0_0_50px_rgba(99,102,241,0.05)]') : 
       isCompleted ? 'border-emerald-500/10 bg-emerald-500/5' : 'border-white/5 opacity-70'
     }`}>
       
@@ -173,13 +173,24 @@ export function StageCard({ project, stage, tools, onUpdate, designation, onToas
             </div>
           )}
         </div>
-        <button
-          onClick={openNotes}
-          className="flex items-center gap-1.5 px-3 py-2 md:px-5 md:py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-xl active:scale-95 transition-all shadow-lg border border-blue-400/30"
-        >
-          <ExternalLink className="h-3 w-3 md:h-4 md:w-4" />
-          Notes
-        </button>
+        <div className="flex items-center gap-2">
+          {project.github_link && (
+            <button
+              onClick={() => window.open(project.github_link, '_blank')}
+              className="flex items-center gap-1.5 px-3 py-2 md:px-5 md:py-2.5 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-xl active:scale-95 transition-all shadow-lg border border-gray-600/30"
+            >
+              <Github className="h-3 w-3 md:h-4 md:w-4" />
+              Repo
+            </button>
+          )}
+          <button
+            onClick={openNotes}
+            className="flex items-center gap-1.5 px-3 py-2 md:px-5 md:py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-xl active:scale-95 transition-all shadow-lg border border-blue-400/30"
+          >
+            <ExternalLink className="h-3 w-3 md:h-4 md:w-4" />
+            Notes
+          </button>
+        </div>
       </div>
 
       <div className="p-4 md:p-6 space-y-4 md:space-y-6 flex-1 flex flex-col">

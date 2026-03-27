@@ -155,5 +155,35 @@ export const adminService = {
       .eq('id', projectId);
 
     if (error) throw error;
+  },
+
+  async toggleCodeRed(projectId: string, workspaceId: string, applyCodeRed: boolean) {
+    if (applyCodeRed) {
+      // 1. Pause all current active projects in workspace
+      await supabase
+        .from('projects')
+        .update({ status: 'paused' })
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'active');
+        
+      // 2. Set the target project to code_red
+      await supabase
+        .from('projects')
+        .update({ status: 'code_red' })
+        .eq('id', projectId);
+    } else {
+      // 1. Unpause all paused projects back to active
+      await supabase
+        .from('projects')
+        .update({ status: 'active' })
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'paused');
+        
+      // 2. Set the target project back to active from code_red
+      await supabase
+        .from('projects')
+        .update({ status: 'active' })
+        .eq('id', projectId);
+    }
   }
 };

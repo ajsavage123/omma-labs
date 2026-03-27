@@ -8,7 +8,9 @@ import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import IdeaVaultPage from '@/pages/IdeaVaultPage';
 import QuotationPage from '@/pages/QuotationPage';
-import ClientContactsPage from '@/pages/ClientContactsPage';
+import ClientContactsPage from './pages/ClientContactsPage';
+import LibraryPage from './pages/LibraryPage';
+import MeetingSchedulerPage from './pages/MeetingSchedulerPage';
 import { InstallPWA } from '@/components/InstallPWA';
 import ChatWidget from '@/components/ChatWidget';
 
@@ -49,6 +51,8 @@ function App() {
             <Route path="/project/:id" element={<ProjectWorkspacePage />} />
             <Route path="/ideas" element={<IdeaVaultPage />} />
             <Route path="/quotation" element={<QuotationPage />} />
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/meetings" element={<MeetingSchedulerPage />} />
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/contacts" element={<ClientContactsPage />} />

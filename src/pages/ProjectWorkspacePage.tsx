@@ -8,7 +8,7 @@ import { StageCard } from '@/components/StageCard';
 import { ProjectInfoModal } from '@/components/ProjectInfoModal';
 import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { ChevronLeft, Info, Briefcase, Code, Clock, ExternalLink, Sparkles, ShieldAlert, Microscope } from 'lucide-react';
+import { ChevronLeft, Info, Briefcase, Code, Clock, Sparkles, ShieldAlert, Microscope } from 'lucide-react';
 
 export default function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -95,8 +95,12 @@ export default function ProjectWorkspacePage() {
   if (!selectedTeam) {
     return (
       <div className="h-screen relative overflow-hidden bg-[#050505] flex flex-col font-sans">
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+        <div className={`absolute top-0 right-0 w-[400px] h-[400px] blur-[120px] rounded-full pointer-events-none transition-colors duration-1000 ${
+          project.status === 'code_red' ? 'bg-red-500/10' : 'bg-indigo-500/5'
+        }`}></div>
+        <div className={`absolute bottom-0 left-0 w-[400px] h-[400px] blur-[120px] rounded-full pointer-events-none transition-colors duration-1000 ${
+          project.status === 'code_red' ? 'bg-red-600/10' : 'bg-purple-500/5'
+        }`}></div>
 
         {/* Fixed Header */}
         <div className="flex-none p-4 md:p-6 sticky top-0 bg-[#050505]/95 backdrop-blur-xl z-20 border-b border-white/5 flex items-center">
@@ -157,9 +161,11 @@ export default function ProjectWorkspacePage() {
   );
 
   return (
-    <div className="h-screen bg-[#080808] flex flex-col overflow-hidden">
+    <div className={`h-screen flex flex-col overflow-hidden transition-colors duration-500 ${project.status === 'code_red' ? 'bg-[#080000]' : 'bg-[#080808]'}`}>
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 h-16 shrink-0 transition-all">
+      <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b h-16 shrink-0 transition-all duration-500 ${
+        project.status === 'code_red' ? 'bg-red-950/40 border-red-500/30' : 'bg-[#0c0c0e]/95 border-white/5'
+      }`}>
         <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between gap-4">
            <button 
              onClick={() => setSelectedTeam(null)} 
@@ -171,24 +177,19 @@ export default function ProjectWorkspacePage() {
            <div className="flex flex-col items-center min-w-0 flex-1 px-2">
              <h2 className="text-[14px] md:text-lg font-black text-white truncate leading-tight uppercase tracking-tight">{project.name}</h2>
              <div className="flex items-center gap-1.5 mt-0.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
-                <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] text-indigo-300 truncate">{selectedTeam}</p>
+                <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${
+                  project.status === 'code_red' ? 'bg-red-500' : 'bg-indigo-500'
+                }`}></div>
+                <p className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] truncate ${
+                  project.status === 'code_red' ? 'text-red-400' : 'text-indigo-300'
+                }`}>{selectedTeam}</p>
              </div>
            </div>
            
            <div className="flex items-center gap-2 shrink-0">
-              <a 
-                href={project.drive_link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center justify-center h-10 w-10 bg-indigo-600/10 border border-indigo-600/20 text-indigo-400 rounded-2xl active:scale-90 transition-all"
-                title="Open Project Drive"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </a>
               <button 
                 onClick={() => setInfoModalOpen(true)}
-                className="h-10 w-10 bg-white/5 border border-white/10 flex items-center justify-center rounded-2xl text-gray-400 active:scale-90 transition-all"
+                className="h-10 w-10 bg-white/5 border border-white/10 flex items-center justify-center rounded-2xl text-gray-400 active:scale-90 transition-all hover:text-white"
               >
                 <Info className="h-4 w-4" />
               </button>

@@ -8,7 +8,7 @@ import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench } from 'lucide-react';
+import { Plus, LayoutDashboard, LogOut, Settings, Search, Filter, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book, Video } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
@@ -34,6 +34,7 @@ export default function DashboardPage() {
   const [newMembers, setNewMembers] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newLink, setNewLink] = useState('');
+  const [newGithubLink, setNewGithubLink] = useState('');
   const [newDeadline, setNewDeadline] = useState('');
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
@@ -68,13 +69,13 @@ export default function DashboardPage() {
     
     try {
       const project = await projectService.createProject(
-        newName, newDesc, newLink, newMembers, user.id, user.workspace_id, 
+        newName, newDesc, newLink, newGithubLink || null, newMembers, user.id, user.workspace_id, 
         newDeadline || null, newClientName || null, newClientPhone || null
       );
       
       setIsModalOpen(false);
       const createdName = newName;
-      setNewName(''); setNewMembers(''); setNewDesc(''); setNewLink(''); setNewDeadline(''); setNewClientName(''); setNewClientPhone('');
+      setNewName(''); setNewMembers(''); setNewDesc(''); setNewLink(''); setNewGithubLink(''); setNewDeadline(''); setNewClientName(''); setNewClientPhone('');
       
       toast.success(`Project "${createdName}" created successfully!`);
       if (creationToastId) removeToast(creationToastId);
@@ -144,6 +145,10 @@ export default function DashboardPage() {
           <LayoutDashboard className="mr-3 h-4 w-4" />
           Dashboard
         </Link>
+        <Link to="/meetings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
+          <Video className="mr-3 h-4 w-4 text-indigo-400" />
+          Meetings
+        </Link>
         <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
           <Wrench className="mr-3 h-4 w-4 text-emerald-500" />
           Tools Space
@@ -154,6 +159,10 @@ export default function DashboardPage() {
             Directory
           </Link>
         )}
+        <Link to="/library" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
+          <Book className="mr-3 h-4 w-4 text-blue-400" />
+          Library
+        </Link>
         {user?.role === 'admin' && (
           <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
             <Settings className="mr-3 h-4 w-4" />
@@ -218,7 +227,7 @@ export default function DashboardPage() {
 
       {/* Page Content */}
       <main className="flex-1 overflow-hidden flex flex-col relative pt-16 md:pt-0">
-        <div className="max-w-[1500px] w-full mx-auto px-5 md:px-10 flex flex-col h-[calc(100vh-64px)] md:h-screen min-h-0">
+        <div className="max-w-[1900px] w-full mx-auto px-5 md:px-10 flex flex-col h-[calc(100vh-64px)] md:h-screen min-h-0">
           
           {/* Static / Sticky Header Area */}
           <div className="flex-none pt-4 md:pt-10 pb-0 md:pb-6 border-b border-transparent">
@@ -261,13 +270,13 @@ export default function DashboardPage() {
                 <Filter className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               </div>
               <div className="flex overflow-x-auto pb-2 xl:pb-0 gap-2 scrollbar-hide">
-                {(['all', 'active', 'completed', 'rejected'] as StatusFilter[]).map(status => (
+                {(['all', 'active', 'code_red', 'paused', 'completed', 'rejected'] as const).map(status => (
                   <button 
                     key={status}
-                    onClick={() => setStatusFilter(status)} 
+                    onClick={() => setStatusFilter(status as any)} 
                     className={`px-5 py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === status ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-[#18181e] text-gray-500 border border-white/5 hover:border-indigo-500/30'}`}
                   >
-                    {status}
+                    {status.replace('_', ' ')}
                   </button>
                 ))}
               </div>
@@ -290,7 +299,7 @@ export default function DashboardPage() {
             {/* Project List (Scrolls independently) */}
             <div className="flex-1 w-full overflow-y-auto custom-scrollbar pr-1 md:pr-2 z-10">
               {filteredProjects.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-6 md:gap-10">
                   {filteredProjects.map(project => (
                     <ProjectCard key={project.id} project={project} />
                   ))}
@@ -377,18 +386,24 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setIsModalOpen(false)}></div>
           <div className="relative w-full max-w-sm bg-[#0c0c0e] rounded-[32px] shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden animate-modal-in">
-             <div className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 p-5 border-b border-white/5 text-center">
+             <div className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 p-4 sm:p-5 border-b border-white/5 text-center relative">
+                <button 
+                  onClick={() => setIsModalOpen(false)}
+                  className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all active:scale-95"
+                >
+                  <X className="h-4 w-4" />
+                </button>
                 <h2 className="text-xl font-black text-white tracking-tight uppercase">Assemble Project</h2>
                 <p className="text-indigo-400 text-[8px] font-bold uppercase tracking-widest mt-1">Deploying to Ooma Ecosystem</p>
              </div>
              
-             <form onSubmit={handleCreateProject} className="p-5 space-y-3.5">
+             <form onSubmit={handleCreateProject} className="p-4 sm:p-5 space-y-2.5 sm:space-y-3.5">
                 <div className="space-y-1">
                   <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Project Name <span className="text-red-500">*</span></label>
                   <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="Project identity..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Name</label>
                     <input type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
@@ -399,20 +414,26 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Deadline Date</label>
                     <input type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all [color-scheme:dark]" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Drive / Repository</label>
-                    <input type="url" required value={newLink} onChange={e => setNewLink(e.target.value)} placeholder="Link here" className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Brief Intent</label>
+                    <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Mission scope..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Brief Intent</label>
-                  <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Mission scope..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white h-14 resize-none transition-all" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Document Link <span className="text-red-500">*</span></label>
+                    <input type="url" required value={newLink} onChange={e => setNewLink(e.target.value)} placeholder="Drive / Docs..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Repository Link</label>
+                    <input type="url" value={newGithubLink} onChange={e => setNewGithubLink(e.target.value)} placeholder="GitHub / Repo..." className="w-full bg-white/[0.02] border border-white/10 p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[12px] font-semibold text-white transition-all" />
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-1">
