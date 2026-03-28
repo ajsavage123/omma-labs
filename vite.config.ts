@@ -44,5 +44,26 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 2000, // Increase warning limit to 2MB
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Put third-party dependencies into their own chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('three') || id.includes('@react-three')) {
+              return 'three-vendor';
+            }
+            if (id.includes('lucide')) {
+              return 'lucide-vendor';
+            }
+            if (id.includes('supabase') || id.includes('realtime-js')) {
+              return 'supabase-vendor';
+            }
+            return 'vendor';
+          }
+        }
+      }
+    }
+  }
 })
-

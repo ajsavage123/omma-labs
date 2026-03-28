@@ -47,12 +47,13 @@ export const projectService = {
     }
   },
 
-  async createProject(name: string, description: string, driveLink: string, githubLink: string | null, teamMembers: string, userId: string, workspaceId: string, deadline: string | null = null, clientName: string | null = null, clientPhone: string | null = null) {
+  async createProject(name: string, description: string, driveLink: string, githubLink: string | null, teamMembers: string, userId: string, workspaceId: string, projectType: 'internal' | 'client' = 'internal', deadline: string | null = null, clientName: string | null = null, clientPhone: string | null = null) {
     // 1. Create Project
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .insert({
         name,
+        project_type: projectType,
         description,
         deadline,
         client_name: clientName,
@@ -69,16 +70,34 @@ export const projectService = {
 
     if (projectError) throw projectError;
 
-    // 2. Create Initial Stages
-    const stages: Partial<ProjectStage>[] = [
+    // 2. Create Initial Stages according to project type
+    const internalStages: Partial<ProjectStage>[] = [
       { project_id: project.id, workspace_id: workspaceId, stage_name: 'ideology', status: 'in_progress', started_at: new Date().toISOString() },
       { project_id: project.id, workspace_id: workspaceId, stage_name: 'research', status: 'pending' },
       { project_id: project.id, workspace_id: workspaceId, stage_name: 'development', status: 'pending' },
       { project_id: project.id, workspace_id: workspaceId, stage_name: 'deployment', status: 'pending' },
       { project_id: project.id, workspace_id: workspaceId, stage_name: 'business', status: 'pending' },
       { project_id: project.id, workspace_id: workspaceId, stage_name: 'marketing', status: 'pending' },
-      { project_id: project.id, workspace_id: workspaceId, stage_name: 'admin_review', status: 'pending' },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'admin_review', status: 'pending' }
     ];
+
+    const clientStages: Partial<ProjectStage>[] = [
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'discovery', status: 'in_progress', started_at: new Date().toISOString() },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'proposals_contracts', status: 'pending' },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'ui_ux_design', status: 'pending' },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'client_approval', status: 'pending' },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'development', status: 'pending' },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'qa_testing', status: 'pending' },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'client_uat', status: 'pending' },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'deployment', status: 'pending' },
+      { project_id: project.id, workspace_id: workspaceId, stage_name: 'maintenance_support', status: 'pending' }
+    ];
+
+    const stages = projectType === 'client' ? clientStages : internalStages;
+
+    // IMPORTANT FIX: In case the live database has a hidden 'AFTER INSERT' trigger auto-generating legacy internal stages, 
+    // we must fiercely delete them here first before injecting our optimized dual-track arrays!
+    await supabase.from('project_stages').delete().eq('project_id', project.id);
 
     const { error: stagesError } = await supabase
       .from('project_stages')
@@ -92,7 +111,10 @@ export const projectService = {
     }
 
     // 3. Log Activity
-    await this.logActivity(project.id, 'Innovation & Research Team', 'ideology', 'Project created – ideology & concept stage started.', workspaceId);
+    const initialStage = projectType === 'client' ? 'discovery' : 'ideology';
+    const logText = projectType === 'client' ? 'Client Solutions project initialized – discovery stage started.' : 'Internal Venture initialized – ideology & concept stage started.';
+    const logDesignation = projectType === 'client' ? 'Client Success & Accounts Team' : 'Innovation & Research Team';
+    await this.logActivity(project.id, logDesignation, initialStage, logText, workspaceId);
 
     return project;
   },
@@ -130,11 +152,17 @@ export const projectService = {
     const stageLabelMap: Record<string, string> = {
       ideology: 'Ideology & Concept',
       research: 'Research',
+      ui_ux_design: 'Product Design (UI/UX)',
       development: 'Development',
+      qa_testing: 'QA & Testing',
       deployment: 'Deployment',
-      business: 'Business Strategy',
       marketing: 'Marketing',
       admin_review: 'Admin Review',
+      discovery: 'Client Discovery',
+      proposals_contracts: 'Contracts & Proposals',
+      client_approval: 'Client Design Approval',
+      client_uat: 'Client UAT Testing',
+      maintenance_support: 'Maintenance Retainer'
     };
 
     const nextLabel = nextStage ? stageLabelMap[nextStage] : 'completion';

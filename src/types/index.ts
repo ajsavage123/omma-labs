@@ -3,7 +3,9 @@ export type UserRole = 'partner' | 'admin';
 export type Designation =
   | 'Innovation & Research Team'
   | 'Developer & Engineering Team'
-  | 'Business Strategy & Marketing Team';
+  | 'Business Strategy & Marketing Team'
+  | 'Product Design & UX Team'
+  | 'Client Success & Accounts Team';
 
 export interface Workspace {
   id: string;
@@ -39,6 +41,7 @@ export interface Project {
   id: string;
   workspace_id: string;
   name: string;
+  project_type: 'internal' | 'client';
   description: string;
   deadline?: string;
   client_name?: string;
@@ -59,7 +62,15 @@ export type StageName =
   | 'deployment'
   | 'business'
   | 'marketing'
-  | 'admin_review';
+  | 'admin_review'
+  | 'discovery'
+  | 'proposals_contracts'
+  | 'ui_ux_design'
+  | 'client_approval'
+  | 'technical_architecture'
+  | 'qa_testing'
+  | 'client_uat'
+  | 'maintenance_support';
 
 export type StageStatus = 'pending' | 'in_progress' | 'completed';
 

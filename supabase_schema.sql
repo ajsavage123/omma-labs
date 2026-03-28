@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE NOT NULL,
     name TEXT NOT NULL,
+    project_type TEXT NOT NULL DEFAULT 'internal' CHECK (project_type IN ('internal', 'client')),
     description TEXT,
     deadline DATE,
     client_name TEXT,
@@ -41,7 +42,7 @@ CREATE TABLE IF NOT EXISTS projects (
     team_members TEXT,
     github_link TEXT,
     created_by UUID REFERENCES users(id),
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'rejected')),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'rejected', 'code_red', 'paused')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

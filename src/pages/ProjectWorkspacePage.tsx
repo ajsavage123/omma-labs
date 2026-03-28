@@ -8,7 +8,7 @@ import { StageCard } from '@/components/StageCard';
 import { ProjectInfoModal } from '@/components/ProjectInfoModal';
 import { ToastContainer } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { ChevronLeft, Info, Briefcase, Code, Clock, Sparkles, ShieldAlert, Microscope } from 'lucide-react';
+import { ChevronLeft, Info, Code, Clock, Sparkles, ShieldAlert, PenTool, Users } from 'lucide-react';
 
 export default function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -49,48 +49,76 @@ export default function ProjectWorkspacePage() {
   if (!project) return <div className="min-h-screen flex items-center justify-center bg-[#050505] text-gray-500 font-bold">Project not found</div>;
 
   const teamTools: Record<Designation, { name: string, url: string }[]> = {
-    'Innovation & Research Team': [
-      { name: 'Perplexity AI', url: 'https://www.perplexity.ai' },
-      { name: 'ChatGPT', url: 'https://chat.openai.com' },
-      { name: 'Claude AI', url: 'https://claude.ai' },
-      { name: 'Miro', url: 'https://miro.com' },
-      { name: 'Google Docs', url: 'https://docs.google.com' },
+    'Product Design & UX Team': [
       { name: 'Figma', url: 'https://figma.com' },
+      { name: 'Spline', url: 'https://spline.design' },
+      { name: 'Miro', url: 'https://miro.com' },
+      { name: 'Canva', url: 'https://canva.com' },
+      { name: 'Loom', url: 'https://loom.com' },
     ],
     'Developer & Engineering Team': [
       { name: 'GitHub', url: 'https://github.com' },
       { name: 'VS Code', url: 'https://vscode.dev' },
-      { name: 'Postman', url: 'https://postman.com' },
-      { name: 'Docker', url: 'https://docker.com' },
       { name: 'Supabase', url: 'https://supabase.com' },
+      { name: 'Postman', url: 'https://postman.com' },
+      { name: 'Vercel', url: 'https://vercel.com' },
+    ],
+    'Client Success & Accounts Team': [
+      { name: 'Perplexity AI', url: 'https://www.perplexity.ai' },
+      { name: 'ChatGPT', url: 'https://chat.openai.com' },
+      { name: 'DocuSign', url: 'https://docusign.com' },
+      { name: 'Stripe', url: 'https://stripe.com' },
+      { name: 'Notion', url: 'https://notion.so' },
+      { name: 'Loom', url: 'https://loom.com' },
+      { name: 'Google Meet', url: 'https://meet.google.com' },
     ],
     'Business Strategy & Marketing Team': [
-      { name: 'Canva', url: 'https://canva.com' },
-      { name: 'Google Analytics', url: 'https://analytics.google.com' },
       { name: 'LinkedIn', url: 'https://linkedin.com' },
       { name: 'HubSpot', url: 'https://hubspot.com' },
-      { name: 'Mailchimp', url: 'https://mailchimp.com' },
-      { name: 'Linear', url: 'https://linear.app' },
-    ]
+    ],
+    'Innovation & Research Team': [] // Legacy/Empty
   };
 
   const teamStages: Record<string, string[]> = {
-    'Innovation & Research Team': ['ideology', 'research'],
-    'Developer & Engineering Team': ['development', 'deployment'],
-    'Business Strategy & Marketing Team': ['business', 'marketing']
+    // 1. Client Accounts: Handles Client-Facing & Business Logic
+    'Client Success & Accounts Team': [
+      'discovery',           // Stage 1
+      'proposals_contracts', // Stage 2
+      'client_uat',          // Stage 7 (Final Review)
+      'maintenance_support'  // Stage 9 (Retainer)
+    ],
+    // 2. Design & UX: Handles Visuals & Branding
+    'Product Design & UX Team': [
+      'ui_ux_design',        // Stage 3
+      'client_approval'      // Stage 4
+    ],
+    // 3. Engineering Group: Handles Code, QA & Launch
+    'Developer & Engineering Team': [
+      'development',         // Stage 5
+      'qa_testing',          // Stage 6
+      'deployment'           // Stage 8
+    ],
+    // 4. Internal SaaS (Fallback)
+    'Business Strategy & Marketing Team': ['business', 'marketing'],
+  };
+
+  const getTeamForStage = (stageName: string): Designation | null => {
+    for (const [team, stages] of Object.entries(teamStages)) {
+      if (stages.includes(stageName)) return team as Designation;
+    }
+    return null;
   };
 
   const currentActiveStage = project.project_stages.find(s => s.status === 'in_progress')?.stage_name;
-  const getActiveTeam = (): Designation | null => {
-    if (!currentActiveStage) return null;
-    if (['ideology', 'research'].includes(currentActiveStage)) return 'Innovation & Research Team';
-    if (['development', 'deployment'].includes(currentActiveStage)) return 'Developer & Engineering Team';
-    if (['business', 'marketing'].includes(currentActiveStage)) return 'Business Strategy & Marketing Team';
-    return null;
-  };
-  const highlightedTeam = getActiveTeam();
+  const highlightedTeam = currentActiveStage ? getTeamForStage(currentActiveStage) : null;
   const isAdminReviewing = project.project_stages.some((s) => s.stage_name === 'admin_review' && s.status === 'in_progress');
   const isCompleted = project.status === 'completed';
+
+  const requiredTeams = project.project_stages.reduce((acc, stage) => {
+    const team = getTeamForStage(stage.stage_name);
+    if (team && stage.stage_name !== 'admin_review' && !acc.includes(team)) acc.push(team);
+    return acc;
+  }, [] as Designation[]);
 
   if (!selectedTeam) {
     return (
@@ -114,41 +142,51 @@ export default function ProjectWorkspacePage() {
         <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 scroll-smooth scrollbar-hide">
           <div className="max-w-5xl mx-auto w-full pt-4 md:pt-10">
              <div className="text-center mb-8 md:mb-16">
-                <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-[9px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6">
-                  Workspace Router
+                <div className="inline-block px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6 shadow-inner transition-colors duration-500 bg-indigo-500/15 border-indigo-500/30 text-indigo-400">
+                  {project.project_type === 'client' ? 'Client Agency Track' : 'Internal SaaS Track'}
                 </div>
                 <h1 className="text-2xl md:text-5xl font-black text-white mb-2 md:mb-4 tracking-tight flex items-center justify-center gap-2 md:gap-3">
-                  <Sparkles className="h-5 w-5 md:h-8 md:w-8 text-[#f59e0b] animate-pulse" />
+                  <Sparkles className={`h-5 w-5 md:h-8 md:w-8 animate-pulse ${project.project_type === 'client' ? 'text-emerald-500' : 'text-[#f59e0b]'}`} />
                   {project.name}
                 </h1>
-                <p className="text-gray-400 font-bold text-[10px] md:text-base px-5 uppercase tracking-widest opacity-60">Select Department</p>
+                <p className="text-gray-500 font-extrabold text-[10px] md:text-sm px-5 uppercase tracking-[0.25em] opacity-80">Select Workroom</p>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                <TeamCard
-                  name="Innovation & Research"
-                  icon={<Microscope className="h-7 w-7 md:h-8 md:w-8 text-cyan-400" />}
-                  description="Idea validation & conceptual research."
-                  isHighlighted={highlightedTeam === 'Innovation & Research Team'}
-                  onClick={() => setSelectedTeam('Innovation & Research Team')}
-                  colorClass="cyan"
-                />
-                <TeamCard
-                  name="Engineering Group"
-                  icon={<Code className="h-7 w-7 md:h-8 md:w-8 text-indigo-400" />}
-                  description="Technical architecture & development."
-                  isHighlighted={highlightedTeam === 'Developer & Engineering Team'}
-                  onClick={() => setSelectedTeam('Developer & Engineering Team')}
-                  colorClass="indigo"
-                />
-                <TeamCard
-                  name="Strategy & Marketing"
-                  icon={<Briefcase className="h-7 w-7 md:h-8 md:w-8 text-emerald-400" />}
-                  description="Business scaling & marketing growth."
-                  isHighlighted={highlightedTeam === 'Business Strategy & Marketing Team'}
-                  onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
-                  colorClass="emerald"
-                />
+              {/* Rooms are rendered in the exact workflow sequence order - NOT by DB order */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+                {/* 1. Accounts & Discovery: The entry point */}
+                {requiredTeams.includes('Client Success & Accounts Team') && (
+                  <TeamCard
+                    name="Client Accounts"
+                    icon={<Users className="h-7 w-7 md:h-8 md:w-8 text-amber-400" />}
+                    description="Discovery, contracts & long-term client success."
+                    isHighlighted={highlightedTeam === 'Client Success & Accounts Team'}
+                    onClick={() => setSelectedTeam('Client Success & Accounts Team')}
+                    colorClass="amber"
+                  />
+                )}
+                {/* 3. Visuals: Design & UX */}
+                {requiredTeams.includes('Product Design & UX Team') && (
+                  <TeamCard
+                    name="Design & UX"
+                    icon={<PenTool className="h-7 w-7 md:h-8 md:w-8 text-purple-400" />}
+                    description="User experience, UI design & prototyping."
+                    isHighlighted={highlightedTeam === 'Product Design & UX Team'}
+                    onClick={() => setSelectedTeam('Product Design & UX Team')}
+                    colorClass="purple"
+                  />
+                )}
+                {/* 4. Coding: Engineering Group */}
+                {requiredTeams.includes('Developer & Engineering Team') && (
+                  <TeamCard
+                    name="Engineering Group"
+                    icon={<Code className="h-7 w-7 md:h-8 md:w-8 text-indigo-400" />}
+                    description="Software engineering, testing & deployment."
+                    isHighlighted={highlightedTeam === 'Developer & Engineering Team'}
+                    onClick={() => setSelectedTeam('Developer & Engineering Team')}
+                    colorClass="indigo"
+                  />
+                )}
              </div>
           </div>
         </div>
@@ -156,9 +194,44 @@ export default function ProjectWorkspacePage() {
     );
   }
 
-  const orderedStagesList = ['ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'];
+
+  const orderedStagesList = [
+    'discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval',
+    'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support',
+    'ideology', 'research', 'business', 'marketing', 'admin_review'
+  ];
+
+  // Fix: Smart filtering for room stages.
+  // A room should only show stages that are:
+  // 1. Already completed or currently in-progress.
+  // 2. OR the very next PENDING stage in that specific room IF it's the next step in the global pipeline for that room.
+  const currentStageName = project.project_stages.find(s => s.status === 'in_progress')?.stage_name;
+  const globalOrder = project.project_type === 'client' 
+    ? ['discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support']
+    : ['ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'];
+  
+  const currentGlobalIdx = currentStageName ? globalOrder.indexOf(currentStageName as string) : -1;
+
   const visibleStages = project.project_stages
-    .filter(s => selectedTeam && teamStages[selectedTeam]?.includes(s.stage_name))
+    .filter(s => {
+      // STRICT ROOM FILTERING: Only show stages that BELONG to this selected room.
+      // This resolves the "arrangements that don't belong" issue.
+      const myStages = selectedTeam ? teamStages[selectedTeam] : [];
+      const isMyStage = myStages?.includes(s.stage_name);
+      
+      if (!isMyStage) return false;
+
+      // Logic: Show the stage if it's already started (completed/in_progress)
+      if (s.status !== 'pending') return true;
+
+      // For PENDING: Only show the VERY NEXT pending stage in this room's sequence
+      // This prevents seeing Stage 9 while we are on Stage 1 in the same room.
+      const myPending = project.project_stages
+        .filter(st => myStages.includes(st.stage_name) && st.status === 'pending')
+        .sort((a, b) => orderedStagesList.indexOf(a.stage_name) - orderedStagesList.indexOf(b.stage_name));
+      
+      return true; // Show all stages in the room for full arrangement visibility
+    })
     .sort((a, b) => orderedStagesList.indexOf(a.stage_name) - orderedStagesList.indexOf(b.stage_name));
 
   return (
@@ -244,6 +317,7 @@ export default function ProjectWorkspacePage() {
                    tools={selectedTeam ? teamTools[selectedTeam] : []}
                    onUpdate={() => fetchData(project.id)}
                    designation={user?.designation || selectedTeam || 'Innovation Team'}
+                   isOwner={selectedTeam ? teamStages[selectedTeam]?.includes(stage.stage_name) : false}
                    onToast={(msg: string, type: 'success' | 'error' | 'info') => toast[type](msg)}
                  />
                ))}
@@ -265,7 +339,7 @@ export default function ProjectWorkspacePage() {
                     
                     <div className="mb-2">
                        <span className="text-[11px] font-black uppercase tracking-widest text-[#818cf8]">{log.user_name}</span>
-                       <p className="text-[9px] font-bold text-gray-700 mt-1 uppercase tracking-widest">
+                       <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest">
                          {new Date(log.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}, {new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
                        </p>
                     </div>
@@ -277,7 +351,7 @@ export default function ProjectWorkspacePage() {
                   </div>
                 ))}
                 {logs.length === 0 && (
-                  <div className="text-center py-12 text-gray-700 font-bold text-xs uppercase tracking-widest">No activity history</div>
+                  <div className="text-center py-12 text-gray-500 font-bold text-xs uppercase tracking-widest">No activity history</div>
                 )}
              </div>
           </div>
@@ -294,12 +368,14 @@ export default function ProjectWorkspacePage() {
 }
 
 function TeamCard({ name, icon, description, isHighlighted, onClick, colorClass }: {
-  name: string; icon: React.ReactNode; description: string; isHighlighted: boolean; onClick: () => void; colorClass: 'cyan' | 'indigo' | 'emerald';
+  name: string; icon: React.ReactNode; description: string; isHighlighted: boolean; onClick: () => void; colorClass: 'cyan' | 'indigo' | 'emerald' | 'amber' | 'purple';
 }) {
   const colorMap = {
     cyan: { bgHighlight: 'bg-cyan-600', textHighlight: 'text-cyan-400', borderHighlight: 'border-cyan-500/30' },
     indigo: { bgHighlight: 'bg-indigo-600', textHighlight: 'text-indigo-400', borderHighlight: 'border-indigo-500/30' },
-    emerald: { bgHighlight: 'bg-emerald-600', textHighlight: 'text-emerald-400', borderHighlight: 'border-emerald-500/30' }
+    emerald: { bgHighlight: 'bg-emerald-600', textHighlight: 'text-emerald-400', borderHighlight: 'border-emerald-500/30' },
+    amber: { bgHighlight: 'bg-amber-600', textHighlight: 'text-amber-400', borderHighlight: 'border-amber-500/30' },
+    purple: { bgHighlight: 'bg-purple-600', textHighlight: 'text-purple-400', borderHighlight: 'border-purple-500/30' }
   };
   const c = colorMap[colorClass];
 

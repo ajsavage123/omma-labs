@@ -12,7 +12,7 @@ import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
 import { Plus, LayoutDashboard, LogOut, Settings, Search, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
-type StatusFilter = 'all' | 'active' | 'completed' | 'rejected';
+type StatusFilter = 'all' | 'active' | 'completed' | 'rejected' | 'internal' | 'client';
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
@@ -39,6 +39,7 @@ export default function DashboardPage() {
   const [newDeadline, setNewDeadline] = useState('');
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
+  const [newProjectType, setNewProjectType] = useState<'internal' | 'client'>('internal');
   const [creating, setCreating] = useState(false);
   const [triedToSubmit, setTriedToSubmit] = useState(false);
   const [editingProject, setEditingProject] = useState<(Project & { project_stages: ProjectStage[] }) | null>(null);
@@ -94,14 +95,14 @@ export default function DashboardPage() {
       } else {
         const project = await projectService.createProject(
           newName, newDesc, newLink, newGithubLink || null, newMembers, user.id, user.workspace_id, 
-          newDeadline || null, newClientName || null, newClientPhone || null
+          newProjectType, newDeadline || null, newClientName || null, newClientPhone || null
         );
         toast.success(`Project "${newName}" created successfully!`);
         setTimeout(() => navigate(`/project/${project.id}`), 500);
       }
       
       setIsModalOpen(false);
-      setNewName(''); setNewMembers(''); setNewDesc(''); setNewLink(''); setNewGithubLink(''); setNewDeadline(''); setNewClientName(''); setNewClientPhone('');
+      setNewName(''); setNewMembers(''); setNewDesc(''); setNewLink(''); setNewGithubLink(''); setNewDeadline(''); setNewClientName(''); setNewClientPhone(''); setNewProjectType('internal');
       setTriedToSubmit(false);
       fetchData();
       
@@ -143,7 +144,18 @@ export default function DashboardPage() {
     const matchesSearch = 
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.team_members || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+    
+    let matchesStatus = true;
+    if (statusFilter === 'all') {
+      matchesStatus = true;
+    } else if (statusFilter === 'internal') {
+      matchesStatus = p.project_type === 'internal';
+    } else if (statusFilter === 'client') {
+      matchesStatus = p.project_type === 'client';
+    } else {
+      matchesStatus = p.status === statusFilter;
+    }
+
     return matchesSearch && matchesStatus;
   });
 
@@ -304,13 +316,13 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="flex overflow-x-auto gap-1.5 scrollbar-hide py-1">
-                {(['all', 'active', 'code_red', 'paused', 'completed'] as const).map(status => (
+                {(['all', 'internal', 'client', 'active', 'completed', 'rejected'] as const).map(status => (
                   <button 
                     key={status}
                     onClick={() => setStatusFilter(status as any)} 
                     className={`px-4 py-2.5 rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === status ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-[#18181e] text-gray-500 border border-white/5 hover:border-indigo-500/30'}`}
                   >
-                    {status.replace('_', ' ')}
+                    {status === 'internal' ? 'Internal Ventures' : status === 'client' ? 'Client Solutions' : status.replace('_', ' ')}
                   </button>
                 ))}
               </div>
@@ -424,7 +436,7 @@ export default function DashboardPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative w-full max-w-sm bg-[#0c0c0e] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-y-auto max-h-[95vh] animate-modal-in scrollbar-hide">
+          <div className="relative w-full max-w-sm md:max-w-2xl bg-[#0c0c0e] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-y-auto max-h-[95vh] animate-modal-in scrollbar-hide">
               <div className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 p-3 sm:p-5 border-b border-white/5 text-center relative">
                 <button 
                   onClick={() => setIsModalOpen(false)}
@@ -440,6 +452,27 @@ export default function DashboardPage() {
                 </p>
              </div>
                     <form onSubmit={handleCreateProject} className="p-5 sm:p-8 space-y-6">
+                
+                {/* Dual Track Segmented Control */}
+                {!editingProject && (
+                  <div className="flex bg-[#18181e] p-1.5 rounded-2xl border border-white/10 relative">
+                    <button 
+                      type="button"
+                      onClick={() => setNewProjectType('internal')}
+                      className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all z-10 ${newProjectType === 'internal' ? 'text-white bg-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      Internal Ventures
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setNewProjectType('client')}
+                      className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all z-10 ${newProjectType === 'client' ? 'text-white bg-emerald-600 shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      Client Solutions
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Project Name <span className="text-red-500">*</span></label>
                   <input 
@@ -453,16 +486,18 @@ export default function DashboardPage() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Client Name</label>
-                    <input type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
+                {(newProjectType === 'client' || editingProject?.project_type === 'client') && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Client Name</label>
+                      <input type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Client Name..." className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Client Phone</label>
+                      <input type="tel" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="Phone/Contact..." className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Client Phone</label>
-                    <input type="tel" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
-                  </div>
-                </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -470,22 +505,22 @@ export default function DashboardPage() {
                     <input type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all [color-scheme:dark]" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Brief Intent <span className="text-red-500">*</span></label>
-                    <input 
-                      type="text" 
-                      value={newDesc} 
-                      onChange={e => setNewDesc(e.target.value)} 
-                      placeholder="Mission scope..." 
-                      className={`w-full bg-white/[0.05] border p-4 rounded-2xl outline-none text-[15px] font-bold text-white transition-all ${
-                        triedToSubmit && !newDesc.trim() ? 'border-red-500/60 bg-red-500/5' : 'border-white/20 focus:border-indigo-500/50'
-                      }`}
-                    />
+                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Collaborators / Team</label>
+                    <input type="text" value={newMembers} onChange={e => setNewMembers(e.target.value)} placeholder="Team names..." className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Collaborators / Team</label>
-                   <input type="text" value={newMembers} onChange={e => setNewMembers(e.target.value)} placeholder="Team names..." className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
+                  <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Mission Scope <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text" 
+                    value={newDesc} 
+                    onChange={e => setNewDesc(e.target.value)} 
+                    placeholder="Mission scope & mission brief..." 
+                    className={`w-full bg-white/[0.05] border p-4 rounded-2xl outline-none text-[15px] font-bold text-white transition-all ${
+                      triedToSubmit && !newDesc.trim() ? 'border-red-500/60 bg-red-500/5' : 'border-white/20 focus:border-indigo-500/50'
+                    }`}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
