@@ -76,11 +76,10 @@ export default function ProjectWorkspacePage() {
       { name: 'LinkedIn', url: 'https://linkedin.com' },
       { name: 'HubSpot', url: 'https://hubspot.com' },
     ],
-    'Innovation & Research Team': [] // Legacy/Empty
+    'Innovation & Research Team': []
   };
 
   const teamStages: Record<string, string[]> = {
-    // 1. Client Accounts: Handles Client-Facing & Business Logic
     'Client Success & Accounts Team': [
       'discovery',           // Stage 1
       'proposals_contracts', // Stage 2
@@ -143,7 +142,7 @@ export default function ProjectWorkspacePage() {
           <div className="max-w-5xl mx-auto w-full pt-4 md:pt-10">
              <div className="text-center mb-8 md:mb-16">
                 <div className="inline-block px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6 shadow-inner transition-colors duration-500 bg-indigo-500/15 border-indigo-500/30 text-indigo-400">
-                  {project.project_type === 'client' ? 'Client Agency Track' : 'Internal SaaS Track'}
+                  {project.project_type === 'client' ? 'Client Solutions Track' : 'Internal Ventures Track'}
                 </div>
                 <h1 className="text-2xl md:text-5xl font-black text-white mb-2 md:mb-4 tracking-tight flex items-center justify-center gap-2 md:gap-3">
                   <Sparkles className={`h-5 w-5 md:h-8 md:w-8 animate-pulse ${project.project_type === 'client' ? 'text-emerald-500' : 'text-[#f59e0b]'}`} />
@@ -205,32 +204,12 @@ export default function ProjectWorkspacePage() {
   // A room should only show stages that are:
   // 1. Already completed or currently in-progress.
   // 2. OR the very next PENDING stage in that specific room IF it's the next step in the global pipeline for that room.
-  const currentStageName = project.project_stages.find(s => s.status === 'in_progress')?.stage_name;
-  const globalOrder = project.project_type === 'client' 
-    ? ['discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support']
-    : ['ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'];
-  
-  const currentGlobalIdx = currentStageName ? globalOrder.indexOf(currentStageName as string) : -1;
-
   const visibleStages = project.project_stages
     .filter(s => {
-      // STRICT ROOM FILTERING: Only show stages that BELONG to this selected room.
-      // This resolves the "arrangements that don't belong" issue.
       const myStages = selectedTeam ? teamStages[selectedTeam] : [];
       const isMyStage = myStages?.includes(s.stage_name);
-      
       if (!isMyStage) return false;
-
-      // Logic: Show the stage if it's already started (completed/in_progress)
-      if (s.status !== 'pending') return true;
-
-      // For PENDING: Only show the VERY NEXT pending stage in this room's sequence
-      // This prevents seeing Stage 9 while we are on Stage 1 in the same room.
-      const myPending = project.project_stages
-        .filter(st => myStages.includes(st.stage_name) && st.status === 'pending')
-        .sort((a, b) => orderedStagesList.indexOf(a.stage_name) - orderedStagesList.indexOf(b.stage_name));
-      
-      return true; // Show all stages in the room for full arrangement visibility
+      return true;
     })
     .sort((a, b) => orderedStagesList.indexOf(a.stage_name) - orderedStagesList.indexOf(b.stage_name));
 

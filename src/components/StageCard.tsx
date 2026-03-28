@@ -156,7 +156,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, isOwne
   };
 
   const handleNextStage = async () => {
-    // Exact 9-stage Client Agency sequence — matches the agreed plan precisely
+    // Exact 9-stage sequence — matches the agreed plan precisely
     const order: StageName[] = project.project_type === 'client' 
       ? ['discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support']
       : ['ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'];
