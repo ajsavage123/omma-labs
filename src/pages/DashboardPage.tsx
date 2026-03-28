@@ -40,6 +40,8 @@ export default function DashboardPage() {
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [creating, setCreating] = useState(false);
+  const [triedToSubmit, setTriedToSubmit] = useState(false);
+  const [editingProject, setEditingProject] = useState<(Project & { project_stages: ProjectStage[] }) | null>(null);
 
   useEffect(() => { 
     fetchData(); 
@@ -63,36 +65,66 @@ export default function DashboardPage() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTriedToSubmit(true);
+
+    if (!newName.trim() || !newLink.trim() || !newDesc.trim()) {
+      toast.error('Please fill all required fields highlighted in red.');
+      return;
+    }
+
     if (!user || !user.workspace_id) return;
     
     setCreating(true);
-    const creationToastId = toast.info('Creating project and setting up pipeline...');
+    const creationToastId = toast.info(editingProject ? 'Updating project...' : 'Creating project and setting up pipeline...');
     
     try {
-      const project = await projectService.createProject(
-        newName, newDesc, newLink, newGithubLink || null, newMembers, user.id, user.workspace_id, 
-        newDeadline || null, newClientName || null, newClientPhone || null
-      );
+      if (editingProject) {
+        await projectService.updateProject(editingProject.id, {
+          name: newName,
+          description: newDesc,
+          drive_link: newLink,
+          github_link: newGithubLink || undefined,
+          team_members: newMembers || undefined,
+          deadline: newDeadline || undefined,
+          client_name: newClientName || undefined,
+          client_phone: newClientPhone || undefined
+        });
+        toast.success(`Project "${newName}" updated successfully!`);
+        setEditingProject(null);
+      } else {
+        const project = await projectService.createProject(
+          newName, newDesc, newLink, newGithubLink || null, newMembers, user.id, user.workspace_id, 
+          newDeadline || null, newClientName || null, newClientPhone || null
+        );
+        toast.success(`Project "${newName}" created successfully!`);
+        setTimeout(() => navigate(`/project/${project.id}`), 500);
+      }
       
       setIsModalOpen(false);
-      const createdName = newName;
       setNewName(''); setNewMembers(''); setNewDesc(''); setNewLink(''); setNewGithubLink(''); setNewDeadline(''); setNewClientName(''); setNewClientPhone('');
-      
-      toast.success(`Project "${createdName}" created successfully!`);
-      if (creationToastId) removeToast(creationToastId);
-      
-      // Navigate to the new project workspace after a brief delay
-      setTimeout(() => {
-        navigate(`/project/${project.id}`);
-      }, 500);
+      setTriedToSubmit(false);
+      fetchData();
       
     } catch (error) {
-      console.error('Project creation failed:', error);
-      toast.error('Failed to create project. Please try again.');
-      if (creationToastId) removeToast(creationToastId);
+      console.error('Project operation failed:', error);
+      toast.error('Operation failed. Please try again.');
     } finally {
+      if (creationToastId) removeToast(creationToastId);
       setCreating(false);
     }
+  };
+
+  const handleEditClick = (project: Project & { project_stages: ProjectStage[] }) => {
+    setEditingProject(project);
+    setNewName(project.name);
+    setNewDesc(project.description);
+    setNewLink(project.drive_link);
+    setNewGithubLink(project.github_link || '');
+    setNewMembers(project.team_members || '');
+    setNewDeadline(project.deadline || '');
+    setNewClientName(project.client_name || '');
+    setNewClientPhone(project.client_phone || '');
+    setIsModalOpen(true);
   };
 
   const handleDeleteLog = async (logId: string) => {
@@ -154,21 +186,25 @@ export default function DashboardPage() {
           <Wrench className="mr-3 h-4 w-4 text-emerald-500" />
           Tools Space
         </Link>
-        {user?.role === 'admin' && (
-          <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-            <Users className="mr-3 h-4 w-4 text-emerald-500" />
-            Directory
-          </Link>
-        )}
+        <Link to="/directory" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
+          <Users className="mr-3 h-4 w-4 text-emerald-500" />
+          Team Library
+        </Link>
         <Link to="/library" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
           <Book className="mr-3 h-4 w-4 text-blue-400" />
-          Library
+          Docs Library
         </Link>
         {user?.role === 'admin' && (
-          <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-            <Settings className="mr-3 h-4 w-4" />
-            Admin Panel
-          </Link>
+          <>
+            <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
+              <Plus className="mr-3 h-4 w-4 text-amber-500" />
+              Client Contacts
+            </Link>
+            <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
+              <Settings className="mr-3 h-4 w-4" />
+              Admin Panel
+            </Link>
+          </>
         )}
       </nav>
 
@@ -257,14 +293,14 @@ export default function DashboardPage() {
 
             {/* Search bar row */}
              <div className="flex flex-col xl:flex-row gap-2 md:gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
+              <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
                 <input
                   type="text"
-                  placeholder="Seach projects..."
+                  placeholder="Reviewing Ooma project directory..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 md:py-3.5 bg-[#11111d] border border-white/5 rounded-2xl text-[13px] outline-none focus:border-indigo-500/30 transition-all font-medium text-white"
+                  className="w-full pl-14 pr-4 py-4 md:py-5 bg-[#0a0a0d] border border-white/15 rounded-[24px] text-[16px] font-black text-white placeholder:text-gray-600 outline-none focus:border-indigo-500/50 transition-all shadow-inner"
                 />
               </div>
               <div className="flex overflow-x-auto gap-1.5 scrollbar-hide py-1">
@@ -299,7 +335,12 @@ export default function DashboardPage() {
               {filteredProjects.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-6 md:gap-10">
                   {filteredProjects.map(project => (
-                    <ProjectCard key={project.id} project={project} />
+                    <ProjectCard 
+                      key={project.id} 
+                      project={project} 
+                      onEdit={handleEditClick}
+                      canEdit={user?.role === 'admin' || user?.designation === 'Innovation & Research Team'}
+                    />
                   ))}
                 </div>
               ) : (
@@ -384,66 +425,98 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setIsModalOpen(false)}></div>
           <div className="relative w-full max-w-sm bg-[#0c0c0e] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-y-auto max-h-[95vh] animate-modal-in scrollbar-hide">
-             <div className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 p-3 sm:p-5 border-b border-white/5 text-center relative">
+              <div className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 p-3 sm:p-5 border-b border-white/5 text-center relative">
                 <button 
                   onClick={() => setIsModalOpen(false)}
                   className="absolute top-3 right-3 p-1.5 text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all active:scale-95"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
-                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight uppercase">Assemble Project</h2>
-                <p className="text-indigo-400 text-[7px] sm:text-[8px] font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Deploying to Ooma Ecosystem</p>
+                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight uppercase">
+                  {editingProject ? 'Modify Project' : 'Assemble Project'}
+                </h2>
+                <p className="text-indigo-400 text-[7px] sm:text-[8px] font-bold uppercase tracking-widest mt-0.5 sm:mt-1">
+                  {editingProject ? 'Updating ecosystem node' : 'Deploying to Ooma Ecosystem'}
+                </p>
              </div>
-             
-             <form onSubmit={handleCreateProject} className="p-3 sm:p-5 space-y-2 sm:space-y-3.5">
-                <div className="space-y-0.5 sm:space-y-1">
-                  <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Project Name <span className="text-red-500">*</span></label>
-                  <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="Project identity..." className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
+                    <form onSubmit={handleCreateProject} className="p-5 sm:p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Project Name <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text" 
+                    value={newName} 
+                    onChange={e => setNewName(e.target.value)} 
+                    placeholder="Project identity..." 
+                    className={`w-full bg-white/[0.05] border p-4 rounded-2xl outline-none text-[15px] font-bold text-white transition-all ${
+                      triedToSubmit && !newName.trim() ? 'border-red-500/60 bg-red-500/5' : 'border-white/20 focus:border-indigo-500/50'
+                    }`} 
+                  />
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Name</label>
-                    <input type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Client Name</label>
+                    <input type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
                   </div>
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Client Phone</label>
-                    <input type="tel" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Deadline Date</label>
-                    <input type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all [color-scheme:dark]" />
-                  </div>
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Brief Intent</label>
-                    <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Mission scope..." className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Client Phone</label>
+                    <input type="tel" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="Optional" className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Document Link <span className="text-red-500">*</span></label>
-                    <input type="url" required value={newLink} onChange={e => setNewLink(e.target.value)} placeholder="Drive / Docs..." className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Deadline Date</label>
+                    <input type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all [color-scheme:dark]" />
                   </div>
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <label className="text-[7px] sm:text-[8px] font-black text-indigo-400 uppercase tracking-widest ml-1">Repository Link</label>
-                    <input type="url" value={newGithubLink} onChange={e => setNewGithubLink(e.target.value)} placeholder="GitHub / Repo..." className="w-full bg-white/[0.02] border border-white/10 p-2 sm:p-2.5 rounded-xl outline-none focus:border-indigo-500/50 text-[11px] sm:text-[12px] font-semibold text-white transition-all" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Brief Intent <span className="text-red-500">*</span></label>
+                    <input 
+                      type="text" 
+                      value={newDesc} 
+                      onChange={e => setNewDesc(e.target.value)} 
+                      placeholder="Mission scope..." 
+                      className={`w-full bg-white/[0.05] border p-4 rounded-2xl outline-none text-[15px] font-bold text-white transition-all ${
+                        triedToSubmit && !newDesc.trim() ? 'border-red-500/60 bg-red-500/5' : 'border-white/20 focus:border-indigo-500/50'
+                      }`}
+                    />
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all">Cancel</button>
-                  <button disabled={creating} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] shadow-lg shadow-indigo-600/20 transition-all font-bold">
-                    {creating ? 'Saving...' : 'Assemble'}
+                <div className="space-y-2">
+                   <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Collaborators / Team</label>
+                   <input type="text" value={newMembers} onChange={e => setNewMembers(e.target.value)} placeholder="Team names..." className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Document Link <span className="text-red-500">*</span></label>
+                    <input 
+                      type="url" 
+                      value={newLink} 
+                      onChange={e => setNewLink(e.target.value)} 
+                      placeholder="Drive / Docs..." 
+                      className={`w-full bg-white/[0.05] border p-4 rounded-2xl outline-none text-[15px] font-bold text-white transition-all ${
+                        triedToSubmit && !newLink.trim() ? 'border-red-500/60 bg-red-500/5' : 'border-white/20 focus:border-indigo-500/50'
+                      }`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Repository Link</label>
+                    <input type="url" value={newGithubLink} onChange={e => setNewGithubLink(e.target.value)} placeholder="GitHub / Repo..." className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => { setIsModalOpen(false); setEditingProject(null); }} className="flex-1 py-4 text-[12px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white transition-all">Cancel</button>
+                  <button type="submit" disabled={creating} className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[12px] shadow-xl shadow-indigo-600/30 transition-all active:scale-[0.98]">
+                    {creating ? 'Processing...' : (editingProject ? 'Execute Update' : 'Initialize Project')}
                   </button>
                 </div>
-             </form>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {creating && <LoadingOverlay message="Forging New Project..." />}

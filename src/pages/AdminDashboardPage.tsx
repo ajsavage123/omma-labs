@@ -523,11 +523,11 @@ export default function AdminDashboardPage() {
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Designation</label>
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Designation</label>
                                <select 
                                  value={editMemberData.designation}
                                  onChange={(e) => setEditMemberData({...editMemberData, designation: e.target.value as any})}
-                                 className="w-full bg-black/40 border border-white/10 rounded-md p-2 text-xs text-gray-200 outline-none focus:border-indigo-500/50"
+                                 className="w-full bg-[#0a0a0d] border border-white/20 rounded-md p-2 text-xs text-gray-200 outline-none focus:border-indigo-500/50"
                                >
                                   <option value="Innovation & Research Team">Innovation & Research Team</option>
                                   <option value="Developer & Engineering Team">Developer & Engineering Team</option>
@@ -535,11 +535,11 @@ export default function AdminDashboardPage() {
                                </select>
                             </div>
                             <div>
-                               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Role</label>
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Role</label>
                                <select 
                                  value={editMemberData.role}
                                  onChange={(e) => setEditMemberData({...editMemberData, role: e.target.value as any})}
-                                 className="w-full bg-black/40 border border-white/10 rounded-md p-2 text-xs text-gray-200 outline-none focus:border-indigo-500/50"
+                                 className="w-full bg-[#0a0a0d] border border-white/20 rounded-md p-2 text-xs text-gray-200 outline-none focus:border-indigo-500/50"
                                >
                                   <option value="partner">Partner</option>
                                   <option value="admin">Admin</option>

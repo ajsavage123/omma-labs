@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { ChatMessage } from '@/types';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/Toast';
+import { notificationService } from '@/utils/notificationService';
 
 export default function ChatWidget() {
   const { user } = useAuth();
@@ -17,10 +18,16 @@ export default function ChatWidget() {
 
   const { toasts, toast, removeToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isOpenRef = useRef(isOpen);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
 
   useEffect(() => {
     fetchMessages();
     cleanupOldMessages();
+    notificationService.requestPermission();
 
     const subscription = supabase
       .channel('public:chat_messages')
@@ -28,7 +35,7 @@ export default function ChatWidget() {
         const newMsg = payload.new as ChatMessage;
         
         if (newMsg.user_id !== user?.id) {
-          if (!isOpen) {
+          if (!isOpenRef.current) {
             setUnreadCount((prev: number) => prev + 1);
             // Show pop-up notification
             toast.info(`New message from teammate`);
@@ -41,7 +48,7 @@ export default function ChatWidget() {
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, [isOpen, user?.id, toast]);
+  }, [user?.id, toast]);
 
   useEffect(() => {
     if (isOpen) {
@@ -49,11 +56,86 @@ export default function ChatWidget() {
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  const cleanupOldMessages = async () => {
+  const shouldScrollRef = useRef(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Keep track of the last processed message ID to prevent unnecessary scrolls
+  const lastMessageIdRef = useRef<string | null>(null);
+
+  // Track scroll position to decide if we should auto-scroll later
+  const handleScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    
+    // If user is within 100px of bottom, we "pin" the scroll to keep auto-scrolling
+    const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    shouldScrollRef.current = atBottom;
+  };
+
+  // Initial snap to bottom when opening
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        const container = messagesContainerRef.current;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+          shouldScrollRef.current = true;
+        }
+      }, 50);
+    }
+  }, [isOpen]);
+
+  // Handle auto-scroll on new messages
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const lastMessage = messages[messages.length - 1];
+    const isMe = lastMessage?.user_id === user?.id;
+    const isNewMessage = lastMessage?.id !== lastMessageIdRef.current;
+    
+    if (isNewMessage) {
+        lastMessageIdRef.current = lastMessage?.id;
+        
+        const atBottom = shouldScrollRef.current;
+
+        // RULE: Only auto-scroll if:
+        // 1. I am the sender
+        // 2. OR this is the first time we load (snap to latest)
+        // 3. OR the user is already at the bottom and a new message arrives (keep pinned)
+        if (isMe || isInitialLoad || atBottom) {
+            // Use requestAnimationFrame for the most immediate DOM timing
+            requestAnimationFrame(() => {
+                if (isInitialLoad) {
+                    container.scrollTop = container.scrollHeight;
+                    setIsInitialLoad(false);
+                } else {
+                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                }
+                shouldScrollRef.current = true;
+            });
+        }
+    }
+
+    // Show push notification logic (only for others)
+    if (lastMessage && !isMe) {
+        const timestamp = new Date(lastMessage.created_at).getTime();
+        const now = Date.now();
+        if (now - timestamp < 3000) {
+            notificationService.showNotification(`New message from ${lastMessage.users?.username || 'Team Member'}`, {
+                body: lastMessage.message,
+                tag: 'chat-notification',
+                requireInteraction: false
+            });
+        }
+    }
+  }, [messages, user?.id]);
+
+   const cleanupOldMessages = async () => {
     try {
       const fiveDaysAgo = new Date();
       fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
@@ -139,7 +221,11 @@ export default function ChatWidget() {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0A0A0B]">
+      <div 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0A0A0B]"
+      >
         {messages.map((msg: ChatMessage) => {
           const isMe = msg.user_id === user?.id;
           return (

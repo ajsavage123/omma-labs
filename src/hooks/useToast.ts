@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -26,11 +26,11 @@ export function useToast() {
     setToasts((prev: ToastItem[]) => prev.filter((t: ToastItem) => t.id !== id));
   }, []);
 
-  const toast = {
+  const toast = useMemo(() => ({
     success: (msg: string) => addToast(msg, 'success'),
     error: (msg: string) => addToast(msg, 'error'),
     info: (msg: string) => addToast(msg, 'info'),
-  };
+  }), [addToast]);
 
   return { toasts, toast, removeToast };
 }

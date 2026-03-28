@@ -150,6 +150,15 @@ export const projectService = {
     if (error) throw error;
   },
 
+  async updateProject(projectId: string, updates: Partial<Project>) {
+    const { error } = await supabase
+      .from('projects')
+      .update(updates)
+      .eq('id', projectId);
+
+    if (error) throw error;
+  },
+
   async logActivity(projectId: string, designation: string, stage: string, updateText: string, workspaceId: string) {
     const { data: { user } } = await supabase.auth.getUser();
 

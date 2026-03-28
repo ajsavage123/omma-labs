@@ -11,8 +11,11 @@ import QuotationPage from '@/pages/QuotationPage';
 import ClientContactsPage from './pages/ClientContactsPage';
 import LibraryPage from './pages/LibraryPage';
 import MeetingSchedulerPage from './pages/MeetingSchedulerPage';
+import ProjectMembersPage from './pages/ProjectMembersPage';
 import { InstallPWA } from '@/components/InstallPWA';
 import ChatWidget from '@/components/ChatWidget';
+import { notificationService } from '@/utils/notificationService';
+import { useEffect } from 'react';
 
 // Helper for the Onboarding route to ensure they are logged in to Supabase first
 function OnboardingRoute() {
@@ -39,6 +42,10 @@ function OnboardingRoute() {
 }
 
 function App() {
+  useEffect(() => {
+    notificationService.requestPermission();
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -53,6 +60,7 @@ function App() {
             <Route path="/quotation" element={<QuotationPage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/meetings" element={<MeetingSchedulerPage />} />
+            <Route path="/directory" element={<ProjectMembersPage />} />
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/contacts" element={<ClientContactsPage />} />

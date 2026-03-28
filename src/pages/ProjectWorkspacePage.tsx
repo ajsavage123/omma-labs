@@ -156,9 +156,10 @@ export default function ProjectWorkspacePage() {
     );
   }
 
-  const visibleStages = project.project_stages.filter(s =>
-    selectedTeam && teamStages[selectedTeam]?.includes(s.stage_name)
-  );
+  const orderedStagesList = ['ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'];
+  const visibleStages = project.project_stages
+    .filter(s => selectedTeam && teamStages[selectedTeam]?.includes(s.stage_name))
+    .sort((a, b) => orderedStagesList.indexOf(a.stage_name) - orderedStagesList.indexOf(b.stage_name));
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden transition-colors duration-500 ${project.status === 'code_red' ? 'bg-[#080000]' : 'bg-[#080808]'}`}>
