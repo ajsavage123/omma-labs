@@ -80,25 +80,34 @@ export default function ProjectWorkspacePage() {
   };
 
   const teamStages: Record<string, string[]> = {
+    // 1. Client Accounts & Business Growth
     'Client Success & Accounts Team': [
-      'discovery',           // Stage 1
-      'proposals_contracts', // Stage 2
-      'client_uat',          // Stage 7 (Final Review)
-      'maintenance_support'  // Stage 9 (Retainer)
+      'discovery',           // Client 1
+      'proposals_contracts', // Client 2
+      'client_uat',          // Client 7
+      'maintenance_support'  // Client 9
     ],
-    // 2. Design & UX: Handles Visuals & Branding
+    // 2. Innovation Room: Venture Studio Core
+    'Innovation & Research Team': [
+      'ideology',            // Internal 1
+      'research'             // Internal 2
+    ],
+    // 3. Design & UX: Visuals & Branding
     'Product Design & UX Team': [
-      'ui_ux_design',        // Stage 3
-      'client_approval'      // Stage 4
+      'ui_ux_design',        // Client 3
+      'client_approval'      // Client 4
     ],
-    // 3. Engineering Group: Handles Code, QA & Launch
+    // 4. Engineering Group: Code, QA & Launch
     'Developer & Engineering Team': [
-      'development',         // Stage 5
-      'qa_testing',          // Stage 6
-      'deployment'           // Stage 8
+      'development',         // Client 5 / Shared
+      'qa_testing',          // Client 6
+      'deployment'           // Client 8
     ],
-    // 4. Internal SaaS (Fallback)
-    'Business Strategy & Marketing Team': ['business', 'marketing'],
+    // 5. Marketing & Business: Strategy & Sales
+    'Business Strategy & Marketing Team': [
+      'business',            // Internal 3
+      'marketing'            // Internal 4
+    ],
   };
 
   const getTeamForStage = (stageName: string): Designation | null => {
@@ -142,7 +151,7 @@ export default function ProjectWorkspacePage() {
           <div className="max-w-5xl mx-auto w-full pt-4 md:pt-10">
              <div className="text-center mb-8 md:mb-16">
                 <div className="inline-block px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6 shadow-inner transition-colors duration-500 bg-indigo-500/15 border-indigo-500/30 text-indigo-400">
-                  {project.project_type === 'client' ? 'Client Solutions Track' : 'Internal Ventures Track'}
+                  {project.project_type === 'client' ? 'Client Project Track' : 'Internal Project Track'}
                 </div>
                 <h1 className="text-2xl md:text-5xl font-black text-white mb-2 md:mb-4 tracking-tight flex items-center justify-center gap-2 md:gap-3">
                   <Sparkles className={`h-5 w-5 md:h-8 md:w-8 animate-pulse ${project.project_type === 'client' ? 'text-emerald-500' : 'text-[#f59e0b]'}`} />
@@ -162,6 +171,17 @@ export default function ProjectWorkspacePage() {
                     isHighlighted={highlightedTeam === 'Client Success & Accounts Team'}
                     onClick={() => setSelectedTeam('Client Success & Accounts Team')}
                     colorClass="amber"
+                  />
+                )}
+                {/* 2. Innovation Room: Only for Internal Ventures */}
+                {requiredTeams.includes('Innovation & Research Team') && (
+                  <TeamCard
+                    name="Innovation Lab"
+                    icon={<Sparkles className="h-7 w-7 md:h-8 md:w-8 text-cyan-400" />}
+                    description="Ideation, research and prototype development."
+                    isHighlighted={highlightedTeam === 'Innovation & Research Team'}
+                    onClick={() => setSelectedTeam('Innovation & Research Team')}
+                    colorClass="cyan"
                   />
                 )}
                 {/* 3. Visuals: Design & UX */}
@@ -186,7 +206,18 @@ export default function ProjectWorkspacePage() {
                     colorClass="indigo"
                   />
                 )}
-             </div>
+                {/* 5. Business & Marketing */}
+                {requiredTeams.includes('Business Strategy & Marketing Team') && (
+                  <TeamCard
+                    name="Marketing Room"
+                    icon={<Users className="h-7 w-7 md:h-8 md:w-8 text-emerald-400" />}
+                    description="Business strategy and market entry."
+                    isHighlighted={highlightedTeam === 'Business Strategy & Marketing Team'}
+                    onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
+                    colorClass="emerald"
+                  />
+                )}
+              </div>
           </div>
         </div>
       </div>
@@ -293,6 +324,7 @@ export default function ProjectWorkspacePage() {
                    key={stage.id}
                    project={project}
                    stage={stage}
+                   logs={logs}
                    tools={selectedTeam ? teamTools[selectedTeam] : []}
                    onUpdate={() => fetchData(project.id)}
                    designation={user?.designation || selectedTeam || 'Innovation Team'}

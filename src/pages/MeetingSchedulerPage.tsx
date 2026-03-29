@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
 import { 
   Plus, 
   Calendar, 
@@ -18,6 +17,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/Toast';
+import { dataService } from '@/services/dataService';
 
 interface Meeting {
   id: string;
@@ -52,23 +52,10 @@ export default function MeetingSchedulerPage() {
   }, [user?.workspace_id]);
 
   const fetchMeetings = async () => {
+    if (!user?.workspace_id) return;
     try {
-      const { data, error } = await supabase
-        .from('meetings')
-        .select('*')
-        .eq('workspace_id', user?.workspace_id)
-        .order('scheduled_at', { ascending: true });
-
-      if (error) {
-        // If table doesn't exist yet, we'll handle gracefully
-        if (error.code === 'PGRST116' || error.message.includes('not found')) {
-           setMeetings([]);
-        } else {
-           throw error;
-        }
-      } else {
-        setMeetings(data || []);
-      }
+      const data = await dataService.getMeetings(user.workspace_id);
+      setMeetings(data || []);
     } catch (err) {
       console.error('Fetch meetings failed', err);
     } finally {
@@ -81,15 +68,11 @@ export default function MeetingSchedulerPage() {
     if (!user?.workspace_id) return;
 
     try {
-      const { error } = await supabase
-        .from('meetings')
-        .insert({
-          ...formData,
-          workspace_id: user.workspace_id,
-          created_by: user.id
-        });
-
-      if (error) throw error;
+      await dataService.createMeeting({
+        ...formData,
+        workspace_id: user.workspace_id,
+        created_by: user.id
+      });
 
       toast.success('Meeting Scheduled Successfully');
       setIsModalOpen(false);
@@ -97,15 +80,14 @@ export default function MeetingSchedulerPage() {
       fetchMeetings();
     } catch (err) {
       console.error(err);
-      toast.error('Failed to schedule meeting. Ensure you have created the "meetings" table in Supabase.');
+      toast.error('Failed to schedule meeting.');
     }
   };
 
   const handleDeleteMeeting = async (id: string) => {
     if (!window.confirm('Cancel this meeting?')) return;
     try {
-      const { error } = await supabase.from('meetings').delete().eq('id', id);
-      if (error) throw error;
+      await dataService.deleteMeeting(id);
       setMeetings(prev => prev.filter(m => m.id !== id));
       toast.success('Meeting Cancelled');
     } catch (err) {

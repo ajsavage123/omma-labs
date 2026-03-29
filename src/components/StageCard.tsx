@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { Project, ProjectStage, StageName } from '@/types';
-import { ExternalLink, Plus, Send, FileText, Search, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, Globe, Layers, Wind, PenTool, Layout } from 'lucide-react';
+import type { Project, ProjectStage, StageName, TimelineLog } from '@/types';
+import { ExternalLink, Plus, Send, FileText, Search, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, Globe, Layers, Wind, PenTool, Layout, Users, AlertOctagon } from 'lucide-react';
 import { projectService } from '@/services/projectService';
 
 interface StageCardProps {
@@ -11,6 +11,7 @@ interface StageCardProps {
   designation: string;
   isOwner?: boolean;
   onToast?: (msg: string, type: 'success' | 'error' | 'info') => void;
+  logs?: TimelineLog[];
 }
 
 const TOOL_ICONS: Record<string, any> = {
@@ -56,20 +57,54 @@ const STAGE_LABEL_MAP: Record<string, string> = {
 };
 
 const STAGE_DELIVERABLES: Record<string, string[]> = {
-  ideology: ['Concept Document', 'Initial Sketches', 'Mind Maps'],
-  research: ['Market Research Report', 'Competitor Analysis', 'Feasibility Study'],
+  ideology: ['Core Concept Doc', 'Feature Mindmap', 'Initial Sketches'],
+  research: ['Market Research Report', 'Competitor Analysis', 'Feasibility Doc'],
   development: ['Technical Architecture', 'API Documentation', 'Source Code Repo'],
   deployment: ['Deployment Guide', 'Infrastructure Diagram', 'QA Test Results'],
   business: ['Business Model Canvas', 'Pricing Model', 'Pitch Deck'],
   marketing: ['Marketing Strategy', 'Campaign Plans', 'Customer Acquisition Funnel'],
   admin_review: ['Final Project Summary', 'Innovation Scoring Sheet'],
-  discovery: ['Client Brief', 'Project Scope', 'Requirements Doc'],
+  discovery: ['Client Brief (Save to Drive)', 'Project Scope (Save to Drive)', 'Requirements Doc (Save to Drive)'],
   proposals_contracts: ['Cost Estimate (Quote)', 'SLA Agreement', 'Signed Contract'],
   ui_ux_design: ['Wireframes', 'Interactive Prototype', 'Design System'],
   client_approval: ['Final UI Sign-off', 'Feedback Revisions', 'Assets Exported'],
   qa_testing: ['Test Cases', 'Bug Reports', 'Performance Audit'],
   client_uat: ['Client Feedback', 'Beta Access', 'Client Sign-off Form'],
   maintenance_support: ['Handover Documentation', 'Support Contacts', 'Server Monitoring'],
+};
+
+const STAGE_MISSIONS: Record<string, string> = {
+  ideology: 'Refine the core "Why" and define the primary problem the venture aims to solve.',
+  research: 'Validate the market gap, analyze competitors, and verify technical feasibility.',
+  development: 'Build the functional product/MVP using the latest modern engineering standards.',
+  deployment: 'Propel the code into production and ensure a stable, scalable environment.',
+  business: 'Construct the revenue engine, pricing model, and long-term business strategy.',
+  marketing: 'Establish brand dominance and execute the first customer acquisition campaign.',
+  admin_review: 'Internal quality control to ensure the project meets firm excellence standards.',
+  discovery: 'Deep-dive into client needs to establish a solid foundation and clear scope.',
+  proposals_contracts: 'Formalize the engagement terms, budgeting, and legal agreements.',
+  ui_ux_design: 'Craft a premium visual experience that translates requirements into an interface.',
+  client_approval: 'Iterate with the client until every visual detail is signed-off and approved.',
+  qa_testing: 'Systematic testing to eliminate bugs and ensure maximum software reliability.',
+  client_uat: 'Allow the client to test the product in a real-world environment before launch.',
+  maintenance_support: 'Provide ongoing stability, performance updates, and technical support.',
+};
+
+const STAGE_ROLES: Record<string, string> = {
+  ideology: 'Innovation Team brainstorms; Partners define the long-term vision.',
+  research: 'Research Team validates market data; Engineering provides technical feasibility checks.',
+  development: 'Engineering Team leads coding; Design Team ensures UI fidelity is maintained.',
+  deployment: 'DevOps & Engineering orchestrate the launch; Admin monitors server stability.',
+  business: 'Business Strategy Team defines RevOps; Partners approve the financial models.',
+  marketing: 'Marketing Team executes campaigns; Creative Team handles brand assets.',
+  admin_review: 'Partners & Admin perform the final "Go/No-Go" evaluation.',
+  discovery: 'Client Success Leads gather requirements; Admin estimates initial resource needs.',
+  proposals_contracts: 'Legal & Finance handle contracts; Client Success presents the roadmap.',
+  ui_ux_design: 'Product Designers create layouts; Engineering reviews for technical constraints.',
+  client_approval: 'Client Success manages communications; Design iterates based on feedback.',
+  qa_testing: 'QA Engineers run test suites; Developers fix identified bottlenecks.',
+  client_uat: 'Client Success monitors user testing; Engineering addresses final refinements.',
+  maintenance_support: 'Accounts Team manages the relationship; Engineering provides on-call support.',
 };
 
 const NEXT_TEAM_LABEL: Record<string, string> = {
@@ -116,7 +151,7 @@ const businessSubPanels = [
   },
 ];
 
-export function StageCard({ project, stage, tools, onUpdate, designation, isOwner = true, onToast }: StageCardProps) {
+export function StageCard({ project, stage, tools, onUpdate, designation, isOwner = true, onToast, logs }: StageCardProps) {
   const [updateText, setUpdateText] = useState('');
   const [githubUrl, setGithubUrl] = useState(project.github_link || '');
   const [loading, setLoading] = useState(false);
@@ -124,6 +159,12 @@ export function StageCard({ project, stage, tools, onUpdate, designation, isOwne
   const stageLabel = STAGE_LABEL_MAP[stage.stage_name] ?? stage.stage_name;
   const isActive = stage.status === 'in_progress';
   const isCompleted = stage.status === 'completed';
+
+  // Find latest admin revert for this stage
+  const revertLog = logs?.find(l => 
+    l.stage === stage.stage_name && 
+    l.update_text.includes('⚠️ Admin sent project back to')
+  );
 
   const handleLogActivity = async () => {
     if (!updateText.trim() || !project.workspace_id) return;
@@ -226,6 +267,23 @@ export function StageCard({ project, stage, tools, onUpdate, designation, isOwne
       </div>
 
       <div className="p-4 md:p-6 space-y-4 md:space-y-6 flex-1 flex flex-col">
+        {/* Quick Brief: Mission of the stage */}
+        <div className="p-3 md:p-4 bg-indigo-500/5 rounded-xl md:rounded-2xl border border-indigo-500/10 mb-4">
+          <p className="text-[9px] md:text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+             <Layout className="h-3 w-3" /> Mission Goal
+          </p>
+          <p className="text-[11px] md:text-[13px] text-gray-200 font-bold leading-relaxed mb-4">
+            {STAGE_MISSIONS[stage.stage_name] || "Continue refining the project output and maintain standard excellence."}
+          </p>
+
+          <p className="text-[9px] md:text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5 pt-2 border-t border-indigo-500/10">
+             <Users className="h-3 w-3" /> Active Roles
+          </p>
+          <p className="text-[11px] md:text-[12px] text-gray-400 font-bold leading-relaxed">
+            {STAGE_ROLES[stage.stage_name] || "All team members contribute to this milestone."}
+          </p>
+        </div>
+
         {/* Business sub-panels */}
         {stage.stage_name === 'business' && (
           <div className="space-y-2">
@@ -239,6 +297,19 @@ export function StageCard({ project, stage, tools, onUpdate, designation, isOwne
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Admin Feedback / Revert Reason */}
+        {isActive && revertLog && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl border-l-[6px] border-l-amber-500 animate-pulse">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertOctagon className="h-4 w-4 text-amber-500" />
+              <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Admin Rework Required</span>
+            </div>
+            <p className="text-[12px] text-amber-200 font-bold leading-relaxed italic">
+              "{revertLog.update_text.split('Feedback:')[1]?.trim() || 'Please review and redo this stage.'}"
+            </p>
           </div>
         )}
 

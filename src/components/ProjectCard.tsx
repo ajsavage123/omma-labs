@@ -33,12 +33,16 @@ const stageColor: Record<string, string> = {
 export function ProjectCard({ project, onEdit, canEdit }: ProjectCardProps) {
   const navigate = useNavigate();
   const stages = project.project_stages || [];
-  const orderedStages: StageName[] = ['ideology', 'research', 'development', 'deployment', 'business', 'admin_review'];
-  const completedCount = stages.filter(s => s.status === 'completed').length;
-  const totalStages = 6;
+  const isInternal = project.project_type === 'internal';
+  const orderedStages: StageName[] = isInternal 
+    ? ['ideology', 'research', 'business', 'marketing', 'admin_review']
+    : ['discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support'];
+    
+  const completedCount = stages.filter((s: ProjectStage) => s.status === 'completed').length;
+  const totalStages = orderedStages.length;
   const progress = Math.round((completedCount / totalStages) * 100);
 
-  const currentStage = stages.find(s => s.status === 'in_progress');
+  const currentStage = stages.find((s: ProjectStage) => s.status === 'in_progress');
   const currentKey = currentStage?.stage_name || (completedCount === totalStages ? 'completed' : 'pending');
   let accentColor = stageColor[currentKey] || '#10b981';
 
@@ -58,7 +62,6 @@ export function ProjectCard({ project, onEdit, canEdit }: ProjectCardProps) {
       <div className="h-[3px] w-full flex-shrink-0" style={{ background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})` }} />
 
       <div className="flex flex-col gap-0 p-5 md:p-7 flex-1">
-        {/* Header */}
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1 mr-2 min-w-0">
              <h3 className="text-xl md:text-2xl font-black text-white tracking-tight truncate">{project.name}</h3>
@@ -138,7 +141,7 @@ export function ProjectCard({ project, onEdit, canEdit }: ProjectCardProps) {
 
         <div className="flex gap-[5px] mb-4">
           {orderedStages.map(name => {
-            const s = stages.find(x => x.stage_name === name);
+            const s = stages.find((x: ProjectStage) => x.stage_name === name);
             return (
               <div key={name} className="flex-1 h-[5px] rounded-full"
                 style={{ backgroundColor: s?.status === 'completed' || s?.status === 'in_progress' ? accentColor : '#1e1e2d' }} />

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { ChevronLeft, Book, Plus, ExternalLink, Trash2, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { dataService } from '@/services/dataService';
 
 interface DocumentEntry {
   id: string;
@@ -33,13 +33,7 @@ export default function LibraryPage() {
   const fetchDocs = async () => {
     if (!user?.workspace_id) return;
     try {
-      const { data, error } = await supabase
-        .from('library_docs')
-        .select('*')
-        .eq('workspace_id', user.workspace_id)
-        .order('created_at', { ascending: false });
-        
-      if (error) throw error;
+      const data = await dataService.getLibraryDocs(user.workspace_id);
       setDocs(data || []);
     } catch (err: any) {
       console.error('Failed to load library docs', err);
@@ -57,18 +51,12 @@ export default function LibraryPage() {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('library_docs')
-        .insert([{
-           name: newName,
-           url: formattedUrl,
-           workspace_id: user.workspace_id,
-           created_by: user.id
-        }])
-        .select()
-        .single();
-        
-      if (error) throw error;
+      const data = await dataService.addLibraryDoc({
+         name: newName,
+         url: formattedUrl,
+         workspace_id: user.workspace_id,
+         created_by: user.id
+      });
       
       setDocs(prev => [data as DocumentEntry, ...prev]);
       setIsModalOpen(false);
@@ -76,22 +64,18 @@ export default function LibraryPage() {
       setNewUrl('');
     } catch (err: any) {
       console.error('Failed to add document', err);
-      alert('Failed to add document to database');
+      alert('Failed to add document');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this document permanently?')) {
       try {
-        const { error } = await supabase
-          .from('library_docs')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
+        await dataService.deleteLibraryDoc(id);
         setDocs(prev => prev.filter(d => d.id !== id));
       } catch (err: any) {
         console.error('Failed to delete doc', err);
-        alert('Failed to delete document from database');
+        alert('Failed to delete document');
       }
     }
   };

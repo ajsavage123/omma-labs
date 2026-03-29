@@ -1,8 +1,13 @@
 import { supabase } from '@/lib/supabase';
+import { queryCache } from '@/utils/cache';
 import type { AdminRating, ProjectStatus, Project, ProjectStage, User, Invitation } from '@/types';
+import { MOCK_MODE } from '@/lib/mockMode';
+import { mockStorage } from '@/utils/mockStorage';
 
 export const adminService = {
   async getAdminStats() {
+    if (MOCK_MODE) return { activeProjects: 0, researchCount: 0, developmentCount: 0, launchCount: 0, mostActiveTeam: 'Mock Team' };
+
     const { data: projects, error } = await supabase.from('projects').select('*, project_stages(*)') as { data: (Project & { project_stages: ProjectStage[] })[] | null, error: any };
     if (error) throw error;
     if (!projects) return { activeProjects: 0, researchCount: 0, developmentCount: 0, launchCount: 0, mostActiveTeam: 'None' };
@@ -42,6 +47,7 @@ export const adminService = {
       .single();
 
     if (error) throw error;
+    queryCache.invalidate(`project_${rating.project_id}`);
     return data;
   },
 
@@ -69,19 +75,37 @@ export const adminService = {
       stage: 'admin_review',
       update_text: `Admin Decision: ${status.toUpperCase()}. Feedback: ${feedback}`
     });
+    
+    queryCache.invalidate('projects_list');
+    queryCache.invalidate(`project_${projectId}`);
+    queryCache.invalidate('logs_all');
+    queryCache.invalidate(`logs_${projectId}`);
   },
 
   // --- Team Management Functions ---
   
   async getTeamMembers(workspaceId: string) {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .order('created_at', { ascending: false });
+    if (MOCK_MODE) return [mockStorage.getMockUser()];
 
-    if (error) throw error;
-    return data as User[];
+    const cacheKey = `members_${workspaceId}`;
+    const cachedData = queryCache.get<User[]>(cacheKey, 60000);
+    if (cachedData) return cachedData;
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, full_name, designation, role, workspace_id, created_at')
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      const result = data as User[];
+      queryCache.set(cacheKey, result);
+      return result;
+    } catch (err) {
+      console.error('adminService.getTeamMembers failed:', err);
+      throw err;
+    }
   },
 
   async getActiveInvitations(workspaceId: string) {
@@ -116,6 +140,7 @@ export const adminService = {
       .single();
 
     if (error) throw error;
+    queryCache.invalidate(`invitations_${workspaceId}`);
     return data as Invitation;
   },
 
@@ -185,5 +210,8 @@ export const adminService = {
         .update({ status: 'active' })
         .eq('id', projectId);
     }
+    
+    queryCache.invalidate('projects_list');
+    queryCache.clear(); // Code Red affects many projects, easier to clear
   }
 };

@@ -322,7 +322,7 @@ export default function DashboardPage() {
                     onClick={() => setStatusFilter(status as any)} 
                     className={`px-4 py-2.5 rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === status ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-[#18181e] text-gray-500 border border-white/5 hover:border-indigo-500/30'}`}
                   >
-                    {status === 'internal' ? 'Internal Ventures' : status === 'client' ? 'Client Solutions' : status.replace('_', ' ')}
+                    {status === 'internal' ? 'Internal Project' : status === 'client' ? 'Client Project' : status.replace('_', ' ')}
                   </button>
                 ))}
               </div>
@@ -461,14 +461,14 @@ export default function DashboardPage() {
                       onClick={() => setNewProjectType('internal')}
                       className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all z-10 ${newProjectType === 'internal' ? 'text-white bg-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
                     >
-                      Internal Ventures
+                      Internal Project
                     </button>
                     <button 
                       type="button"
                       onClick={() => setNewProjectType('client')}
                       className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all z-10 ${newProjectType === 'client' ? 'text-white bg-emerald-600 shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
                     >
-                      Client Solutions
+                      Client Project
                     </button>
                   </div>
                 )}

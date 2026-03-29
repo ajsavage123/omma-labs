@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { queryCache } from '@/utils/cache';
 import { MessageSquare, X, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import type { ChatMessage } from '@/types';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/Toast';
 import { notificationService } from '@/utils/notificationService';
+import { MOCK_MODE } from '@/lib/mockMode';
+import { mockStorage } from '@/utils/mockStorage';
 
 export default function ChatWidget() {
   const { user } = useAuth();
@@ -29,19 +32,39 @@ export default function ChatWidget() {
     cleanupOldMessages();
     notificationService.requestPermission();
 
+    if (MOCK_MODE) return;
+
     const subscription = supabase
       .channel('public:chat_messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload: any) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, async (payload: any) => {
         const newMsg = payload.new as ChatMessage;
         
+        // Handle unread count and toast
         if (newMsg.user_id !== user?.id) {
           if (!isOpenRef.current) {
             setUnreadCount((prev: number) => prev + 1);
-            // Show pop-up notification
             toast.info(`New message from teammate`);
           }
         }
-        fetchMessages();
+
+        // Fetch user data for this message from cache or DB
+        let userData = queryCache.get<any>(`user_profile_${newMsg.user_id}`, 3600000); // 1 hour cache
+        if (!userData) {
+          const { data } = await supabase
+            .from('users')
+            .select('username, full_name, designation')
+            .eq('id', newMsg.user_id)
+            .single();
+          userData = data;
+          if (data) queryCache.set(`user_profile_${newMsg.user_id}`, data);
+        }
+
+        const msgWithUser = { ...newMsg, users: userData };
+        setMessages(prev => {
+          // Double check for duplicates
+          if (prev.find(m => m.id === newMsg.id)) return prev;
+          return [...prev, msgWithUser];
+        });
       })
       .subscribe();
 
@@ -136,6 +159,7 @@ export default function ChatWidget() {
   }, [messages, user?.id]);
 
    const cleanupOldMessages = async () => {
+    if (MOCK_MODE) return;
     try {
       const fiveDaysAgo = new Date();
       fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
@@ -153,15 +177,15 @@ export default function ChatWidget() {
   };
 
   const fetchMessages = async () => {
-    const fiveDaysAgo = new Date();
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-
+    if (MOCK_MODE) {
+      setMessages(mockStorage.getMessages());
+      return;
+    }
     const { data, error } = await supabase
       .from('chat_messages')
-      .select('*, users(username, full_name, designation)')
-      .gte('created_at', fiveDaysAgo.toISOString())
+      .select('id, message, user_id, created_at, users(username, full_name, designation)')
       .order('created_at', { ascending: true })
-      .limit(100);
+      .limit(50);
       
     if (data && !error) {
       setMessages(data as unknown as ChatMessage[]);
@@ -171,6 +195,24 @@ export default function ChatWidget() {
   const sendMessage = async (e: FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !user) return;
+
+    if (MOCK_MODE) {
+      const newMsg: ChatMessage = {
+        id: Math.random().toString(36).substring(2, 9),
+        user_id: user.id,
+        message: newMessage.trim(),
+        created_at: new Date().toISOString(),
+        users: {
+          username: user.username,
+          full_name: user.full_name || user.username,
+          designation: user.designation
+        }
+      };
+      mockStorage.addMessage(newMsg);
+      setMessages(prev => [...prev, newMsg]);
+      setNewMessage('');
+      return;
+    }
 
     setLoading(true);
     try {

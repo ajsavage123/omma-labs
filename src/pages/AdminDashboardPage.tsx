@@ -15,7 +15,8 @@ import {
   XCircle,
   RefreshCcw,
   AlertTriangle,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
@@ -57,6 +58,10 @@ export default function AdminDashboardPage() {
   });
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Send Back State
+  const [showSendBack, setShowSendBack] = useState(false);
+  const [sendBackStage, setSendBackStage] = useState<string>('');
 
   useEffect(() => {
     if (user?.workspace_id) {
@@ -165,6 +170,8 @@ export default function AdminDashboardPage() {
       await adminService.updateProjectStatus(selectedProject.id, status, notes);
       setSelectedProject(null);
       setNotes('');
+      setShowSendBack(false);
+      setSendBackStage('');
       setRatings({
         problem_importance: 5,
         technical_feasibility: 5,
@@ -176,6 +183,30 @@ export default function AdminDashboardPage() {
     } catch (err: any) {
       console.error(err);
       setActionError(err.message || "Failed to submit evaluation. Please make sure all data is correct and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSendBack = async () => {
+    if (!selectedProject || !sendBackStage || !selectedProject.workspace_id) return;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await projectService.sendBackToStage(
+        selectedProject.id,
+        selectedProject.workspace_id,
+        sendBackStage as any,
+        notes,
+        selectedProject.project_type
+      );
+      setSelectedProject(null);
+      setNotes('');
+      setShowSendBack(false);
+      setSendBackStage('');
+      fetchData();
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to send back project.');
     } finally {
       setSubmitting(false);
     }
@@ -329,25 +360,26 @@ export default function AdminDashboardPage() {
                                 </span>
                               </td>
                                <td className="px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                  {isAdminReview ? (
+                                 <div className="flex items-center gap-3">
                                     <button
                                       onClick={() => {
                                         setSelectedProject(project);
                                         setActionError(null);
                                       }}
-                                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 font-semibold transition-colors text-xs border border-indigo-500/20"
+                                      className={`inline-flex items-center px-3 py-1.5 rounded-lg font-semibold transition-colors text-xs border ${
+                                        isAdminReview 
+                                          ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-indigo-500/20' 
+                                          : 'bg-white/5 text-gray-400 hover:bg-white/10 border-white/10'
+                                      }`}
                                     >
-                                      Review
+                                      {isAdminReview ? 'Review' : 'Manage'}
                                     </button>
-                                  ) : (
                                     <button
                                       onClick={() => navigate(`/project/${project.id}`)}
                                       className="text-gray-500 hover:text-gray-300 transition-colors text-xs font-medium"
                                     >
                                       View
                                     </button>
-                                  )}
                                   <button
                                     onClick={() => handleToggleCodeRed(project)}
                                     className={`p-1.5 transition-colors rounded-lg flex items-center justify-center ${project.status === 'code_red' ? 'bg-red-500 text-white shadow-[0_0_10px_rgba(220,38,38,0.5)]' : 'text-gray-600 hover:text-red-500 hover:bg-red-500/10'}`}
@@ -382,10 +414,24 @@ export default function AdminDashboardPage() {
                       selectedProject.status === 'code_red' ? 'from-red-600 via-red-500 to-red-600' : 'from-indigo-500 via-blue-500 to-purple-500'
                     }`}></div>
                     
-                    <div className="bg-gradient-to-br from-indigo-900/50 to-blue-900/20 p-6 border-b border-white/5">
-                      <div className="flex items-center justify-between mb-2">
-                         <h3 className="font-bold text-lg text-white">Project Evaluation</h3>
-                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase tracking-wider">Review Mode</span>
+                    <div className="bg-gradient-to-br from-indigo-900/50 to-blue-900/20 p-6 border-b border-white/5 relative">
+                      <button 
+                        onClick={() => setSelectedProject(null)} 
+                        className="absolute top-4 right-4 p-1.5 text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all active:scale-95"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <div className="flex items-center justify-between mb-2 pr-8">
+                         <h3 className="font-bold text-lg text-white">
+                           {selectedProject.project_stages?.find(s => s.status === 'in_progress')?.stage_name === 'admin_review' 
+                             ? 'Project Evaluation' 
+                             : 'Project Management'}
+                         </h3>
+                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase tracking-wider">
+                           {selectedProject.project_stages?.find(s => s.status === 'in_progress')?.stage_name === 'admin_review' 
+                             ? 'Review Mode' 
+                             : 'Management Mode'}
+                         </span>
                       </div>
                       <p className="text-gray-400 text-sm">{selectedProject.name}</p>
                     </div>
@@ -401,7 +447,7 @@ export default function AdminDashboardPage() {
 
                       {/* Radar Chart */}
                       <div className="h-52 w-full mb-6 bg-black/20 rounded-xl border border-white/5 pt-4 pb-2 shadow-inner">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={10} minHeight={10}>
                           <RadarChart cx="50%" cy="50%" outerRadius="75%" data={[
                             { subject: 'Importance', A: ratings.problem_importance, fullMark: 10 },
                             { subject: 'Feasibility', A: ratings.technical_feasibility, fullMark: 10 },
@@ -443,24 +489,80 @@ export default function AdminDashboardPage() {
                       </div>
 
                       <div className="grid grid-cols-1 gap-3">
-                        <button
-                          onClick={() => handleAdminAction('completed')}
-                          disabled={submitting}
-                          className="group flex items-center justify-center p-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl font-bold hover:from-indigo-500 hover:to-blue-500 shadow-lg shadow-indigo-500/25 disabled:opacity-50 transition-all"
-                        >
-                          {submitting ? (
-                            <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          ) : (
-                            <><CheckCircle2 className="mr-2 h-5 w-5 text-indigo-200 group-hover:text-white transition-colors" /> Approve Product</>
+                        {selectedProject.project_stages?.find(s => s.status === 'in_progress')?.stage_name === 'admin_review' && (
+                          <button
+                            onClick={() => handleAdminAction('completed')}
+                            disabled={submitting}
+                            className="group flex items-center justify-center p-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl font-bold hover:from-indigo-500 hover:to-blue-500 shadow-lg shadow-indigo-500/25 disabled:opacity-50 transition-all"
+                          >
+                            {submitting ? (
+                              <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                              <><CheckCircle2 className="mr-2 h-5 w-5 text-indigo-200 group-hover:text-white transition-colors" /> Approve Product</>
+                            )}
+                          </button>
+                        )}
+                        {/* Send Back to Stage — Expandable */}
+                        <div className="border border-amber-500/20 rounded-xl overflow-hidden">
+                          <button
+                            onClick={() => { setShowSendBack(!showSendBack); setSendBackStage(''); }}
+                            className="w-full flex items-center justify-between p-3.5 bg-amber-500/5 hover:bg-amber-500/10 text-amber-400 font-bold transition-all text-sm"
+                          >
+                            <div className="flex items-center gap-2">
+                              <RefreshCcw className="h-4 w-4" />
+                              Send Back to Stage
+                            </div>
+                            <span className="text-[10px] uppercase tracking-widest text-amber-500/60">{showSendBack ? 'Cancel ↑' : 'Pick Stage ↓'}</span>
+                          </button>
+
+                          {showSendBack && (
+                            <div className="p-4 bg-black/20 border-t border-amber-500/10 space-y-3">
+                              <p className="text-[9px] font-black text-amber-400/70 uppercase tracking-widest">Select the stage to rollback to:</p>
+                              <select
+                                value={sendBackStage}
+                                onChange={(e) => setSendBackStage(e.target.value)}
+                                className="w-full bg-black/40 border border-amber-500/20 rounded-lg p-2.5 text-sm text-gray-200 outline-none focus:border-amber-500/50"
+                              >
+                                <option value="">-- Choose Stage --</option>
+                                {(selectedProject.project_type === 'client'
+                                  ? [
+                                      ['discovery', 'Client Discovery'],
+                                      ['proposals_contracts', 'Contracts & Proposals'],
+                                      ['ui_ux_design', 'UI/UX Design'],
+                                      ['client_approval', 'Client Approval'],
+                                      ['development', 'Development'],
+                                      ['qa_testing', 'QA & Testing'],
+                                      ['client_uat', 'Client UAT'],
+                                      ['deployment', 'Deployment'],
+                                      ['maintenance_support', 'Maintenance & Support'],
+                                      ['admin_review', 'Admin Review'],
+                                    ]
+                                  : [
+                                      ['ideology', 'Ideology & Concept'],
+                                      ['research', 'Research'],
+                                      ['development', 'Development'],
+                                      ['deployment', 'Deployment'],
+                                      ['business', 'Business Strategy'],
+                                      ['marketing', 'Marketing'],
+                                      ['admin_review', 'Admin Review'],
+                                    ]
+                                ).map(([val, label]) => (
+                                  <option key={val} value={val}>{label}</option>
+                                ))}
+                              </select>
+
+                              <button
+                                onClick={handleSendBack}
+                                disabled={submitting || !sendBackStage}
+                                className="w-full flex items-center justify-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl font-bold text-sm hover:bg-amber-500/20 disabled:opacity-40 transition-all"
+                              >
+                                <RefreshCcw className="h-4 w-4" />
+                                {submitting ? 'Sending Back...' : `Return to ${sendBackStage ? (sendBackStage.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) : 'Stage'}`}
+                              </button>
+                            </div>
                           )}
-                        </button>
-                        <button
-                          onClick={() => handleAdminAction('active')}
-                          disabled={submitting}
-                          className="flex items-center justify-center p-3.5 bg-[#1f2937]/50 border border-indigo-500/30 text-indigo-300 rounded-xl font-bold hover:bg-indigo-500/10 hover:border-indigo-500/50 hover:text-indigo-200 disabled:opacity-50 transition-all"
-                        >
-                          <RefreshCcw className="mr-2 h-5 w-5" /> Return for Improvements
-                        </button>
+                        </div>
+
                         <button
                           onClick={() => handleAdminAction('rejected')}
                           disabled={submitting}

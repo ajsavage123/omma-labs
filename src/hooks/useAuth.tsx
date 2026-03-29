@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { MOCK_MODE } from '@/lib/mockMode';
+import { mockStorage } from '@/utils/mockStorage';
 
 // Define an extended User type that includes workspaceName for convenience in the UI
 export interface AuthenticatedUser extends User {
@@ -25,6 +27,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Get initial session
+    if (MOCK_MODE) {
+      const mockUser = mockStorage.getMockUser();
+      setUser({ ...mockUser, workspaceName: 'Ooma Mock Space' });
+      setSupabaseUser({ id: mockUser.id, email: 'mock@ooma.ai' } as any);
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSupabaseUser(session?.user ?? null);
       if (session?.user) {
