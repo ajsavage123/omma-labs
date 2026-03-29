@@ -8,6 +8,7 @@ import type { ChatMessage } from '@/types';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/Toast';
 import { notificationService } from '@/utils/notificationService';
+import { projectService } from '@/services/projectService';
 import { MOCK_MODE } from '@/lib/mockMode';
 import { mockStorage } from '@/utils/mockStorage';
 
@@ -29,7 +30,7 @@ export default function ChatWidget() {
 
   useEffect(() => {
     fetchMessages();
-    cleanupOldMessages();
+    projectService.cleanupOldMessages();
     notificationService.requestPermission();
 
     if (MOCK_MODE) return;
@@ -158,23 +159,7 @@ export default function ChatWidget() {
     }
   }, [messages, user?.id]);
 
-   const cleanupOldMessages = async () => {
-    if (MOCK_MODE) return;
-    try {
-      const fiveDaysAgo = new Date();
-      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-      
-      // Real deletion from the database
-      const { error } = await supabase
-        .from('chat_messages')
-        .delete()
-        .lt('created_at', fiveDaysAgo.toISOString());
-        
-      if (error) console.error('Cleanup error:', error);
-    } catch (e) {
-      console.error('Failed to cleanup messages:', e);
-    }
-  };
+
 
   const fetchMessages = async () => {
     if (MOCK_MODE) {

@@ -164,19 +164,27 @@ export const projectService = {
 
     const stages = projectType === 'client' ? clientStages : internalStages;
 
-    // IMPORTANT FIX: In case the live database has a hidden 'AFTER INSERT' trigger auto-generating legacy internal stages, 
-    // we must fiercely delete them here first before injecting our optimized dual-track arrays!
+    // 1. Try to delete the rogue stages if possible (RLS may block this silently)
     await supabase.from('project_stages').delete().eq('project_id', project.id);
 
-    const { error: stagesError } = await supabase
-      .from('project_stages')
-      .insert(stages);
+    // 2. Fetch what stages actually exist right now
+    const { data: existingStages } = await supabase.from('project_stages').select('stage_name').eq('project_id', project.id);
+    const existingNames = (existingStages || []).map(s => s.stage_name);
 
-    if (stagesError && stagesError.code !== '23505') {
-      console.error('Error inserting project stages:', stagesError);
-      throw stagesError;
-    } else if (stagesError?.code === '23505') {
-      console.warn('Stages already exist for this project, continuing safely.');
+    // 3. Filter out stages that the aggressive db trigger already created (like development, deployment)
+    const stagesToInsert = stages.filter(s => !existingNames.includes(s.stage_name as string));
+
+    if (stagesToInsert.length > 0) {
+      const { error: stagesError } = await supabase
+        .from('project_stages')
+        .insert(stagesToInsert);
+
+      if (stagesError && stagesError.code !== '23505') {
+        console.error('Error inserting extra project stages:', stagesError);
+        throw stagesError;
+      } else if (stagesError?.code === '23505') {
+        console.warn('Stages caught by unique constraint, continuing safely.');
+      }
     }
 
     // 3. Log Activity
@@ -372,6 +380,11 @@ export const projectService = {
   },
 
   async cleanupOldMessages() {
+    const now = Date.now();
+    const lastCleanup = Number(localStorage.getItem('last_chat_cleanup') || 0);
+    // Strict 24-hour rate limit on the client side so users don't burn database egress limits
+    if (now - lastCleanup < 86400000) return;
+
     const fiveDaysAgo = new Date();
     fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
     
@@ -382,6 +395,8 @@ export const projectService = {
       
     if (error) {
       console.error('Cleanup old messages failed:', error);
+    } else {
+      localStorage.setItem('last_chat_cleanup', now.toString());
     }
   }
 };
