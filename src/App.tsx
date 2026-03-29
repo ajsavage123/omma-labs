@@ -12,6 +12,7 @@ import ClientContactsPage from './pages/ClientContactsPage';
 import LibraryPage from './pages/LibraryPage';
 import MeetingSchedulerPage from './pages/MeetingSchedulerPage';
 import ProjectMembersPage from './pages/ProjectMembersPage';
+import LiveOfficePage from './pages/LiveOfficePage';
 import { InstallPWA } from '@/components/InstallPWA';
 import ChatWidget from '@/components/ChatWidget';
 import { notificationService } from '@/utils/notificationService';
@@ -61,6 +62,7 @@ function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/meetings" element={<MeetingSchedulerPage />} />
             <Route path="/directory" element={<ProjectMembersPage />} />
+            <Route path="/office" element={<LiveOfficePage />} />
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/contacts" element={<ClientContactsPage />} />
