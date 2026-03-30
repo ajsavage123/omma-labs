@@ -328,6 +328,7 @@ export default function ProjectWorkspacePage() {
                    tools={selectedTeam ? teamTools[selectedTeam] : []}
                    onUpdate={() => fetchData(project.id)}
                    designation={user?.designation || selectedTeam || 'Innovation Team'}
+                   role={user?.role}
                    isOwner={selectedTeam ? teamStages[selectedTeam]?.includes(stage.stage_name) : false}
                    onToast={(msg: string, type: 'success' | 'error' | 'info') => toast[type](msg)}
                  />

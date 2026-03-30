@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Project, ProjectStage, StageName, TimelineLog } from '@/types';
-import { ExternalLink, Plus, Send, FileText, Search, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, Globe, Layers, Wind, PenTool, Layout, Users, AlertOctagon } from 'lucide-react';
+import { ExternalLink, Plus, Send, FileText, Search, Github, TrendingUp, BarChart2, MessageCircle, CheckCircle2, Globe, Layers, Wind, PenTool, Layout, Users, AlertOctagon, Instagram, MessageSquare, Code2, Link, BookOpen, Sparkles } from 'lucide-react';
 import { projectService } from '@/services/projectService';
 
 interface StageCardProps {
@@ -9,6 +9,7 @@ interface StageCardProps {
   tools: { name: string, url: string }[];
   onUpdate: () => void | Promise<void>;
   designation: string;
+  role?: string;
   isOwner?: boolean;
   onToast?: (msg: string, type: 'success' | 'error' | 'info') => void;
   logs?: TimelineLog[];
@@ -37,6 +38,145 @@ const TOOL_ICONS: Record<string, any> = {
   'Stripe': <BarChart2 className="h-3 w-3" />,
   'DocuSign': <FileText className="h-3 w-3" />,
   'Spline': <Layers className="h-3 w-3" />,
+  'Instagram': <Instagram className="h-3 w-3" />,
+  'WhatsApp': <MessageSquare className="h-3 w-3" />,
+  'Notion': <Layout className="h-3 w-3" />,
+  'Google Meet': <Globe className="h-3 w-3" />,
+  'Quotation Generator': <FileText className="h-3 w-3" />,
+  'Client Contract Form': <Link className="h-3 w-3" />,
+  'Google Sites': <Globe className="h-3 w-3" />,
+  'Lovable': <Code2 className="h-3 w-3" />,
+  'CodeRabbit': <MessageSquare className="h-3 w-3" />,
+  'Developer Guide': <BookOpen className="h-3 w-3" />,
+  'Pricing and Tech Stacks List': <BarChart2 className="h-3 w-3" />,
+  'Client Requirement Form': <FileText className="h-3 w-3" />,
+  'Service Menu Card': <Layout className="h-3 w-3" />,
+  'Contact Directory': <Users className="h-3 w-3" />,
+  'Loom': <Wind className="h-3 w-3" />,
+  'Typeform': <FileText className="h-3 w-3" />,
+  'Sentry': <AlertOctagon className="h-3 w-3" />,
+  'Playwright': <CheckCircle2 className="h-3 w-3" />,
+  'DigitalOcean': <Globe className="h-3 w-3" />,
+  'Cloudflare': <Layers className="h-3 w-3" />,
+  'Slack': <MessageCircle className="h-3 w-3" />,
+  'Hotjar': <Search className="h-3 w-3" />,
+  'Meta Ads': <TrendingUp className="h-3 w-3" />,
+  'Google Analytics': <BarChart2 className="h-3 w-3" />,
+  'Midjourney': <Sparkles className="h-3 w-3" />,
+  'Pitch': <Layout className="h-3 w-3" />,
+  'Adobe Illustrator': <PenTool className="h-3 w-3" />,
+  'Ahrefs': <TrendingUp className="h-3 w-3" />,
+  'SEMrush': <BarChart2 className="h-3 w-3" />,
+  'Dribbble': <Globe className="h-3 w-3" />,
+  'Behance': <Layout className="h-3 w-3" />,
+  'Tailwind CSS': <Wind className="h-3 w-3" />,
+  'React Docs': <Code2 className="h-3 w-3" />,
+  'Next.js': <Globe className="h-3 w-3" />,
+  'QuickBooks': <BarChart2 className="h-3 w-3" />,
+};
+
+const STAGE_TOOLS_OVERRIDE: Record<string, { name: string, url: string, adminOnly?: boolean }[]> = {
+  // --- Client Track ---
+  discovery: [
+    { name: 'Google Meet', url: 'https://meet.google.com' },
+    { name: 'Notion', url: 'https://notion.so' },
+    { name: 'Instagram', url: 'https://instagram.com' },
+    { name: 'WhatsApp', url: 'https://whatsapp.com' },
+    { name: 'Contact Directory', url: '/contacts', adminOnly: true },
+    { name: 'Pricing and Tech Stacks List', url: 'https://docs.google.com/document/d/1tguGmxprvBTQUc66-46vW4GJI8QN6OD-/edit?usp=sharing&ouid=107863003854110664232&rtpof=true&sd=true' },
+    { name: 'Service Menu Card', url: '/service-menu' },
+    { name: 'Client Requirement Form', url: '/requirement-form' },
+    { name: 'Typeform', url: 'https://typeform.com' },
+    { name: 'Loom', url: 'https://loom.com' },
+  ],
+  proposals_contracts: [
+    { name: 'Quotation Generator', url: '/quotation' },
+    { name: 'Client Contract Form', url: 'https://docs.google.com/document/d/1UlHan7TINnYPUCPsFB_H7UuINEteGIBI/edit?usp=sharing&ouid=107863003854110664232&rtpof=true&sd=true' },
+    { name: 'DocuSign', url: 'https://docusign.com' },
+    { name: 'Stripe', url: 'https://stripe.com' },
+  ],
+  ui_ux_design: [
+    { name: 'Figma', url: 'https://figma.com' },
+    { name: 'Dribbble', url: 'https://dribbble.com' },
+    { name: 'Behance', url: 'https://behance.net' },
+    { name: 'Canva', url: 'https://canva.com' },
+    { name: 'Google Sites', url: 'https://sites.google.com' },
+    { name: 'Lovable', url: 'https://lovable.dev' },
+    { name: 'Spline', url: 'https://spline.design' },
+  ],
+  client_approval: [
+    { name: 'Loom', url: 'https://loom.com' },
+    { name: 'DocuSign', url: 'https://docusign.com' },
+    { name: 'WhatsApp', url: 'https://whatsapp.com' },
+    { name: 'Google Meet', url: 'https://meet.google.com' },
+  ],
+  development: [
+    { name: 'GitHub', url: 'https://github.com' },
+    { name: 'Developer Guide', url: 'https://docs.google.com/document/d/1tguGmxprvBTQUc66-46vW4GJI8QN6OD-/edit?usp=sharing&ouid=107863003854110664232&rtpof=true&sd=true' },
+    { name: 'Supabase', url: 'https://supabase.com' },
+    { name: 'Vercel', url: 'https://vercel.com' },
+    { name: 'Tailwind CSS', url: 'https://tailwindcss.com/docs' },
+    { name: 'React Docs', url: 'https://react.dev' },
+    { name: 'Linear', url: 'https://linear.app' },
+  ],
+  qa_testing: [
+    { name: 'CodeRabbit', url: 'https://coderabbit.ai' },
+    { name: 'Sentry', url: 'https://sentry.io' },
+    { name: 'Playwright', url: 'https://playwright.dev' },
+    { name: 'Postman', url: 'https://postman.com' },
+  ],
+  client_uat: [
+    { name: 'Loom', url: 'https://loom.com' },
+    { name: 'Hotjar', url: 'https://hotjar.com' },
+    { name: 'WhatsApp', url: 'https://whatsapp.com' },
+  ],
+  deployment: [
+    { name: 'Vercel', url: 'https://vercel.com' },
+    { name: 'DigitalOcean', url: 'https://digitalocean.com' },
+    { name: 'Cloudflare', url: 'https://cloudflare.com' },
+    { name: 'Google Drive', url: 'https://drive.google.com' },
+  ],
+  maintenance_support: [
+    { name: 'Slack', url: 'https://slack.com' },
+    { name: 'HubSpot', url: 'https://hubspot.com' },
+    { name: 'Stripe', url: 'https://stripe.com' },
+    { name: 'Google Analytics', url: 'https://analytics.google.com' },
+  ],
+
+  // --- Internal Track ---
+  ideology: [
+    { name: 'Miro', url: 'https://miro.com' },
+    { name: 'ChatGPT', url: 'https://chat.openai.com' },
+    { name: 'Perplexity AI', url: 'https://perplexity.ai' },
+    { name: 'Midjourney', url: 'https://midjourney.com' },
+    { name: 'Notion', url: 'https://notion.so' },
+  ],
+  research: [
+    { name: 'Google Scholar', url: 'https://scholar.google.com' },
+    { name: 'Perplexity AI', url: 'https://perplexity.ai' },
+    { name: 'HubSpot', url: 'https://hubspot.com' },
+    { name: 'Typeform', url: 'https://typeform.com' },
+  ],
+  business: [
+    { name: 'Stripe', url: 'https://stripe.com' },
+    { name: 'Pitch', url: 'https://pitch.com' },
+    { name: 'Google Sheets', url: 'https://sheets.google.com' },
+    { name: 'LinkedIn', url: 'https://linkedin.com' },
+  ],
+  marketing: [
+    { name: 'LinkedIn', url: 'https://linkedin.com' },
+    { name: 'Canva', url: 'https://canva.com' },
+    { name: 'Ahrefs', url: 'https://ahrefs.com' },
+    { name: 'SEMrush', url: 'https://semrush.com' },
+    { name: 'Meta Ads', url: 'https://adsmanager.facebook.com' },
+    { name: 'Google Analytics', url: 'https://analytics.google.com' },
+    { name: 'Mailchimp', url: 'https://mailchimp.com' },
+  ],
+  admin_review: [
+    { name: 'Google Drive', url: 'https://drive.google.com' },
+    { name: 'DocuSign', url: 'https://docusign.com' },
+    { name: 'Tableau', url: 'https://tableau.com' },
+  ],
 };
 
 const STAGE_LABEL_MAP: Record<string, string> = {
@@ -151,7 +291,7 @@ const businessSubPanels = [
   },
 ];
 
-export function StageCard({ project, stage, tools, onUpdate, designation, isOwner = true, onToast, logs }: StageCardProps) {
+export function StageCard({ project, stage, tools, onUpdate, designation, role, isOwner = true, onToast, logs }: StageCardProps) {
   const [updateText, setUpdateText] = useState('');
   const [githubUrl, setGithubUrl] = useState(project.github_link || '');
   const [loading, setLoading] = useState(false);
@@ -332,18 +472,24 @@ export function StageCard({ project, stage, tools, onUpdate, designation, isOwne
         <div>
           <p className="text-[9px] md:text-[10px] font-black text-[#6366f1]/60 uppercase tracking-[0.2em] mb-3 md:mb-5">Recommended Tools</p>
           <div className="flex flex-wrap gap-1.5 md:gap-2">
-            {tools.map(tool => (
-              <a
-                key={tool.name}
-                href={tool.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3.5 md:py-2 bg-white/10 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-300 rounded-lg md:rounded-xl border border-white/10 hover:border-indigo-500/40 hover:text-white transition-all shadow-lg"
-              >
-                {TOOL_ICONS[tool.name] || <Globe className="h-3 w-3" />}
-                {tool.name}
-              </a>
-            ))}
+            {(STAGE_TOOLS_OVERRIDE[stage.stage_name] || tools).map(tool => {
+              if (tool.adminOnly && role !== 'admin' && role !== 'partner') {
+                return null;
+              }
+
+              return (
+                <a
+                  key={tool.name}
+                  href={tool.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3.5 md:py-2 bg-white/10 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-300 rounded-lg md:rounded-xl border border-white/10 hover:border-indigo-500/40 hover:text-white transition-all shadow-lg"
+                >
+                  {TOOL_ICONS[tool.name] || <Globe className="h-3 w-3" />}
+                  {tool.name}
+                </a>
+              );
+            })}
           </div>
         </div>
 

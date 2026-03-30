@@ -84,7 +84,25 @@ export default function IdeaVaultPage() {
     workspace_id: user?.workspace_id || 'system'
   };
 
-  const allIdeas = [quotationIdea, ...ideas];
+  const requirementIdea: Idea = {
+    id: 'builtin-requirement',
+    name: 'Client Requirement Form',
+    drive_link: '/requirement-form',
+    created_at: new Date().toISOString(),
+    created_by: 'system',
+    workspace_id: user?.workspace_id || 'system'
+  };
+
+  const serviceMenuIdea: Idea = {
+    id: 'builtin-service-menu',
+    name: 'Service Menu Card',
+    drive_link: '/service-menu',
+    created_at: new Date().toISOString(),
+    created_by: 'system',
+    workspace_id: user?.workspace_id || 'system'
+  };
+
+  const allIdeas = [quotationIdea, requirementIdea, serviceMenuIdea, ...ideas];
   const filteredIdeas = allIdeas.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
