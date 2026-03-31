@@ -1,56 +1,93 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --brand: #7C3AED;
+  --brand2: #EC4899;
+  --accent: #F59E0B;
+  --dark: #0F0A1E;
+  --surface: #1A1035;
+  --card: #221845;
+  --border: rgba(124,58,237,0.25);
+  --text: #E2D9F3;
+  --muted: #9B89C4;
+  --input-bg: rgba(124,58,237,0.08);
+  --red: #F43F5E;
+  --green: #10B981;
+}
+
 @layer base {
   body {
-    background-color: #080808;
-    color: #ffffff;
+    background-color: var(--dark);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
 
-input:focus, textarea:focus, select:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
-  border-color: rgba(99, 102, 241, 0.5) !important;
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.animate-spin-slow {
-  animation: spin-slow 8s linear infinite;
-}
-
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #080808;
+  background: var(--dark);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1a1a24;
+  background: var(--surface);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #252535;
+  background: var(--card);
 }
 
-/* Hide scrollbar utility */
-.scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;     /* Firefox */
+/* Animations from original form */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;             /* Chrome, Safari, Opera */
+
+.animate-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+/* Print Overrides */
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+}
+
+/* Styles specifically for the master form components */
+.form-input {
+  @apply w-full bg-[#1A1035]/20 border border-[rgba(124,58,237,0.25)] rounded-lg px-3 py-2 text-sm text-[#E2D9F3] outline-none focus:border-[#7C3AED] transition-all;
+}
+
+.form-textarea {
+  @apply w-full bg-[#1A1035]/20 border border-[rgba(124,58,237,0.25)] rounded-lg px-3 py-2 text-sm text-[#E2D9F3] outline-none focus:border-[#7C3AED] transition-all min-h-[80px] resize-none;
+}
+
+.form-select {
+  @apply w-full bg-[#1A1035]/30 border border-[rgba(124,58,237,0.25)] rounded-lg px-3 py-2 text-sm text-[#E2D9F3] outline-none focus:border-[#7C3AED] transition-all cursor-pointer;
+}
+
+.pill-button {
+  @apply flex items-center gap-2 px-4 py-1.5 rounded-full border text-[11px] font-semibold transition-all cursor-pointer;
+}
+
+.pill-active {
+  @apply bg-[#7C3AED] border-[#7C3AED] text-white;
+}
+
+.pill-inactive {
+  @apply bg-[#1A1035]/20 border-[rgba(124,58,237,0.25)] text-[#9B89C4] hover:border-[#7C3AED];
+}
+
+.requirement-card {
+  @apply bg-[#221845] border border-[rgba(124,58,237,0.25)] rounded-2xl p-6 shadow-2xl transition-all hover:shadow-[0_0_30px_rgba(124,58,237,0.1)];
 }
