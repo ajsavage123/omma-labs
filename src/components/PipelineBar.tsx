@@ -3,10 +3,9 @@ import { Check } from 'lucide-react';
 
 interface PipelineBarProps {
   stages: ProjectStage[];
-  activeDepartmentStages?: ProjectStage[];
 }
 
-export function PipelineBar({ stages, activeDepartmentStages }: PipelineBarProps) {
+export function PipelineBar({ stages }: PipelineBarProps) {
   const masterOrderedStagesList: StageName[] = [
     'discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support',
     'ideology', 'research', 'business', 'marketing', 'admin_review'
@@ -20,9 +19,6 @@ export function PipelineBar({ stages, activeDepartmentStages }: PipelineBarProps
   const completedCount = stages.filter(s => s.status === 'completed').length;
   const activeLength = orderedStages.length > 0 ? orderedStages.length : 1;
   const progressPercent = Math.round((completedCount / activeLength) * 100);
-
-  // For mobile, we show the active department stages in a cleaner step layout
-  const mobileStages = activeDepartmentStages || [];
 
   // Map system names to clean highly readable UI labels
   const BAR_LABEL_MAP: Record<string, string> = {
@@ -56,18 +52,24 @@ export function PipelineBar({ stages, activeDepartmentStages }: PipelineBarProps
 
   return (
     <>
-      <div className="hidden md:block w-full bg-[#0c0c0e] p-5 md:p-8 md:rounded-[24px] border-y md:border border-white/10 mb-8 md:mb-12 shadow-2xl relative overflow-hidden">
+      <style>{`
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
+      {/* --- DESKTOP VIEW --- */}
+      <div className="hidden md:block w-full bg-[#0c0c0e] p-8 rounded-[24px] border border-white/10 mb-12 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent"></div>
         
-        <div className="flex justify-between items-center mb-10 px-2 md:px-4">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">Workflow Progress</h3>
+        <div className="flex justify-between items-center mb-10 px-4">
+          <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-500">Workflow Progress</h3>
           <div className="px-3 py-1 rounded-full bg-[#11111d] border border-[#6366f1]/30 text-[#818cf8] text-[10px] font-black tracking-widest uppercase shadow-inner">
-            {progressPercent}% <span className="hidden sm:inline">Complete</span>
+            {progressPercent}% <span className="hidden xl:inline">Complete</span>
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto scrollbar-hide pb-8">
-          <div className="relative flex justify-between items-center px-8 min-w-[700px] md:min-w-0">
+        <div className="w-full pb-8">
+          <div className="relative flex justify-between items-center px-8">
             <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-[2px] bg-[#1a1a24]"></div>
             
             {orderedStages.map((name) => {
@@ -85,7 +87,7 @@ export function PipelineBar({ stages, activeDepartmentStages }: PipelineBarProps
                     {isCompleted ? <Check className="h-4 w-4" strokeWidth={4} /> : 
                      isInProgress ? <div className="h-2 w-2 bg-current rounded-full" /> : null}
                   </div>
-                  <span className={`absolute top-12 whitespace-nowrap text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${
+                  <span className={`absolute top-12 whitespace-nowrap text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${
                     isCompleted || isInProgress ? 'text-gray-200' : 'text-gray-400'
                   }`}>
                     {BAR_LABEL_MAP[name] || name.replace('_', ' ')}
@@ -101,53 +103,52 @@ export function PipelineBar({ stages, activeDepartmentStages }: PipelineBarProps
         </div>
       </div>
 
-      {/* --- MOBILE VIEW (Compact & Visual) --- */}
-      {mobileStages.length > 0 && (
-        <div className="md:hidden w-full bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 py-6 mb-8 shadow-xl">
-           <div className="px-6 flex items-center justify-between mb-8">
-              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Workroom Track</span>
-              <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-black uppercase shadow-inner">
-                {progressPercent}% Total
-              </div>
-           </div>
+      {/* --- MOBILE VIEW --- */}
+      <div className="md:hidden w-full bg-[#0c0c0e]/95 backdrop-blur-xl border-y border-white/5 py-6 mb-6 shadow-xl relative">
+         <div className="px-4 flex items-center justify-between mb-8">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">Master Pipeline</span>
+            <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-black uppercase shadow-inner">
+              {progressPercent}% Complete
+            </div>
+         </div>
 
-           <div className="w-full overflow-x-auto scrollbar-hide">
-              <div className="px-6 flex items-start gap-4 min-w-max pb-4">
-                {mobileStages.map((stage, idx) => {
-                  const isCompleted = stage.status === 'completed';
-                  const isInProgress = stage.status === 'in_progress';
-                  const isLast = idx === mobileStages.length - 1;
-                  
-                  return (
-                    <div key={stage.id} className="flex items-center">
-                       <div className="flex flex-col items-center w-[75px] text-center">
-                         <div className={`h-8 w-8 rounded-full flex items-center justify-center transition-all mb-2 ${
-                           isCompleted ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' :
-                           isInProgress ? 'border-2 border-indigo-500 bg-[#0c0c0e] text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse' :
-                           'border-2 border-gray-600 bg-[#11111d] text-gray-500'
-                         }`}>
-                           {isCompleted ? <Check className="h-4 w-4" strokeWidth={4} /> : 
-                            isInProgress ? <div className="h-2 w-2 bg-current rounded-full" /> : null}
-                         </div>
-                         <span className={`text-[8px] font-black uppercase tracking-tight leading-tight w-full break-words ${
-                           isCompleted || isInProgress ? 'text-white' : 'text-gray-500'
-                         }`}>
-                           {MOBILE_LABEL_MAP[stage.stage_name] || stage.stage_name.substring(0, 10)}
-                         </span>
+         <div className="w-full overflow-x-auto hide-scroll px-4 pb-2">
+            <div className="flex items-start gap-8 min-w-max">
+              {orderedStages.map((name, idx) => {
+                const stage = stages.find(s => s.stage_name === name);
+                const isCompleted = stage?.status === 'completed';
+                const isInProgress = stage?.status === 'in_progress';
+                const isLast = idx === orderedStages.length - 1;
+                
+                return (
+                  <div key={name} className="flex flex-col items-center relative w-[60px]">
+                     <div className={`h-6 w-6 rounded-full flex items-center justify-center transition-all mb-3 z-10 ${
+                       isCompleted ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' :
+                       isInProgress ? 'border-2 border-indigo-500 bg-[#0c0c0e] text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse' :
+                       'border-2 border-gray-600 bg-[#11111d] text-gray-500'
+                     }`}>
+                       {isCompleted ? <Check className="h-3 w-3" strokeWidth={4} /> : 
+                        isInProgress ? <div className="h-1.5 w-1.5 bg-current rounded-full" /> : null}
+                     </div>
+                     
+                     {/* Connector Line for Mobile */}
+                     {!isLast && (
+                       <div className="absolute top-3 left-[50%] w-full h-[2px] bg-gray-800 -z-0">
+                         <div className={`h-full bg-indigo-500 transition-all duration-1000 ${isCompleted ? 'w-full' : 'w-0'}`}></div>
                        </div>
-                       
-                       {!isLast && (
-                         <div className="w-6 h-[2px] bg-gray-700/80 rounded-full mx-1">
-                           <div className={`h-full bg-indigo-500 transition-all duration-1000 ${isCompleted ? 'w-full' : 'w-0'}`}></div>
-                         </div>
-                       )}
-                    </div>
-                  );
-                })}
-              </div>
-           </div>
-        </div>
-      )}
+                     )}
+
+                     <span className={`text-[8px] font-black uppercase tracking-tight leading-tight text-center break-words w-full ${
+                       isCompleted || isInProgress ? 'text-white' : 'text-gray-500'
+                     }`}>
+                       {MOBILE_LABEL_MAP[name] || name.replace('_', ' ').substring(0, 10)}
+                     </span>
+                  </div>
+                );
+              })}
+            </div>
+         </div>
+      </div>
     </>
   );
 }

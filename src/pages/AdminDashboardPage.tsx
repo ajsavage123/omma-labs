@@ -119,6 +119,17 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleDeleteInvite = async (inviteId: string) => {
+    if (!window.confirm("Are you sure you want to delete this invitation?")) return;
+    try {
+      await adminService.deleteInvite(inviteId);
+      await fetchData();
+    } catch (error) {
+      console.error("Failed to delete invite", error);
+      alert("Failed to delete invitation.");
+    }
+  };
+
   const handleUpdateMember = async (memberId: string) => {
     try {
       await adminService.updateUserRole(memberId, editMemberData.designation, editMemberData.role);
@@ -447,7 +458,7 @@ export default function AdminDashboardPage() {
 
                       {/* Radar Chart */}
                       <div className="h-52 w-full mb-6 bg-black/20 rounded-xl border border-white/5 pt-4 pb-2 shadow-inner">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={10} minHeight={10}>
+                        <ResponsiveContainer width="100%" height={200}>
                           <RadarChart cx="50%" cy="50%" outerRadius="75%" data={[
                             { subject: 'Importance', A: ratings.problem_importance, fullMark: 10 },
                             { subject: 'Feasibility', A: ratings.technical_feasibility, fullMark: 10 },
@@ -745,7 +756,16 @@ export default function AdminDashboardPage() {
                              <div className="font-mono text-indigo-400 text-sm tracking-widest font-bold bg-indigo-500/10 px-2 py-1 rounded inline-block">
                                {invite.code}
                              </div>
-                             <span className="text-[10px] text-gray-500 uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded">Pending</span>
+                             <div className="flex items-center space-x-2">
+                               <span className="text-[10px] text-gray-500 uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded">Pending</span>
+                               <button 
+                                 onClick={() => handleDeleteInvite(invite.id)}
+                                 className="opacity-0 group-hover:opacity-100 p-1 bg-white/5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all border border-white/5"
+                                 title="Delete Invite"
+                               >
+                                 <Trash2 className="h-3.5 w-3.5" />
+                               </button>
+                             </div>
                           </div>
                           <p className="text-xs text-gray-400">{invite.designation}</p>
                         </div>

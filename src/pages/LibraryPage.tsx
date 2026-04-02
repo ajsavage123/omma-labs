@@ -114,7 +114,7 @@ export default function LibraryPage() {
                 placeholder="Search documents..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-[#11111d] border border-white/5 rounded-2xl text-[14px] outline-none focus:border-blue-500/30 transition-all text-white"
+                className="w-full pl-11 pr-4 py-2 sm:py-3 bg-[#11111d] border border-white/5 rounded-2xl text-[14px] outline-none focus:border-blue-500/30 transition-all text-white"
               />
            </div>
            

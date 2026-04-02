@@ -115,7 +115,7 @@ export default function ProjectMembersPage() {
                 placeholder="Search colleagues..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3.5 bg-[#0a0a0d] border border-white/20 rounded-2xl text-[13px] outline-none focus:border-indigo-500/50 transition-all font-bold text-white placeholder:text-gray-600 shadow-inner"
+                className="w-full pl-11 pr-4 py-2.5 bg-[#0a0a0d] border border-white/20 rounded-2xl text-[13px] outline-none focus:border-indigo-500/50 transition-all font-bold text-white placeholder:text-gray-600 shadow-inner"
               />
             </div>
           </div>

@@ -282,7 +282,7 @@ export default function ProjectWorkspacePage() {
       </header>
  
       <main className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pt-16 scrollbar-hide">
-        <PipelineBar stages={project.project_stages} activeDepartmentStages={visibleStages} />
+        <PipelineBar stages={project.project_stages} />
 
         {/* Admin Review Banner */}
         {isAdminReviewing && (
@@ -312,7 +312,7 @@ export default function ProjectWorkspacePage() {
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 md:gap-12 mt-4 md:mt-12 pb-12 px-4 md:px-8">
           {/* Main Content: Task Boards */}
-          <div className="xl:col-span-3">
+           <div className="xl:col-span-3 min-w-0">
              <div className="flex items-center justify-between mb-5 md:mb-10">
                 <h3 className="text-lg md:text-2xl font-black text-white tracking-tight">Task Boards</h3>
                 <div className="h-0.5 md:h-1 w-8 md:w-12 bg-indigo-500 rounded-full"></div>

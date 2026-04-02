@@ -96,6 +96,33 @@ const serviceIcons: Record<string, string> = {
   'E-commerce': '🛒',
 };
 
+const serviceExclusionsMap: Record<string, string[]> = {
+  'Web Application': ['Content writing or copywriting services.', 'Purchasing of third-party domain or hosting.', 'Data migration from legacy systems.'],
+  'Mobile App': ['App store developer account fees.', 'Creation of promotional videos or marketing material.', 'Backend server hosting fees.'],
+  'UI/UX Design': ['Implementation or coding of the designs.', 'Purchasing of premium stock photography or fonts.', 'Brand logo design (unless specified).'],
+  'Cloud Architecture': ['Actual cloud provider monthly usage fees (AWS/GCP/Azure invoices).', 'Application code refactoring to fit cloud native patterns.', 'Procurement of third-party software licenses.'],
+  'Maintenance': ['Development of entirely new features or large modules.', 'On-site support or hardware maintenance.', 'Fixes for code modified by unauthorized third parties.'],
+  'E-commerce': ['Product data entry or catalog population.', 'Payment gateway merchant account setup fees.', 'Professional product photography.'],
+};
+
+const serviceWarrantyMap: Record<string, string> = {
+  'Web Application': '30-day post-launch warranty for fixing reproducible bugs within the original scope. New features post-launch are billed separately.',
+  'Mobile App': '45-day post-launch warranty for fixing reproducible bugs and crash resolution on supported OS versions.',
+  'UI/UX Design': '14-day revision period post handoff for minor adjustments to final mockups.',
+  'Cloud Architecture': '30-day monitoring and fine-tuning period to ensure stable infrastructure and expected scaling.',
+  'Maintenance': 'Covered under continuous SLAs as defined in the maintenance agreement rather than a standalone warranty.',
+  'E-commerce': '30-day post-launch warranty covering core workflows (checkout, cart, inventory sync).',
+};
+
+const serviceNextStepsMap: Record<string, string[]> = {
+  'Web Application': ['Review and approve this quotation.', 'Process initial deposit.', 'Share existing brand assets and access credentials.'],
+  'Mobile App': ['Approve quotation & sign agreement.', 'Pay mobilization deposit.', 'Schedule initial architecture workshop.'],
+  'UI/UX Design': ['Sign approval off on quotation.', 'Complete creative brief questionnaire.', 'Schedule discovery and research kickoff.'],
+  'Cloud Architecture': ['Approve proposal.', 'Provide current infrastructure access.', 'Schedule technical deep-dive call.'],
+  'Maintenance': ['Sign SLA agreement.', 'Provide repository & server access.', 'Initial codebase audit and onboarding.'],
+  'E-commerce': ['Approve and sign quotation.', 'Provide preliminary product lists.', 'Setup initial merchant accounts.'],
+};
+
 export default function QuotationPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -132,6 +159,11 @@ export default function QuotationPage() {
   const [companyContact, setCompanyContact] = useState('oomalabs@gmail.com | 9381167058 | www.oomalabs.in');
   const [signatureName, setSignatureName] = useState('OomaLabs Team');
   const [signatureTitle, setSignatureTitle] = useState('Authorized Signature');
+  const [executiveSummaryGoal, setExecutiveSummaryGoal] = useState('generate leads, build digital presence, and streamline operations');
+
+  const [exclusions, setExclusions] = useState<string[]>(serviceExclusionsMap['Web Application']);
+  const [warranty, setWarranty] = useState<string>(serviceWarrantyMap['Web Application']);
+  const [nextSteps, setNextSteps] = useState<string[]>(serviceNextStepsMap['Web Application']);
 
   const [discount, setDiscount] = useState('15');
 
@@ -228,6 +260,25 @@ export default function QuotationPage() {
     setPhases(allPhases.filter(p => { if (seen.has(p.name)) return false; seen.add(p.name); return true; }));
     const allDels = selectedServices.flatMap(s => serviceDeliverables[s] || []);
     setDeliverables(allDels);
+
+    // Update Exclusions, Warranty, Next Steps when services change (if they haven't been manually heavily edited)
+    // To be safe we just append or use the first selected service's warranty
+    const allExclusions = selectedServices.flatMap(s => serviceExclusionsMap[s] || []);
+    const uniqueExclusions = Array.from(new Set(allExclusions));
+    setExclusions(uniqueExclusions.length > 0 ? uniqueExclusions : ['No explicit exclusions.']);
+
+    const allNextSteps = selectedServices.flatMap(s => serviceNextStepsMap[s] || []);
+    const uniqueNextSteps = Array.from(new Set(allNextSteps));
+    setNextSteps(uniqueNextSteps.length > 0 ? uniqueNextSteps : ['Review and sign this quotation.']);
+
+    // Pick warranty from the first selected service
+    const firstService = selectedServices[0];
+    if (firstService && serviceWarrantyMap[firstService]) {
+      setWarranty(serviceWarrantyMap[firstService]);
+    } else {
+      setWarranty('Standard 30-day post-launch warranty for fixing reproducible bugs within the stated scope.');
+    }
+
     // Auto-generate cost items from selected services
     const newCosts = selectedServices.map(s => ({ label: s, amount: (servicePriceMap[s] || 0).toLocaleString() }));
     setCostItems(newCosts);
@@ -247,6 +298,10 @@ export default function QuotationPage() {
   const removeDeliverable = (i: number) => setDeliverables(deliverables.filter((_, idx) => idx !== i));
   const addTerm = () => setTerms([...terms, 'New term or condition.']);
   const removeTerm = (i: number) => setTerms(terms.filter((_, idx) => idx !== i));
+  const addExclusion = () => setExclusions([...exclusions, 'New exclusion item.']);
+  const removeExclusion = (i: number) => setExclusions(exclusions.filter((_, idx) => idx !== i));
+  const addNextStep = () => setNextSteps([...nextSteps, 'New next step.']);
+  const removeNextStep = (i: number) => setNextSteps(nextSteps.filter((_, idx) => idx !== i));
   const addPayment = () => setPayments([...payments, { pct: '0%', label: 'New', trigger: 'Trigger event' }]);
   const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
   const addCostItem = () => setCostItems([...costItems, { label: 'New Line Item', amount: '0' }]);
@@ -284,7 +339,11 @@ export default function QuotationPage() {
       terms,
       scopes,
       phases,
-      deliverables
+      deliverables,
+      executiveSummaryGoal,
+      exclusions,
+      warranty,
+      nextSteps
     };
 
     try {
@@ -349,6 +408,18 @@ export default function QuotationPage() {
     setPhases(d.phases || []);
     setDeliverables(d.deliverables || []);
     setTerms(d.terms || []);
+    setExecutiveSummaryGoal(d.executiveSummaryGoal || 'generate leads, build digital presence, and streamline operations');
+    setExclusions(d.exclusions || [
+      'Content writing or copywriting services.',
+      'Purchasing of third-party software licenses or stock photography.',
+      'Data migration from legacy systems (unless expressly stated above).',
+    ]);
+    setWarranty(d.warranty || '30-day post-launch warranty for fixing reproducible bugs within the original scope. New features post-launch are billed separately.');
+    setNextSteps(d.nextSteps || [
+      'Review and approve this quotation by signing the acceptance block.',
+      'Process the initial deposit to secure project scheduling.',
+      'Schedule the kickoff meeting with our team to commence the discovery phase.',
+    ]);
     
     setShowHistory(false);
     setGenerated(true);
@@ -480,6 +551,7 @@ export default function QuotationPage() {
                 <label style={{ display: 'block', fontSize: 11, color: '#8888aa', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase' }}>Main Project Title</label>
                 <input value={projectName} onChange={e => setProjectName(e.target.value)} style={{ width: '100%', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '10px 13px', color: '#1a1a2e', fontFamily: "'Outfit', sans-serif", fontSize: 13.5, outline: 'none' }} />
               </div>
+
               {metaFields.map((f, i) => (
                 <div key={i} className="" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '10px 32px 10px 12px' }}>
                   <input value={f.label} onChange={e => updateMetaField(i, 'label', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 600, color: '#c9a84c', textTransform: 'uppercase', outline: 'none', marginBottom: 4 }} placeholder="LABEL" />
@@ -527,6 +599,20 @@ export default function QuotationPage() {
                   {s}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Executive Summary */}
+          <div style={{ marginBottom: 26 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#8888aa', fontWeight: 600, marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid #e2dfd6' }}>Executive Summary</div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, color: '#8888aa', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase' }}>Executive Summary Goal</label>
+              <textarea 
+                value={executiveSummaryGoal} 
+                onChange={e => setExecutiveSummaryGoal(e.target.value)} 
+                placeholder="e.g., generate leads, build digital presence..."
+                style={{ width: '100%', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '10px 13px', color: '#1a1a2e', fontFamily: "'Outfit', sans-serif", fontSize: 13, outline: 'none', minHeight: 60, resize: 'none' }} 
+              />
             </div>
           </div>
 
@@ -607,6 +693,45 @@ export default function QuotationPage() {
             </div>
             <button onClick={addTerm} style={addBtnStyle}><Plus className="h-3.5 w-3.5" /> Add Term</button>
           </div>
+
+          {/* Exclusions */}
+          <div style={{ marginBottom: 26 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#8888aa', fontWeight: 600, marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid #e2dfd6' }}>Exclusions & Assumptions</div>
+            <div className="flex flex-col gap-2">
+              {exclusions.map((t, i) => (
+                <div key={i} className="flex items-start gap-2" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '8px 32px 8px 12px' }}>
+                  <span style={{ color: '#c0392b', fontSize: 14, marginTop: 1, flexShrink: 0 }}>×</span>
+                  <textarea value={t} onChange={e => { const n = [...exclusions]; n[i] = e.target.value; setExclusions(n); }} style={{ flex: 1, border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 12, color: '#3a3a5c', outline: 'none', resize: 'none', minHeight: 32, lineHeight: 1.5 }} />
+                  <button onClick={() => removeExclusion(i)} style={removeBtnStyle}><X className="h-3 w-3" /></button>
+                </div>
+              ))}
+            </div>
+            <button onClick={addExclusion} style={addBtnStyle}><Plus className="h-3.5 w-3.5" /> Add Exclusion</button>
+          </div>
+
+          {/* Post-Launch Warranty */}
+          <div style={{ marginBottom: 26 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#8888aa', fontWeight: 600, marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid #e2dfd6' }}>Post-Launch Warranty</div>
+            <div className="flex items-start gap-2" style={{ background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '10px 13px' }}>
+              <textarea value={warranty} onChange={e => setWarranty(e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 12, color: '#3a3a5c', outline: 'none', resize: 'none', minHeight: 40, lineHeight: 1.5 }} />
+            </div>
+          </div>
+
+          {/* Next Steps */}
+          <div style={{ marginBottom: 26 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#8888aa', fontWeight: 600, marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid #e2dfd6' }}>Next Steps / Call to Action</div>
+            <div className="flex flex-col gap-2">
+              {nextSteps.map((t, i) => (
+                <div key={i} className="flex items-start gap-2" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '8px 32px 8px 12px' }}>
+                  <span style={{ color: '#2d7a5f', fontSize: 12, marginTop: 1, flexShrink: 0, fontWeight: 700 }}>{i + 1}.</span>
+                  <textarea value={t} onChange={e => { const n = [...nextSteps]; n[i] = e.target.value; setNextSteps(n); }} style={{ flex: 1, border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 12, color: '#3a3a5c', outline: 'none', resize: 'none', minHeight: 32, lineHeight: 1.5 }} />
+                  <button onClick={() => removeNextStep(i)} style={removeBtnStyle}><X className="h-3 w-3" /></button>
+                </div>
+              ))}
+            </div>
+            <button onClick={addNextStep} style={addBtnStyle}><Plus className="h-3.5 w-3.5" /> Add Step</button>
+          </div>
+
 
           {/* Pricing & Investment */}
           <div style={{ marginBottom: 26 }}>
@@ -793,6 +918,7 @@ export default function QuotationPage() {
                   <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: '#1a1a2e' }}>{projectName}</p>
                 </div>
 
+
                 {/* Meta Row */}
                 {/* Dynamic Meta Rows */}
                 <div className="flex flex-wrap gap-x-8 gap-y-6 justify-between items-start" style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e2dfd6' }}>
@@ -809,6 +935,22 @@ export default function QuotationPage() {
                 <div style={{ textAlign: 'center', marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid #e2dfd6' }}>
                   <label style={{ fontSize: 10, color: '#8888aa', letterSpacing: 1.5, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Project</label>
                   <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: '#1a1a2e' }}>{projectName}</p>
+                </div>
+
+                {/* Executive Summary Section */}
+                <div className="print-no-break" style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '1px solid #e2dfd6' }}>
+                  <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: '#1a1a2e', marginBottom: 12 }}>Executive Summary</h3>
+                  <div style={{ fontSize: 13, color: '#3a3a5c', lineHeight: 1.7 }}>
+                    <p style={{ marginBottom: 12 }}>
+                      We understand that your goal is to <span style={{ fontWeight: 600, color: '#1a1a2e' }}>{executiveSummaryGoal}</span>.
+                    </p>
+                    <p style={{ marginBottom: 12 }}>
+                      {companyName} proposes a complete digital solution including a web application, mobile app, and backend system to achieve these objectives efficiently.
+                    </p>
+                    <p>
+                      Our approach focuses on scalability, performance, and user-friendly design to ensure long-term value and growth.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Deliverables */}
@@ -838,6 +980,20 @@ export default function QuotationPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Exclusions */}
+                <div className="print-no-break" style={{ marginBottom: 28 }}>
+                  <div className="flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: '#c0392b', marginBottom: 14, paddingBottom: 8, borderBottom: '2px solid #1a1a2e' }}>
+                    🚫 Exclusions & Assumptions
+                  </div>
+                  <ul style={{ listStyle: 'none', marginBottom: 20 }}>
+                    {exclusions.map((e, i) => (
+                      <li key={i} className="flex gap-2.5" style={{ padding: '6px 0', borderBottom: '1px dashed #e2dfd6', fontSize: 13, color: '#3a3a5c', lineHeight: 1.6 }}>
+                        <span style={{ color: '#c0392b', fontSize: 16, flexShrink: 0, marginTop: -1 }}>×</span>{e}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
                 {/* Timeline */}
@@ -922,20 +1078,51 @@ export default function QuotationPage() {
                   ))}
                 </ul>
 
+                {/* Warranty */}
+                {warranty && (
+                  <div className="print-no-break" style={{ marginBottom: 20, background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '16px 20px' }}>
+                    <strong style={{ display: 'block', color: '#1a1a2e', marginBottom: 8, fontSize: 14 }}>Post-Launch Warranty</strong>
+                    <div style={{ fontSize: 13, color: '#3a3a5c', lineHeight: 1.6 }}>{warranty}</div>
+                  </div>
+                )}
+
+                {/* Next Steps */}
+                <div className="print-no-break" style={{ marginBottom: 28 }}>
+                  <div className="flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: '#1a1a2e', marginBottom: 14, marginTop: 28, paddingBottom: 8, borderBottom: '2px solid #1a1a2e' }}>
+                    🚀 Next Steps
+                  </div>
+                  <ul style={{ listStyle: 'none', marginBottom: 20 }}>
+                    {nextSteps.map((step, i) => (
+                      <li key={i} className="flex gap-2.5" style={{ padding: '8px 0', fontSize: 13, color: '#3a3a5c', lineHeight: 1.6 }}>
+                        <span style={{ background: '#2d7a5f', color: '#fff', fontSize: 11, fontWeight: 700, width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
                 {/* Note */}
                 <div style={{ background: '#f5eed8', border: '1px solid #c9a84c', borderRadius: 8, padding: '14px 18px', fontSize: 13, color: '#3a3a5c', lineHeight: 1.7, marginTop: 8 }}>
                   <strong style={{ color: '#1a1a2e' }}>Note:</strong> This quotation is valid for {validity} days from the date of issue. Upon approval, a formal contract will be generated.
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="flex justify-between items-center" style={{ padding: '24px 48px', borderTop: '3px double #1a1a2e' }}>
-                <div style={{ fontSize: 13, color: '#3a3a5c' }}>
+              {/* Footer / Sign-off Block */}
+              <div className="print-no-break flex justify-between items-end gap-10" style={{ padding: '34px 48px', borderTop: '3px double #1a1a2e', background: '#fdfcf9' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: '#8888aa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 40 }}>Issued By</div>
+                  <div style={{ borderBottom: '1px solid #e2dfd6', width: '100%', marginBottom: 12 }}></div>
                   <strong style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, color: '#1a1a2e', display: 'block', marginBottom: 3 }}>{signatureName}</strong>
-                  {signatureTitle}
+                  <div style={{ fontSize: 13, color: '#3a3a5c' }}>{signatureTitle}</div>
+                  <div style={{ fontSize: 12, color: '#8888aa', marginTop: 10 }}>{companyName}</div>
                 </div>
-                <div style={{ fontSize: 12, color: '#8888aa', textAlign: 'right' }}>
-                  {companyContact}
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: '#8888aa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 40 }}>Accepted By (Client)</div>
+                  <div style={{ borderBottom: '1px solid #e2dfd6', width: '100%', marginBottom: 12 }}></div>
+                  <div style={{ fontSize: 13, color: '#3a3a5c', marginBottom: 3 }}>Name: ____________________</div>
+                  <div style={{ fontSize: 13, color: '#3a3a5c', marginBottom: 3 }}>Title: _____________________</div>
+                  <div style={{ fontSize: 13, color: '#3a3a5c', marginTop: 10 }}>Date: _____________________</div>
                 </div>
               </div>
 

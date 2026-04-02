@@ -139,7 +139,7 @@ export default function IdeaVaultPage() {
               placeholder="Filter tools..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 bg-[#11111d] border border-white/5 rounded-2xl text-[13px] text-white outline-none focus:border-emerald-500/40 transition-all font-medium"
+              className="w-full pl-12 pr-4 py-2.5 md:py-3.5 bg-[#11111d] border border-white/5 rounded-2xl text-[13px] text-white outline-none focus:border-emerald-500/40 transition-all font-medium"
             />
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           </div>

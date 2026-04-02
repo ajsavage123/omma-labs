@@ -130,7 +130,7 @@ export default function ClientContactsPage() {
             placeholder="Search clients..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-[#11111d] border border-white/5 rounded-2xl text-[14px] text-white outline-none focus:border-emerald-500/30 transition-all"
+            className="w-full pl-11 pr-4 py-2 bg-[#11111d] border border-white/5 rounded-2xl text-[14px] text-white outline-none focus:border-emerald-500/30 transition-all"
           />
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
         </div>

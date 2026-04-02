@@ -317,7 +317,7 @@ export default function DashboardPage() {
                   placeholder="Reviewing Ooma project directory..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-14 pr-4 py-4 md:py-5 bg-[#0a0a0d] border border-white/15 rounded-[24px] text-[16px] font-black text-white placeholder:text-gray-600 outline-none focus:border-indigo-500/50 transition-all shadow-inner"
+                  className="w-full pl-11 md:pl-14 pr-4 py-3 md:py-5 bg-[#0a0a0d] border border-white/15 rounded-[20px] md:rounded-[24px] text-[13px] md:text-[16px] font-black text-white placeholder:text-gray-600 outline-none focus:border-indigo-500/50 transition-all shadow-inner"
                 />
               </div>
               <div className="flex overflow-x-auto gap-1.5 scrollbar-hide py-1">

@@ -144,6 +144,15 @@ export const adminService = {
     return data as Invitation;
   },
 
+  async deleteInvite(inviteId: string) {
+    const { error } = await supabase
+      .from('invitations')
+      .delete()
+      .eq('id', inviteId);
+
+    if (error) throw error;
+  },
+
   async updateUserRole(userId: string, designation: string, role: string) {
     const { error } = await supabase
       .from('users')

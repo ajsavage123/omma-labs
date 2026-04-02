@@ -272,7 +272,7 @@ export default function ServiceMenuCardPage() {
                placeholder="Search offerings..."
                value={search}
                onChange={e => setSearch(e.target.value)}
-               className="bg-white/5 border border-white/10 rounded-xl px-10 py-2 text-[12px] font-medium outline-none focus:border-emerald-500/30 focus:bg-white/10 transition-all w-64"
+               className="w-full bg-[#11111d]/50 border border-white/5 rounded-2xl py-2.5 md:py-3.5 pl-10 pr-4 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all placeholder:text-gray-600"
              />
              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-400 transition-colors" />
           </div>
