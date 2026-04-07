@@ -251,7 +251,7 @@ const NEXT_TEAM_LABEL: Record<string, string> = {
   // Internal Track
   ideology: 'Research →',
   research: 'Engineering Team →',
-  development: 'QA Testing →',   // Fixed: was wrongly pointing to Deployment
+  development: 'Deployment →',
   deployment: 'Business Team →', // Internal: goes to Business after deploy
   business: 'Marketing →',
   marketing: 'Admin Review →',
@@ -337,10 +337,10 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
   };
 
   const handleNextStage = async () => {
-    // Exact 9-stage sequence — matches the agreed plan precisely
-    const order: StageName[] = project.project_type === 'client' 
-      ? ['discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support']
-      : ['ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'];
+    const clientOrder: StageName[] = ['discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support', 'admin_review'];
+    const internalOrder: StageName[] = ['ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'];
+    
+    const order = project.project_type === 'client' ? clientOrder : internalOrder;
       
     const currentIndex = order.indexOf(stage.stage_name);
     const nextStage = currentIndex !== -1 && currentIndex < order.length - 1 ? order[currentIndex + 1] : null;

@@ -65,6 +65,13 @@ export default function IdeaVaultPage() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Prevent deletion of builtin system tools
+    if (id.startsWith('builtin-')) {
+      alert('Built-in system tools cannot be deleted.');
+      return;
+    }
+
     if (!window.confirm('Delete this tool?')) return;
     try {
       await dataService.deleteIdea(id);
@@ -93,16 +100,7 @@ export default function IdeaVaultPage() {
     workspace_id: user?.workspace_id || 'system'
   };
 
-  const serviceMenuIdea: Idea = {
-    id: 'builtin-service-menu',
-    name: 'Service Menu Card',
-    drive_link: '/service-menu',
-    created_at: new Date().toISOString(),
-    created_by: 'system',
-    workspace_id: user?.workspace_id || 'system'
-  };
-
-  const allIdeas = [quotationIdea, requirementIdea, serviceMenuIdea, ...ideas];
+  const allIdeas = [quotationIdea, requirementIdea, ...ideas];
   const filteredIdeas = allIdeas.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
@@ -174,12 +172,13 @@ export default function IdeaVaultPage() {
                     <div className="h-11 w-11 bg-emerald-500/10 text-emerald-400 rounded-[14px] flex items-center justify-center border border-emerald-500/20 shadow-inner">
                       <Wrench className="h-5 w-5" />
                     </div>
-                    {(user?.role === 'admin' || user?.id === idea.created_by) && (
+                    {/* Only show delete for non-builtin ideas that the user owns or if admin */}
+                    {!idea.id.startsWith('builtin-') && (user?.role === 'admin' || user?.id === idea.created_by) && (
                       <button 
                         onClick={(e) => handleDelete(idea.id, e)} 
-                        className="p-2 text-gray-700 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                        className="p-2 text-red-500/40 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all md:opacity-0 group-hover:opacity-100 z-10"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-5 w-5" />
                       </button>
                     )}
                   </div>

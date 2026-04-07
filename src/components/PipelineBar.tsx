@@ -3,17 +3,24 @@ import { Check } from 'lucide-react';
 
 interface PipelineBarProps {
   stages: ProjectStage[];
+  projectType?: 'internal' | 'client';
 }
 
-export function PipelineBar({ stages }: PipelineBarProps) {
-  const masterOrderedStagesList: StageName[] = [
-    'discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support',
-    'ideology', 'research', 'business', 'marketing', 'admin_review'
+export function PipelineBar({ stages, projectType = 'client' }: PipelineBarProps) {
+  const clientSequence: StageName[] = [
+    'discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support', 'admin_review'
   ];
 
-  // Dynamically extract and order only the sequences that exist for THIS specific project (Internal vs Client)
+  const internalSequence: StageName[] = [
+    'ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'
+  ];
+
+  const activeSequence = projectType === 'client' ? clientSequence : internalSequence;
+
+  // Dynamically extract and order only the sequences that exist for THIS specific project
   const orderedStages = [...stages]
-    .sort((a, b) => masterOrderedStagesList.indexOf(a.stage_name) - masterOrderedStagesList.indexOf(b.stage_name))
+    .filter(s => activeSequence.includes(s.stage_name))
+    .sort((a, b) => activeSequence.indexOf(a.stage_name) - activeSequence.indexOf(b.stage_name))
     .map(s => s.stage_name);
 
   const completedCount = stages.filter(s => s.status === 'completed').length;
@@ -48,6 +55,11 @@ export function PipelineBar({ stages }: PipelineBarProps) {
     client_uat: 'Review',
     deployment: 'Deployment',
     maintenance_support: 'Retainer',
+    ideology: 'Ideology',
+    research: 'Research',
+    business: 'Business',
+    marketing: 'Marketing',
+    admin_review: 'Review',
   };
 
   return (

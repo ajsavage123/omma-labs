@@ -21,6 +21,7 @@ export default function ProjectWorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState<Designation | null>(null);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
 
   useEffect(() => {
     if (id) fetchData(id);
@@ -225,16 +226,18 @@ export default function ProjectWorkspacePage() {
   }
 
 
-  const orderedStagesList = [
+  const clientSequence = [
     'discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval',
-    'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support',
-    'ideology', 'research', 'business', 'marketing', 'admin_review'
+    'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support', 'admin_review'
   ];
 
+  const internalSequence = [
+    'ideology', 'research', 'development', 'deployment', 'business', 'marketing', 'admin_review'
+  ];
+
+  const activeSequence = project.project_type === 'client' ? clientSequence : internalSequence;
+
   // Fix: Smart filtering for room stages.
-  // A room should only show stages that are:
-  // 1. Already completed or currently in-progress.
-  // 2. OR the very next PENDING stage in that specific room IF it's the next step in the global pipeline for that room.
   const visibleStages = project.project_stages
     .filter(s => {
       const myStages = selectedTeam ? teamStages[selectedTeam] : [];
@@ -242,7 +245,7 @@ export default function ProjectWorkspacePage() {
       if (!isMyStage) return false;
       return true;
     })
-    .sort((a, b) => orderedStagesList.indexOf(a.stage_name) - orderedStagesList.indexOf(b.stage_name));
+    .sort((a, b) => activeSequence.indexOf(a.stage_name) - activeSequence.indexOf(b.stage_name));
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden transition-colors duration-500 ${project.status === 'code_red' ? 'bg-[#080000]' : 'bg-[#080808]'}`}>
@@ -271,6 +274,14 @@ export default function ProjectWorkspacePage() {
            </div>
            
            <div className="flex items-center gap-2 shrink-0">
+              {/* Mobile Timeline Toggle */}
+              <button 
+                onClick={() => setIsTimelineOpen(!isTimelineOpen)}
+                className="xl:hidden h-10 w-10 bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center rounded-2xl text-indigo-400 active:scale-90 transition-all"
+              >
+                <Clock className="h-4 w-4" />
+              </button>
+
               <button 
                 onClick={() => setInfoModalOpen(true)}
                 className="h-10 w-10 bg-white/5 border border-white/10 flex items-center justify-center rounded-2xl text-gray-400 active:scale-90 transition-all hover:text-white"
@@ -282,7 +293,7 @@ export default function ProjectWorkspacePage() {
       </header>
  
       <main className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pt-16 scrollbar-hide">
-        <PipelineBar stages={project.project_stages} />
+        <PipelineBar stages={project.project_stages} projectType={project.project_type} />
 
         {/* Admin Review Banner */}
         {isAdminReviewing && (
@@ -336,31 +347,16 @@ export default function ProjectWorkspacePage() {
              </div>
           </div>
 
-          {/* Activity Side Section */}
-          <div className="xl:col-span-1">
+          {/* Activity Side Section (Desktop Sidebar) */}
+          <div className="hidden xl:block xl:col-span-1">
              <div className="flex items-center gap-4 mb-10">
                 <Clock className="h-6 w-6 text-[#6366f1]" />
                 <h3 className="text-2xl font-black text-white tracking-tight">Project Timeline</h3>
              </div>
              
-             <div className="bg-[#0c0c0e] rounded-[32px] border border-white/5 p-8 shadow-2xl space-y-10 max-h-[700px] overflow-y-auto">
+             <div className="bg-[#0c0c0e] rounded-[32px] border border-white/5 p-8 shadow-2xl space-y-10 max-h-[700px] overflow-y-auto custom-scrollbar">
                 {logs.map((log) => (
-                  <div key={log.id} className="relative pl-8 group pb-8 last:pb-0">
-                    <div className="absolute left-[-5px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-indigo-500 bg-[#0c0c0e] z-10 group-hover:scale-125 transition-all"></div>
-                    <div className="absolute left-[5.5px] top-6 w-[1.5px] h-full bg-white/5 last:hidden"></div>
-                    
-                    <div className="mb-2">
-                       <span className="text-[11px] font-black uppercase tracking-widest text-[#818cf8]">{log.user_name}</span>
-                       <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest">
-                         {new Date(log.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}, {new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-                       </p>
-                    </div>
-                    
-                    <p className="text-sm text-gray-500 font-medium leading-relaxed mb-3">{log.update_text}</p>
-                    <span className="inline-block px-3 py-1 bg-[#1a1a2e] text-[#6366f1] text-[9px] font-black uppercase tracking-widest rounded-full border border-[#6366f1]/20">
-                      {log.stage.replace('_', ' ')}
-                    </span>
-                  </div>
+                  <TimelineItem key={log.id} log={log} />
                 ))}
                 {logs.length === 0 && (
                   <div className="text-center py-12 text-gray-500 font-bold text-xs uppercase tracking-widest">No activity history</div>
@@ -369,6 +365,43 @@ export default function ProjectWorkspacePage() {
           </div>
         </div>
       </main>
+
+      {/* MOBILE TIMELINE DRAWER */}
+      <div 
+        className={`fixed inset-0 z-[100] xl:hidden transition-all duration-500 ${
+          isTimelineOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div 
+          className="absolute inset-0 bg-black/80 backdrop-blur-md" 
+          onClick={() => setIsTimelineOpen(false)} 
+        />
+        <div 
+          className={`absolute right-0 top-0 bottom-0 w-[85%] max-w-[400px] bg-[#0c0c0e] border-l border-white/10 shadow-2xl p-6 flex flex-col transition-transform duration-500 transform ${
+            isTimelineOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5 text-indigo-500" strokeWidth={3} />
+              <h3 className="text-lg font-black text-white uppercase tracking-widest">Timeline</h3>
+            </div>
+            <button 
+              onClick={() => setIsTimelineOpen(false)}
+              className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 text-gray-400 font-black"
+            >✕</button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-8 pr-2 custom-scrollbar">
+            {logs.map((log) => (
+              <TimelineItem key={log.id} log={log} />
+            ))}
+            {logs.length === 0 && (
+              <div className="text-center py-20 text-gray-500 font-bold text-[10px] uppercase tracking-widest">No history recorded</div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {infoModalOpen && (
         <ProjectInfoModal project={project} onClose={() => setInfoModalOpen(false)} />
@@ -410,6 +443,27 @@ function TeamCard({ name, icon, description, isHighlighted, onClick, colorClass 
         <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] ${isHighlighted ? c.textHighlight : 'text-gray-600 group-hover:text-gray-400'}`}>Enter Workroom</span>
         <ChevronLeft className={`h-3 w-3 md:h-5 md:w-5 rotate-180 transition-all ${isHighlighted ? c.textHighlight : 'text-gray-600 group-hover:text-gray-400'}`} strokeWidth={3} />
       </div>
+    </div>
+  );
+}
+
+function TimelineItem({ log }: { log: TimelineLog }) {
+  return (
+    <div className="relative pl-8 group pb-8 last:pb-0">
+      <div className="absolute left-[-5px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-indigo-500 bg-[#0c0c0e] z-10 group-hover:scale-125 transition-all"></div>
+      <div className="absolute left-[5.5px] top-6 w-[1.5px] h-full bg-white/5 last:hidden"></div>
+      
+      <div className="mb-2">
+         <span className="text-[11px] font-black uppercase tracking-widest text-[#818cf8] font-sans">{log.user_name}</span>
+         <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest leading-none font-sans">
+           {new Date(log.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}, {new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+         </p>
+      </div>
+      
+      <p className="text-sm text-gray-400 font-medium leading-relaxed mb-3 font-sans truncate-2-lines">{log.update_text}</p>
+      <span className="inline-block px-3 py-1 bg-[#1a1a2e] text-[#6366f1] text-[9px] font-black uppercase tracking-widest rounded-full border border-[#6366f1]/20 font-sans">
+        {log.stage.replace('_', ' ')}
+      </span>
     </div>
   );
 }

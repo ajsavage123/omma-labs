@@ -156,34 +156,56 @@ ALTER TABLE client_contacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- Consolidated Policies (Latest optimized versions from fix_policies.sql)
+DROP POLICY IF EXISTS "Allow authenticated read users" ON users;
 CREATE POLICY "Allow authenticated read users" ON users FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow users update own record" ON users;
 CREATE POLICY "Allow users update own record" ON users FOR UPDATE USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Allow initial signup" ON users;
 CREATE POLICY "Allow initial signup" ON users FOR INSERT WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Allow workspace read" ON workspaces;
 CREATE POLICY "Allow workspace read" ON workspaces FOR SELECT USING (id IN (SELECT workspace_id FROM users WHERE users.id = auth.uid()));
+DROP POLICY IF EXISTS "Allow workspace creation" ON workspaces;
 CREATE POLICY "Allow workspace creation" ON workspaces FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Allow project read" ON projects;
 CREATE POLICY "Allow project read" ON projects FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow project insert" ON projects;
 CREATE POLICY "Allow project insert" ON projects FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow project update" ON projects;
 CREATE POLICY "Allow project update" ON projects FOR UPDATE USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow project delete" ON projects;
 CREATE POLICY "Allow project delete" ON projects FOR DELETE USING (is_admin());
 
+DROP POLICY IF EXISTS "Allow stage read" ON project_stages;
 CREATE POLICY "Allow stage read" ON project_stages FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow stage mod" ON project_stages;
 CREATE POLICY "Allow stage mod" ON project_stages FOR ALL USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow deleting workspace stages" ON project_stages;
 CREATE POLICY "Allow deleting workspace stages" ON project_stages FOR DELETE USING (is_admin());
 
+DROP POLICY IF EXISTS "Allow logs select" ON timeline_logs;
 CREATE POLICY "Allow logs select" ON timeline_logs FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow logs insert" ON timeline_logs;
 CREATE POLICY "Allow logs insert" ON timeline_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow logs delete" ON timeline_logs;
 CREATE POLICY "Allow logs delete" ON timeline_logs FOR DELETE USING (is_admin());
 
+DROP POLICY IF EXISTS "Allow ideas select" ON ideas;
 CREATE POLICY "Allow ideas select" ON ideas FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "Allow ideas insert" ON ideas;
 CREATE POLICY "Allow ideas insert" ON ideas FOR INSERT WITH CHECK (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
-CREATE POLICY "Allow ideas delete" ON ideas FOR DELETE USING (created_by = auth.uid());
+DROP POLICY IF EXISTS "Allow ideas delete" ON ideas;
+CREATE POLICY "Allow ideas delete" ON ideas FOR DELETE USING (created_by = auth.uid() OR is_admin());
 
+DROP POLICY IF EXISTS "Allow contacts select" ON client_contacts;
 CREATE POLICY "Allow contacts select" ON client_contacts FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "Allow contacts all" ON client_contacts;
 CREATE POLICY "Allow contacts all" ON client_contacts FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Allow chat read" ON chat_messages;
 CREATE POLICY "Allow chat read" ON chat_messages FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow chat insert" ON chat_messages;
 CREATE POLICY "Allow chat insert" ON chat_messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 -- ==========================================

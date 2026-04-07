@@ -11,7 +11,6 @@ import QuotationPage from '@/pages/QuotationPage';
 import ClientRequirementPage from '@/pages/ClientRequirementPage';
 import ClientContactsPage from './pages/ClientContactsPage';
 import LibraryPage from './pages/LibraryPage';
-import ServiceMenuCardPage from './pages/ServiceMenuCardPage';
 import MeetingSchedulerPage from './pages/MeetingSchedulerPage';
 import ProjectMembersPage from './pages/ProjectMembersPage';
 import LiveOfficePage from './pages/LiveOfficePage';
@@ -62,7 +61,6 @@ function App() {
             <Route path="/ideas" element={<IdeaVaultPage />} />
             <Route path="/quotation" element={<QuotationPage />} />
             <Route path="/requirement-form" element={<ClientRequirementPage />} />
-            <Route path="/service-menu" element={<ServiceMenuCardPage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/meetings" element={<MeetingSchedulerPage />} />
             <Route path="/directory" element={<ProjectMembersPage />} />
