@@ -83,11 +83,28 @@ CREATE TABLE IF NOT EXISTS public.crm_tasks (
   lead_id uuid REFERENCES public.crm_leads(id) ON DELETE CASCADE,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   due_date timestamp with time zone,
+  due_time time, -- Zoho-style timing
+  priority text DEFAULT 'Medium', -- High, Medium, Low
+  activity_type text DEFAULT 'Task', -- Task, Call, Meeting
   title text NOT NULL,
   status text DEFAULT 'Pending'::text NOT NULL,
   assigned_to uuid REFERENCES auth.users(id),
   workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL
 );
+
+-- Migration logic for Zoho-style Activities
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_tasks' AND column_name='due_time') THEN
+    ALTER TABLE public.crm_tasks ADD COLUMN due_time time;
+    ALTER TABLE public.crm_tasks ADD COLUMN priority text DEFAULT 'Medium';
+    ALTER TABLE public.crm_tasks ADD COLUMN activity_type text DEFAULT 'Task';
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='last_activity_at') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN last_activity_at timestamp with time zone DEFAULT now();
+  END IF;
+END $$;
 
 ALTER TABLE public.crm_tasks ENABLE ROW LEVEL SECURITY;
 

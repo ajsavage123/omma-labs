@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { OomaLogo } from '@/components/OomaLogo';
 import { 
-  Plus, Search, X, Phone, Mail, Trash2, ArrowRight, Building, User, 
+  Plus, Search, X, Phone, Mail, Trash2, ArrowRight, ArrowLeft, Building, User, 
   ListTodo, Send, LayoutDashboard, Briefcase, 
-  CheckSquare, TrendingUp, Clock, IndianRupee, Edit, MessageCircle, Calendar, AlertCircle, Upload, Loader2,
+  CheckSquare, TrendingUp, Clock, IndianRupee, Edit, MessageCircle, Calendar, Upload, Loader2,
   Globe, MapPin
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -17,7 +17,7 @@ export default function CRMPage() {
   const { toast } = useToast();
 
   // Navigation
-  const [activeModule, setActiveModule] = useState<'dashboard' | 'accounts' | 'pipeline' | 'tasks'>('pipeline');
+  const [activeModule, setActiveModule] = useState<'dashboard' | 'accounts' | 'pipeline' | 'activities'>('pipeline');
   
   // Data
   const [leads, setLeads] = useState<any[]>([]);
@@ -58,6 +58,16 @@ export default function CRMPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const STAGES = ['New Lead', 'Contacted', 'Follow-Up', 'Meeting Pending', 'Proposal Sent', 'Onboarding', 'Not Interested'];
+
+const STAGE_TACTICS: Record<string, string[]> = {
+  'New Lead': ['Website Audit', 'Initial SMS', 'Industry Research'],
+  'Contacted': ['Check Reply', 'Follow-Up #1', 'Send Case Studies'],
+  'Follow-Up': ['Schedule Discovery', 'Send Portfolio', 'Identify Blockers'],
+  'Meeting Pending': ['Prepare Deck', 'Confirm Schedule', 'Goal Alignment'],
+  'Proposal Sent': ['Follow-Up #2', 'Draft Contract', 'Value Negotiation'],
+  'Onboarding': ['Request Payment', 'Kickoff Meet', 'Setup Workspace'],
+  'Not Interested': ['Archive Profile', 'Post-Mortem Log']
+};
 
   useEffect(() => {
     if (user?.workspace_id) {
@@ -189,15 +199,42 @@ export default function CRMPage() {
 
   const handleUpdateStatus = async (leadId: string, newStatus: string) => {
     try {
-      const { error } = await supabase.from('crm_leads').update({ status: newStatus }).eq('id', leadId);
+      const { error } = await supabase
+        .from('crm_leads')
+        .update({ status: newStatus, last_activity_at: new Date().toISOString() })
+        .eq('id', leadId);
+      
       if (error) throw error;
       toast.success(`Moved to ${newStatus}`);
-      setLeads(leads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
+      
+      // ZOHO LOGIC: Auto-Task Engine
+      const workflowTasks: Record<string, {title: string, priority: string, category: string}> = {
+        'New Lead': { title: 'Initial Outreach & Qualification', priority: 'High', category: 'Call' },
+        'Contacted': { title: 'Follow-up on discovery status', priority: 'Medium', category: 'Task' },
+        'Follow-Up': { title: 'Pitch Deck & Portfolio Review', priority: 'High', category: 'Meeting' },
+        'Meeting Pending': { title: 'Send Calendar Invite & Confirm', priority: 'High', category: 'Meeting' },
+        'Proposal Sent': { title: 'Terms Negotiation & Follow-up', priority: 'High', category: 'Call' },
+        'Onboarding': { title: 'Welcome Call & Asset Request', priority: 'High', category: 'Meeting' }
+      };
+
+      if (workflowTasks[newStatus]) {
+        await supabase.from('crm_tasks').insert([{
+          lead_id: leadId,
+          workspace_id: user?.workspace_id,
+          title: workflowTasks[newStatus].title,
+          priority: workflowTasks[newStatus].priority,
+          activity_type: workflowTasks[newStatus].category,
+          due_date: new Date(Date.now() + 86400000).toISOString(),
+          assigned_to: user?.id
+        }]);
+        fetchAllTasks();
+      }
+
+      setLeads(leads.map(l => l.id === leadId ? { ...l, status: newStatus, last_activity_at: new Date().toISOString() } : l));
       if (selectedLead?.id === leadId) setSelectedLead((prev: any) => ({ ...prev, status: newStatus }));
       
-      // Auto-log status change
       await supabase.from('crm_activities').insert([
-        { lead_id: leadId, user_id: user?.id, activity_type: 'system', description: `Deal stage moved to ${newStatus}` }
+        { lead_id: leadId, user_id: user?.id, activity_type: 'system', description: `Stage moved to ${newStatus}. Auto-task generated.` }
       ]);
       if (selectedLead?.id === leadId) fetchActivities(leadId);
 
@@ -234,27 +271,52 @@ export default function CRMPage() {
     }
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim() || !selectedLead) return;
+  const handleCreateTask = async (e: React.FormEvent, customData?: any) => {
+    if (e) e.preventDefault();
+    const title = customData?.title || newTaskTitle.trim();
+    if (!title || !selectedLead) return;
+    
     try {
       const { error } = await supabase.from('crm_tasks').insert([
-        { lead_id: selectedLead.id, workspace_id: user?.workspace_id, title: newTaskTitle.trim(), assigned_to: user?.id }
+        { 
+          lead_id: selectedLead.id, 
+          workspace_id: user?.workspace_id, 
+          title, 
+          assigned_to: user?.id,
+          priority: customData?.priority || 'Medium',
+          due_date: customData?.due_date || new Date(Date.now() + 86400000).toISOString(),
+          activity_type: customData?.activity_type || 'Task'
+        }
       ]);
       if (error) throw error;
       setNewTaskTitle('');
       fetchAllTasks();
-      toast.success('Task created');
+      toast.success('Activity Scheduled');
     } catch (err: any) {
-      toast.error('Failed to create task');
+      toast.error('Failed to create activity');
     }
   };
 
   const handleCompleteTask = async (taskId: string) => {
     try {
+      const task = tasks.find(t => t.id === taskId);
       const { error } = await supabase.from('crm_tasks').update({ status: 'Completed' }).eq('id', taskId);
       if (error) throw error;
+      
       fetchAllTasks();
+      toast.success('Activity Completed!');
+
+      // ZOHO LOOP: Force Next Action Prompt
+      if (task) {
+        const lead = leads.find(l => l.id === task.lead_id);
+        if (lead && lead.status !== 'Onboarding' && lead.status !== 'Not Interested') {
+          setSelectedLead(lead);
+          toast.info('Schedule your next move immediately to keep the deal warm.');
+          // Focus the task input if we are in the modal
+          const input = document.getElementById('new-task-input');
+          if (input) input.focus();
+        }
+      }
     } catch (err) {
       toast.error('Could not update task');
     }
@@ -264,7 +326,7 @@ export default function CRMPage() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    toast.success('Analyzing CSV spreadsheet...');
+    toast.info('Analyzing CSV spreadsheet...');
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -335,11 +397,7 @@ export default function CRMPage() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const followUpsDue = leads.filter(l => {
-    if (!l.follow_up_date || l.status === 'Onboarding' || l.status === 'Not Interested') return false;
-    const fdate = new Date(l.follow_up_date);
-    return fdate < tomorrow; 
-  });
+
 
   return (
     <div className="h-[100dvh] flex flex-col md:flex-row bg-[#030303] text-white overflow-hidden selection:bg-indigo-500/30">
@@ -356,14 +414,14 @@ export default function CRMPage() {
             <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">Growth Dashboard</span>
           </button>
           <button onClick={() => setActiveModule('accounts')} className={`flex-1 md:flex-none md:w-full flex flex-col md:flex-row items-center justify-center md:justify-start px-1 md:px-3 py-1.5 md:py-3 rounded-xl transition-all ${activeModule === 'accounts' ? 'md:bg-indigo-600 md:shadow-lg md:shadow-indigo-600/20 text-indigo-400 md:text-white' : 'text-gray-500 hover:bg-white/5 hover:text-white'}`}>
-            <Briefcase className="h-5 w-5 md:mr-3 shrink-0 mb-1 md:mb-0" />
-            <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">Leads & Clients</span>
+            <Building className="h-5 w-5 md:mr-3 shrink-0 mb-1 md:mb-0" />
+            <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">Leads & Deals</span>
           </button>
           <button onClick={() => setActiveModule('pipeline')} className={`flex-1 md:flex-none md:w-full flex flex-col md:flex-row items-center justify-center md:justify-start px-1 md:px-3 py-1.5 md:py-3 rounded-xl transition-all ${activeModule === 'pipeline' ? 'md:bg-indigo-600 md:shadow-lg md:shadow-indigo-600/20 text-indigo-400 md:text-white' : 'text-gray-500 hover:bg-white/5 hover:text-white'}`}>
             <TrendingUp className="h-5 w-5 md:mr-3 shrink-0 mb-1 md:mb-0" />
             <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">Deal Pipeline</span>
           </button>
-          <button onClick={() => setActiveModule('tasks')} className={`flex-1 md:flex-none md:w-full flex flex-col md:flex-row items-center justify-center md:justify-start px-1 md:px-3 py-1.5 md:py-3 rounded-xl transition-all relative ${activeModule === 'tasks' ? 'md:bg-indigo-600 md:shadow-lg md:shadow-indigo-600/20 text-indigo-400 md:text-white' : 'text-gray-500 hover:bg-white/5 hover:text-white'}`}>
+          <button onClick={() => setActiveModule('activities')} className={`flex-1 md:flex-none md:w-full flex flex-col md:flex-row items-center justify-center md:justify-start px-1 md:px-3 py-1.5 md:py-3 rounded-xl transition-all relative ${activeModule === 'activities' ? 'md:bg-indigo-600 md:shadow-lg md:shadow-indigo-600/20 text-indigo-400 md:text-white' : 'text-gray-500 hover:bg-white/5 hover:text-white'}`}>
             <div className="relative">
               <CheckSquare className="h-5 w-5 md:mr-3 shrink-0 mb-1 md:mb-0" />
               {tasks.filter(t => t.status !== 'Completed').length > 0 && (
@@ -372,7 +430,7 @@ export default function CRMPage() {
                 </span>
               )}
             </div>
-            <span className="text-[10px] md:text-sm font-black uppercase tracking-widest md:flex-1 md:text-left">Client Tracker</span>
+            <span className="text-[10px] md:text-sm font-black uppercase tracking-widest md:flex-1 md:text-left">Activities center</span>
             {tasks.filter(t => t.status !== 'Completed').length > 0 && (
               <span className="hidden md:inline-block bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full ml-1">
                 {tasks.filter(t => t.status !== 'Completed').length}
@@ -486,25 +544,73 @@ export default function CRMPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-[#111116] border border-white/5 p-6 rounded-3xl">
-                  <h4 className="text-xs font-black text-amber-500 uppercase tracking-widest mb-6 flex items-center"><AlertCircle className="h-4 w-4 mr-2" /> Today's Follow-Ups</h4>
-                  <div className="space-y-4">
-                    {followUpsDue.length > 0 ? followUpsDue.map(lead => (
-                      <div key={lead.id} onClick={() => setSelectedLead(lead)} className="flex justify-between items-center p-3 bg-amber-500/5 border border-amber-500/20 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-colors group">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-                            <Calendar className="h-5 w-5 text-amber-400" />
+              <div className="bg-[#0c0c0e] border border-white/5 rounded-3xl overflow-hidden shadow-2xl col-span-1 md:col-span-2">
+                  <div className="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-indigo-500/5 to-transparent">
+                    <div>
+                      <h4 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                        <ListTodo className="h-4 w-4 text-indigo-400" /> Daily Workdesk
+                      </h4>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-1">Execute your high-priority activities</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/5">
+                    {/* OVERDUE */}
+                    <div className="p-6 space-y-4">
+                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center justify-between">Overdue <span>{tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) < new Date(new Date().setHours(0,0,0,0))).length}</span></p>
+                      <div className="space-y-2">
+                        {tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) < new Date(new Date().setHours(0,0,0,0)))
+                          .sort((a, b) => {
+                            const prioritizer = (p: string) => p === 'High' ? 2 : p === 'Medium' ? 1 : 0;
+                            return prioritizer(b.priority || '') - prioritizer(a.priority || '');
+                          })
+                          .slice(0,3).map(task => (
+                          <div key={task.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-xl cursor-pointer hover:bg-red-500/10 transition-colors" onClick={() => setSelectedLead(leads.find(l => l.id === task.lead_id))}>
+                            <div className="flex justify-between items-start mb-1">
+                              <p className="text-xs font-bold text-gray-200 line-clamp-1">{task.title}</p>
+                              {task.priority === 'High' && <span className="text-[7px] bg-red-500 text-white px-1 rounded uppercase font-black">Urgent</span>}
+                            </div>
+                            <p className="text-[9px] font-black uppercase text-red-400 mt-1 opacity-70">{leads.find(l => l.id === task.lead_id)?.company_name}</p>
                           </div>
-                          <div>
-                            <p className="font-bold text-sm text-white">{lead.company_name}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase">{termLabel(lead.status)} - {lead.contact_person}</p>
-                          </div>
-                        </div>
-                        <span className="text-[9px] font-black uppercase bg-amber-500/20 text-amber-500 px-2 py-1 rounded">Due</span>
+                        ))}
                       </div>
-                    )) : (
-                      <div className="py-6 text-center text-[10px] font-black uppercase tracking-widest text-gray-600">All caught up!</div>
-                    )}
+                    </div>
+                    {/* TODAY */}
+                    <div className="p-6 space-y-4 bg-white/[0.01]">
+                      <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center justify-between">Today <span>{tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date).toDateString() === new Date().toDateString()).length}</span></p>
+                      <div className="space-y-2">
+                        {tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date).toDateString() === new Date().toDateString())
+                          .sort((a, b) => {
+                            const prioritizer = (p: string) => p === 'High' ? 2 : p === 'Medium' ? 1 : 0;
+                            return prioritizer(b.priority || '') - prioritizer(a.priority || '');
+                          })
+                          .slice(0,3).map(task => (
+                          <div key={task.id} className="p-3 bg-white/5 border border-white/10 rounded-xl cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setSelectedLead(leads.find(l => l.id === task.lead_id))}>
+                            <div className="flex justify-between items-start">
+                              <p className="text-xs font-bold text-white line-clamp-1">{task.title}</p>
+                              <span className={`text-[7px] px-1 rounded uppercase font-black ${task.priority === 'High' ? 'bg-amber-500 text-black' : 'bg-gray-700 text-gray-300'}`}>{task.priority}</span>
+                            </div>
+                            <p className="text-[9px] font-black uppercase text-indigo-400 mt-1">{leads.find(l => l.id === task.lead_id)?.company_name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* UPCOMING */}
+                    <div className="p-6 space-y-4">
+                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center justify-between">Upcoming <span>{tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) > new Date(new Date().setHours(23,59,59,999))).length}</span></p>
+                      <div className="space-y-2">
+                        {tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) > new Date(new Date().setHours(23,59,59,999)))
+                          .sort((a, b) => {
+                            const prioritizer = (p: string) => p === 'High' ? 2 : p === 'Medium' ? 1 : 0;
+                            return prioritizer(b.priority || '') - prioritizer(a.priority || '');
+                          })
+                          .slice(0,3).map(task => (
+                          <div key={task.id} className="p-3 bg-white/[0.02] border border-white/5 rounded-xl opacity-60">
+                            <p className="text-xs font-bold text-gray-400 line-clamp-1">{task.title}</p>
+                            <p className="text-[9px] font-black uppercase text-gray-600 mt-1">{leads.find(l => l.id === task.lead_id)?.company_name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -540,17 +646,28 @@ export default function CRMPage() {
                 
                 return (
                   <div key={stage} className="w-[320px] flex-shrink-0 flex flex-col bg-[#0c0c0e]/80 backdrop-blur-md rounded-3xl border border-white/5 h-full max-h-full">
-                    <div className="p-4 border-b border-white/5 flex items-center justify-between">
-                      <div>
-                        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white flex items-center">
-                          {stage} <span className="ml-2 text-gray-600">• {stageLeads.length}</span>
-                        </h3>
-                        <p className="text-[10px] text-indigo-400 font-bold mt-1 uppercase">₹{stageValue.toLocaleString()}</p>
+                    <div className="p-4 border-b border-white/5 bg-[#0c0c0e]/40">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white flex items-center">
+                            {stage} <span className="ml-2 text-gray-600">• {stageLeads.length}</span>
+                          </h3>
+                          {stageValue > 0 && <p className="text-[10px] text-emerald-400 font-bold mt-1 uppercase">₹{stageValue.toLocaleString()}</p>}
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {STAGE_TACTICS[stage]?.map(tactic => (
+                          <span key={tactic} className="px-2 py-1 bg-white/5 border border-white/5 rounded-md text-[8px] font-black uppercase tracking-widest text-gray-400 hover:text-indigo-400 hover:border-indigo-500/30 transition-all cursor-default">
+                            {tactic}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     
                     <div className="flex-1 p-3 overflow-y-auto custom-scrollbar space-y-3">
                       {stageLeads.map(lead => {
+                        const idx = STAGES.indexOf(stage);
                         const getStageColor = (s: string) => {
                           if (s === 'New Lead') return 'sky';
                           if (s === 'Contacted') return 'purple';
@@ -572,83 +689,94 @@ export default function CRMPage() {
 
                             <div className="flex justify-between items-start mb-4 relative z-10">
                               <div className="flex space-x-4 items-center">
-                                <div className={`h-12 w-12 shrink-0 rounded-2xl bg-${color}-500/10 flex items-center justify-center border border-${color}-500/20 shadow-inner group-hover:scale-110 transition-transform`}>
+                                <div className={`h-12 w-12 shrink-0 rounded-2xl bg-${color}-500/10 flex items-center justify-center border border-${color}-500/20 shadow-inner group-hover:scale-110 transition-transform relative`}>
                                    <Building className={`h-5 w-5 text-${color}-400`} />
+                                   
+                                   {/* ZOHO TASK INDICATOR */}
+                                   {(() => {
+                                      const leadTasks = tasks.filter(t => t.lead_id === lead.id && t.status !== 'Completed');
+                                      if (leadTasks.some(t => new Date(t.due_date) < new Date(new Date().setHours(0,0,0,0)))) {
+                                        return <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full border-2 border-[#111116] animate-pulse shadow-lg shadow-red-500/40" title="Overdue Action Required" />;
+                                      }
+                                      if (leadTasks.length === 0 && lead.status !== 'Onboarding' && lead.status !== 'Not Interested') {
+                                        return <div className="absolute -top-1 -right-1 h-4 w-4 bg-amber-500 rounded-full border-2 border-[#111116] shadow-lg shadow-amber-500/40" title="No Next Move Set (Zoho Alert)" />;
+                                      }
+                                      if (leadTasks.length > 0) {
+                                        return <div className="absolute -top-1 -right-1 h-4 w-4 bg-indigo-500 rounded-full border-2 border-[#111116] shadow-lg shadow-indigo-500/40" title="Next Move Scheduled" />;
+                                      }
+                                      return null;
+                                   })()}
                                 </div>
                                 <div className="min-w-0">
-                                  <h4 className="font-black text-base text-white truncate pr-2 tracking-tight">{lead.company_name}</h4>
-                                  <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] truncate mt-0.5">{lead.business_type || 'Potential Account'}</p>
+                                   <h4 className="font-black text-base text-white truncate pr-2 tracking-tight">{lead.company_name}</h4>
+                                   <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] truncate mt-0.5">{lead.business_type || 'Potential Account'}</p>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="bg-black/60 rounded-2xl px-4 py-3 border border-white/5 flex justify-between items-center mb-5 relative z-10 backdrop-blur-md">
-                               <div className="flex items-center gap-2.5">
-                                 <User className="h-4 w-4 text-gray-500" />
-                                 <span className="text-xs font-bold text-gray-200 truncate max-w-[120px]">{lead.contact_person}</span>
+                            <div className="bg-black/60 rounded-2xl px-4 py-2.5 border border-white/5 flex justify-between items-center mb-5 relative z-10 backdrop-blur-md">
+                               <div className="flex items-center gap-2.5 min-w-0">
+                                 <User className="h-4 w-4 text-gray-500 shrink-0" />
+                                 <span className="text-xs font-bold text-gray-200 truncate pr-2">
+                                   {(!lead.contact_person || lead.company_name.toLowerCase().includes(lead.contact_person.toLowerCase()) || lead.contact_person.toLowerCase().includes(lead.company_name.toLowerCase())) 
+                                     ? 'Direct Account' 
+                                     : lead.contact_person}
+                                 </span>
                                </div>
-                               <span className="text-emerald-400 font-black text-lg flex items-center tracking-tight"><IndianRupee className="h-4 w-4 mr-0.5 opacity-50" />{(lead.estimated_value || 0).toLocaleString()}</span>
+                               <span className="text-emerald-400 font-black text-base flex items-center shrink-0 tracking-tight pl-2 border-l border-white/10 ml-2">
+                                 <IndianRupee className="h-3.5 w-3.5 mr-0.5 opacity-50" />
+                                 {(lead.estimated_value || 0).toLocaleString()}
+                               </span>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-3 mb-5 relative z-10">
-                              {lead.service_interest && (
-                                <div className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2 flex flex-col justify-center">
-                                  <span className="text-[9px] text-gray-600 font-black uppercase tracking-widest mb-1">Expertise</span>
-                                  <span className="text-[11px] text-indigo-400 font-black truncate">{lead.service_interest}</span>
-                                </div>
-                              )}
-                              {lead.confidence > 0 && (
-                                <div className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2 flex flex-col justify-center">
-                                  <span className="text-[9px] text-gray-600 font-black uppercase tracking-widest mb-1">Success Prob.</span>
-                                  <span className={`text-[11px] font-black text-${color}-400`}>{lead.confidence}%</span>
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex items-center gap-2 pt-5 border-t border-white/5 relative z-10" onClick={e => e.stopPropagation()}>
-                              {lead.phone && (
-                                <a href={`tel:${lead.phone}`} title="Voice Call" className={`flex-1 flex items-center justify-center py-2.5 bg-${color}-500 text-white rounded-xl transition-all font-black text-[10px] uppercase tracking-widest shadow-lg shadow-${color}-500/20`}>
-                                  <Phone className="h-4 w-4 mr-2" /> Call
-                                </a>
-                              )}
-                              
-                              <div className="flex items-center gap-1.5 ml-auto">
+                            <div className="pt-5 border-t border-white/5 relative z-10 space-y-3" onClick={e => e.stopPropagation()}>
+                              <div className="flex items-center gap-2">
                                 {lead.phone && (
-                                  <a href={`https://wa.me/${lead.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" title="WhatsApp" className="h-10 w-10 flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl transition-all border border-emerald-500/20">
-                                    <MessageCircle className="h-4 w-4" />
+                                  <a href={`tel:${lead.phone}`} title="Call" className={`flex-1 flex items-center justify-center py-2.5 bg-${color}-500 text-white rounded-xl transition-all font-black text-[10px] uppercase tracking-widest shadow-lg shadow-${color}-400/20`}>
+                                    <Phone className="h-3.5 w-3.5 mr-2" /> CALL NOW
                                   </a>
                                 )}
-                                {lead.email && (
-                                  <a href={`mailto:${lead.email}`} title="Email Client" className="h-10 w-10 flex items-center justify-center bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl transition-all border border-white/10">
-                                    <Mail className="h-4 w-4" />
+                                {lead.phone && (
+                                  <a href={`https://wa.me/${lead.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" title="WhatsApp" className="h-11 w-11 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl transition-all">
+                                    <MessageCircle className="h-5 w-5" />
                                   </a>
                                 )}
-                                {lead.website && (
-                                  <a href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`} target="_blank" rel="noreferrer" title="Open Website" className="h-10 w-10 flex items-center justify-center bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl transition-all border border-indigo-500/20">
-                                    <Globe className="h-4 w-4" />
-                                  </a>
-                                )}
-                                {lead.external_link && (
-                                  <a href={lead.external_link.startsWith('http') ? lead.external_link : `https://${lead.external_link}`} target="_blank" rel="noreferrer" title="Locate on Map" className="h-10 w-10 flex items-center justify-center bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-xl transition-all border border-amber-500/20">
-                                    <MapPin className="h-4 w-4" />
-                                  </a>
-                                )}
-                                
-                                {stage !== 'Onboarding' && stage !== 'Not Interested' && (
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const idx = STAGES.indexOf(stage);
-                                      if (idx >= 0 && idx < STAGES.length - 1 && !['Not Interested'].includes(STAGES[idx+1])) {
-                                        handleUpdateStatus(lead.id, STAGES[idx+1]);
-                                      }
-                                    }}
-                                    className="h-10 w-10 shrink-0 flex items-center justify-center bg-white text-black hover:bg-indigo-500 hover:text-white rounded-xl transition-all border border-white/10"
-                                    title="Move to Next Stage"
-                                  >
-                                    <ArrowRight className="h-4 w-4" />
-                                  </button>
-                                )}
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  {lead.email && (
+                                    <a href={`mailto:${lead.email}`} title="Email" className="h-9 w-9 flex items-center justify-center bg-white/5 hover:bg-white/10 text-gray-400 rounded-lg transition-all border border-white/10">
+                                      <Mail className="h-4 w-4" />
+                                    </a>
+                                  )}
+                                  {lead.website && (
+                                    <a href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`} target="_blank" rel="noreferrer" title="Website" className="h-9 w-9 flex items-center justify-center bg-indigo-500/5 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-all border border-indigo-500/20">
+                                      <Globe className="h-4 w-4" />
+                                    </a>
+                                  )}
+                                  {lead.external_link && (
+                                    <a href={lead.external_link.startsWith('http') ? lead.external_link : `https://${lead.external_link}`} target="_blank" rel="noreferrer" title="Maps" className="h-9 w-9 flex items-center justify-center bg-amber-500/5 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-all border border-amber-500/20">
+                                      <MapPin className="h-4 w-4" />
+                                    </a>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                                  {idx > 0 && (
+                                    <button onClick={(e) => { e.stopPropagation(); handleUpdateStatus(lead.id, STAGES[idx-1]); }} className="h-8 w-8 flex items-center justify-center text-gray-500 hover:text-white transition-all">
+                                      <ArrowLeft className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {idx < STAGES.length - 1 && (
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); if (!['Not Interested'].includes(STAGES[idx+1])) handleUpdateStatus(lead.id, STAGES[idx+1]); }}
+                                      className="h-8 w-8 flex items-center justify-center bg-white text-black hover:bg-indigo-500 hover:text-white rounded-lg transition-all shadow-sm"
+                                    >
+                                      <ArrowRight className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -774,53 +902,100 @@ export default function CRMPage() {
             </div>
           )}
 
-          {/* TASKS MODULE */}
-          {activeModule === 'tasks' && (
-            <div className="max-w-4xl mx-auto animate-fade-in">
-               <div className="bg-[#0c0c0e] rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
-                 <div className="p-6 border-b border-white/5 flex gap-4 items-center">
-                   <div className="h-12 w-12 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-                     <CheckSquare className="h-5 w-5 text-indigo-400" />
-                   </div>
-                   <div>
-                     <h2 className="text-xl font-black uppercase tracking-tight text-white mb-1">Global Tasks</h2>
-                     <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Manage required sales actions</p>
-                   </div>
+          {/* ACTIVITIES MODULE (ZOHO STYLE) */}
+          {activeModule === 'activities' && (
+            <div className="max-w-6xl mx-auto space-y-6 animate-fade-in flex flex-col h-full overflow-hidden">
+               <div className="flex justify-between items-center bg-[#111116] p-6 rounded-3xl border border-white/5">
+                 <div>
+                   <h2 className="text-xl font-black uppercase tracking-tight text-white mb-1">Execution Hub</h2>
+                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Zoho Activities Center • {tasks.filter(t => t.status !== 'Completed').length} Actions Required</p>
                  </div>
-                 <div className="divide-y divide-white/5">
-                   {fetchingTasks ? (
-                     <div className="p-12 text-center animate-pulse">
-                       <p className="text-xs text-gray-500 font-black uppercase tracking-widest bg-gray-500/10 inline-block px-4 py-2 rounded-full">Synchronizing Tasks...</p>
-                     </div>
-                   ) : tasks.length > 0 ? tasks.map(task => (
-                     <div key={task.id} className="p-5 flex items-center gap-4 hover:bg-white/[0.02] transition-colors">
-                       <button 
-                         onClick={() => handleCompleteTask(task.id)}
-                         className={`h-6 w-6 rounded-md border flex items-center justify-center transition-all ${
-                           task.status === 'Completed' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-600 text-transparent hover:border-indigo-400 hover:text-indigo-400/30'
-                         }`}
-                       >
-                         <CheckSquare className="h-4 w-4" />
-                       </button>
-                       <div className="flex-1 min-w-0">
-                         <p className={`text-sm font-bold truncate ${task.status === 'Completed' ? 'text-gray-500 line-through' : 'text-white'}`}>
-                           {task.title}
-                         </p>
-                         <p className="text-[10px] text-indigo-400 font-black uppercase tracking-wider mt-1 flex items-center">
-                           <Building className="h-3 w-3 mr-1" /> {task.crm_leads?.company_name || 'Deleted Account'}
-                         </p>
-                       </div>
-                       <div className="text-right">
-                         <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 bg-white/5 px-2 py-1 rounded-md">{task.status}</span>
-                       </div>
-                     </div>
-                   )) : (
-                     <div className="p-12 text-center">
-                       <ListTodo className="h-10 w-10 text-white/5 mx-auto mb-4" />
-                       <p className="text-xs text-gray-500 font-black uppercase tracking-widest">Inbox Zero. Outstanding.</p>
-                     </div>
-                   )}
+                 <div className="flex gap-2">
+                    <button className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20">Focus View</button>
+                    <button className="px-4 py-2 bg-white/5 text-gray-400 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Filter</button>
                  </div>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 min-h-0">
+                  {/* OVERDUE */}
+                  <div className="flex flex-col bg-black/20 rounded-3xl border border-red-500/10 overflow-hidden">
+                     <div className="p-4 bg-red-500/5 border-b border-red-500/10 flex justify-between items-center">
+                        <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Overdue</span>
+                        <span className="h-5 w-5 bg-red-500 text-white text-[9px] font-black rounded flex items-center justify-center">{tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) < new Date(new Date().setHours(0,0,0,0))).length}</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                        {tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) < new Date(new Date().setHours(0,0,0,0))).map(task => (
+                           <div key={task.id} className="p-4 bg-[#111116] border border-white/10 rounded-2xl group hover:border-red-500/40 transition-all cursor-pointer" onClick={() => setSelectedLead(leads.find(l => l.id === task.lead_id))}>
+                              <div className="flex justify-between items-center mb-2">
+                                 <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${task.activity_type === 'Call' ? 'bg-amber-500/20 text-amber-500' : task.activity_type === 'Meeting' ? 'bg-indigo-500/20 text-indigo-500' : 'bg-gray-500/20 text-gray-500'}`}>
+                                    {task.activity_type}
+                                 </span>
+                                 <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} className="h-6 w-6 rounded-full border border-white/10 flex items-center justify-center hover:bg-emerald-500 transition-all">
+                                    <CheckSquare className="h-3 w-3" />
+                                 </button>
+                              </div>
+                              <h4 className="text-sm font-bold text-white line-clamp-1 mb-1">{task.title}</h4>
+                              <p className="text-[10px] font-black text-gray-600 uppercase mb-3">{leads.find(l => l.id === task.lead_id)?.company_name}</p>
+                              <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                                 <span className="text-[8px] font-black text-red-500 uppercase">Late by {Math.floor((new Date().getTime() - new Date(task.due_date).getTime()) / (1000*60*60*24))} Days</span>
+                                 <span className="text-[8px] text-gray-600 uppercase font-black">{new Date(task.due_date).toLocaleDateString()}</span>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+
+                  {/* TODAY */}
+                  <div className="flex flex-col bg-black/20 rounded-3xl border border-amber-500/10 overflow-hidden">
+                     <div className="p-4 bg-amber-500/5 border-b border-amber-500/10 flex justify-between items-center">
+                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Today's Execution</span>
+                        <span className="h-5 w-5 bg-amber-500 text-black text-[9px] font-black rounded flex items-center justify-center">{tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date).toDateString() === new Date().toDateString()).length}</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                        {tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date).toDateString() === new Date().toDateString()).map(task => (
+                           <div key={task.id} className="p-4 bg-[#14141d] border border-white/10 rounded-2xl group hover:border-amber-500/40 transition-all cursor-pointer" onClick={() => setSelectedLead(leads.find(l => l.id === task.lead_id))}>
+                              <div className="flex justify-between items-center mb-2">
+                                 <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${task.activity_type === 'Call' ? 'bg-amber-500/20 text-amber-500' : task.activity_type === 'Meeting' ? 'bg-indigo-500/20 text-indigo-500' : 'bg-gray-500/20 text-gray-500'}`}>
+                                       {task.activity_type}
+                                    </span>
+                                    {task.priority === 'High' && <span className="text-[8px] text-red-500 font-bold animate-pulse">● URGENT</span>}
+                                 </div>
+                                 <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} className="h-6 w-6 rounded-full border border-white/10 flex items-center justify-center hover:bg-emerald-500 transition-all shadow-lg">
+                                    <CheckSquare className="h-3 w-3" />
+                                 </button>
+                              </div>
+                              <h4 className="text-sm font-bold text-white mb-1">{task.title}</h4>
+                              <p className="text-[10px] font-black text-indigo-400 uppercase mb-3">{leads.find(l => l.id === task.lead_id)?.company_name}</p>
+                              <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                                 <span className="text-[8px] font-black text-amber-500 uppercase">Priority Execution</span>
+                                 <Clock className="h-3 w-3 text-amber-500" />
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+
+                  {/* UPCOMING */}
+                  <div className="flex flex-col bg-black/20 rounded-3xl border border-indigo-500/10 overflow-hidden opacity-60 hover:opacity-100 transition-opacity">
+                     <div className="p-4 bg-indigo-500/5 border-b border-indigo-500/10 flex justify-between items-center">
+                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Upcoming</span>
+                        <span className="h-5 w-5 bg-indigo-500 text-white text-[9px] font-black rounded flex items-center justify-center">{tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) > new Date(new Date().setHours(23,59,59,999))).length}</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                        {tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) > new Date(new Date().setHours(23,59,59,999))).map(task => (
+                           <div key={task.id} className="p-4 bg-[#111116] border border-white/5 rounded-2xl group hover:border-indigo-500/40 transition-all cursor-pointer" onClick={() => setSelectedLead(leads.find(l => l.id === task.lead_id))}>
+                              <div className="flex justify-between items-center mb-2">
+                                 <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${task.activity_type === 'Call' ? 'bg-amber-500/20 text-amber-500' : task.activity_type === 'Meeting' ? 'bg-indigo-500/20 text-indigo-500' : 'bg-gray-500/20 text-gray-500'}`}>
+                                    {task.activity_type}
+                                 </span>
+                              </div>
+                              <h4 className="text-sm font-bold text-gray-300 mb-1">{task.title}</h4>
+                              <p className="text-[10px] font-black text-gray-600 uppercase">{leads.find(l => l.id === task.lead_id)?.company_name}</p>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
                </div>
             </div>
           )}
@@ -925,13 +1100,23 @@ export default function CRMPage() {
               <div className="absolute top-0 right-0 p-8 opacity-5"><OomaLogo size={140} /></div>
               
               <div className="relative z-10 flex justify-between items-start mb-6">
-                <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border ${
-                  selectedLead.status === 'Won' ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' :
-                  (selectedLead.status === 'Lost' || selectedLead.status === 'Not Interested') ? 'border-red-500/50 bg-red-500/10 text-red-400' :
-                  'border-indigo-500/50 bg-indigo-500/10 text-indigo-400'
-                }`}>
-                  Stage: {selectedLead.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border ${
+                    selectedLead.status === 'Won' ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' :
+                    (selectedLead.status === 'Lost' || selectedLead.status === 'Not Interested') ? 'border-red-500/50 bg-red-500/10 text-red-400' :
+                    'border-indigo-500/50 bg-indigo-500/10 text-indigo-400'
+                  }`}>
+                    Stage: {selectedLead.status}
+                  </span>
+                  {['New Lead', 'Contacted'].includes(selectedLead.status) && (
+                    <button 
+                      onClick={() => handleUpdateStatus(selectedLead.id, 'Meeting Pending')}
+                      className="px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-lg flex items-center"
+                    >
+                      <TrendingUp className="h-3 w-3 mr-1.5" /> Convert to Deal
+                    </button>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <button onClick={() => openEditModal(selectedLead)} className="p-2.5 bg-indigo-500/5 hover:bg-indigo-500/20 text-indigo-400 rounded-xl transition-colors"><Edit className="h-4 w-4" /></button>
                   <button onClick={() => handleDeleteLead(selectedLead.id)} className="p-2.5 bg-red-500/5 hover:bg-red-500/20 text-red-500 rounded-xl transition-colors"><Trash2 className="h-4 w-4" /></button>
@@ -967,11 +1152,41 @@ export default function CRMPage() {
                      </>
                    )}
                    {selectedLead.follow_up_date && (
-                     <>
-                       <span className="hidden sm:block w-1 h-1 bg-white/20 rounded-full"></span>
-                       <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/10 px-2 py-1 rounded flex items-center"><Calendar className="h-3 w-3 mr-1" /> Follow Up: {new Date(selectedLead.follow_up_date).toLocaleDateString()}</span>
-                     </>
-                   )}
+                      <>
+                        <span className="hidden sm:block w-1 h-1 bg-white/20 rounded-full"></span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/10 px-2 py-1 rounded flex items-center"><Calendar className="h-3 w-3 mr-1" /> Follow Up: {new Date(selectedLead.follow_up_date).toLocaleDateString()}</span>
+                      </>
+                    )}
+                </div>
+                
+                {/* STAGE TRACKER */}
+                <div className="mt-8 flex items-center gap-1">
+                  {['New Lead', 'Contacted', 'Meeting Pending', 'Proposal Sent', 'Negotiation', 'Won'].map((s, idx) => {
+                    const activeIdx = ['New Lead', 'Contacted', 'Meeting Pending', 'Proposal Sent', 'Negotiation', 'Won'].indexOf(selectedLead.status);
+                    const isCompleted = idx <= activeIdx;
+                    const isCurrent = idx === activeIdx;
+                    return (
+                      <div key={s} className="flex-1 h-1.5 relative group">
+                        <div className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-indigo-500' : 'bg-white/10'} ${isCurrent ? 'shadow-[0_0_10px_rgba(99,102,241,0.5)]' : ''}`} />
+                        <div className="absolute -top-6 left-0 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          <span className="text-[8px] font-black uppercase tracking-tighter bg-gray-900 border border-white/10 px-1.5 py-0.5 rounded text-white">{s}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* MULTI-CHANNEL QUICK ACTIONS */}
+                <div className="mt-6 flex flex-wrap gap-2">
+                   <button onClick={() => { setNewTaskTitle('📞 Call Log - ' + new Date().toLocaleTimeString()); }} className="px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center hover:bg-amber-500/20 transition-all">
+                     <Phone className="h-3 w-3 mr-2" /> Log Call
+                   </button>
+                   <button onClick={() => { setNewTaskTitle('📅 Meeting Note - ' + new Date().toLocaleDateString()); }} className="px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center hover:bg-indigo-500/20 transition-all">
+                     <Calendar className="h-3 w-3 mr-2" /> Schedule Meeting
+                   </button>
+                   <button onClick={() => { setNewTaskTitle('✉️ Email Follow-up'); }} className="px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center hover:bg-blue-500/20 transition-all">
+                     <Mail className="h-3 w-3 mr-2" /> Email Log
+                   </button>
                 </div>
               </div>
             </div>
@@ -1064,45 +1279,31 @@ export default function CRMPage() {
                 </form>
 
                 <div className="space-y-4">
-                  {fetchingActivities ? (
+                   {fetchingActivities ? (
                     <div className="animate-pulse text-[10px] text-gray-600 font-black uppercase tracking-widest py-4">Synchronizing Logs...</div>
-                  ) : activities.length > 0 ? (
-                    activities.map(activity => (
+                  ) : activities.filter(a => a.activity_type !== 'system').length > 0 ? (
+                    activities.filter(a => a.activity_type !== 'system').map(activity => (
                       <div key={activity.id} className="relative pl-6 pb-2 border-l-2 border-white/5 last:border-transparent">
-                        <div className={`absolute -left-[5px] top-0 h-2 w-2 rounded-full ${activity.activity_type === 'system' ? 'bg-indigo-500' : 'bg-gray-500'}`}></div>
+                        <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-gray-500"></div>
                         <div className="flex gap-2 items-baseline mb-1">
-                          <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">{activity.activity_type === 'system' ? 'System Update' : 'Agent Log'}</span>
+                          <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Agent Log</span>
                           <span className="text-[9px] text-gray-600 font-bold">{new Date(activity.created_at).toLocaleString()}</span>
                         </div>
-                        <p className={`text-xs leading-relaxed ${activity.activity_type === 'system' ? 'text-gray-400 font-bold' : 'text-gray-300'}`}>{activity.description}</p>
+                        <p className="text-xs leading-relaxed text-gray-300">{activity.description}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">No intelligence gathered</p>
+                    <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">No manual notes logged</p>
                   )}
                 </div>
               </div>
 
             </div>
 
-            {/* Profile Footer / Stage Controls */}
-            <div className="p-6 border-t border-white/5 bg-[#0a0a0d] shrink-0">
-               <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Push Deal To Stage</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                 {STAGES.filter(s => s !== selectedLead.status).map(status => (
-                   <button 
-                     key={status}
-                     onClick={() => handleUpdateStatus(selectedLead.id, status)}
-                     className={`py-3 px-1 border border-white/5 hover:border-white/20 bg-[#111116] rounded-xl text-[9px] font-black uppercase tracking-wider text-gray-400 transition-all ${status === 'Onboarding' ? 'hover:text-emerald-400' : status === 'Not Interested' ? 'hover:text-red-400' : 'hover:text-white'}`}
-                   >
-                     {status}
-                   </button>
-                 ))}
-               </div>
+             {/* Footer Removed - Duplicate Movement removed as requested */}
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
