@@ -1,0 +1,101 @@
+-- CRM Module Schema
+-- To be executed in the Supabase SQL Editor
+
+CREATE TABLE IF NOT EXISTS public.crm_leads (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  company_name text NOT NULL,
+  contact_person text NOT NULL,
+  email text,
+  phone text,
+  estimated_value integer DEFAULT 0,
+  confidence integer DEFAULT 25,
+  service_interest text,
+  business_type text,
+  website text,
+  external_link text,
+  notes text,
+  status text DEFAULT 'New'::text NOT NULL,
+  follow_up_date timestamp with time zone,
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+  assigned_to uuid REFERENCES public.users(id) ON DELETE SET NULL
+);
+
+-- Add tracking fields if the table already exists via migration safety
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='confidence') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN confidence integer DEFAULT 25;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='service_interest') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN service_interest text;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='follow_up_date') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN follow_up_date timestamp with time zone;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='business_type') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN business_type text;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='website') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN website text;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='external_link') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN external_link text;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='notes') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN notes text;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.crm_activities (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  lead_id uuid REFERENCES public.crm_leads(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  user_id uuid REFERENCES auth.users(id),
+  activity_type text NOT NULL, -- e.g., 'call', 'email', 'note'
+  description text
+);
+
+-- Enable Row Level Security
+ALTER TABLE public.crm_leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_activities ENABLE ROW LEVEL SECURITY;
+
+-- Policies for crm_leads
+DROP POLICY IF EXISTS "Allow crm_leads select" ON public.crm_leads;
+CREATE POLICY "Allow crm_leads select" ON public.crm_leads FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_leads all" ON public.crm_leads;
+CREATE POLICY "Allow crm_leads all" ON public.crm_leads FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+-- Policies for crm_activities
+DROP POLICY IF EXISTS "Allow crm_activities all" ON public.crm_activities;
+CREATE POLICY "Allow crm_activities all" ON public.crm_activities FOR ALL USING (auth.role() = 'authenticated');
+
+-- Tasks Table
+CREATE TABLE IF NOT EXISTS public.crm_tasks (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  lead_id uuid REFERENCES public.crm_leads(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  due_date timestamp with time zone,
+  title text NOT NULL,
+  status text DEFAULT 'Pending'::text NOT NULL,
+  assigned_to uuid REFERENCES auth.users(id),
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL
+);
+
+ALTER TABLE public.crm_tasks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow crm_tasks select" ON public.crm_tasks;
+CREATE POLICY "Allow crm_tasks select" ON public.crm_tasks FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_tasks all" ON public.crm_tasks;
+CREATE POLICY "Allow crm_tasks all" ON public.crm_tasks FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+-- Force Supabase PostgREST to reload its schema cache
+NOTIFY pgrst, 'reload schema';
