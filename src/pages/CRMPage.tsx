@@ -23,7 +23,6 @@ export default function CRMPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fetchingTasks, setFetchingTasks] = useState(false);
 
   // Modal & Detail States
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
@@ -111,7 +110,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
   };
 
   const fetchAllTasks = async () => {
-    setFetchingTasks(true);
+    setFetchingActivities(true);
     try {
       const { data, error } = await supabase
         .from('crm_tasks')
@@ -124,7 +123,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
     } catch (err) {
       console.error("Task fetch error", err);
     } finally {
-      setFetchingTasks(false);
+      setFetchingActivities(false);
     }
   };
 
