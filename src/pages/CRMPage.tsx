@@ -1253,8 +1253,8 @@ const STAGE_TACTICS: Record<string, string[]> = {
                 
                 {/* STAGE TRACKER */}
                 <div className="mt-8 flex items-center gap-1">
-                  {['New Lead', 'Contacted', 'Meeting Pending', 'Proposal Sent', 'Negotiation', 'Won'].map((s, idx) => {
-                    const activeIdx = ['New Lead', 'Contacted', 'Meeting Pending', 'Proposal Sent', 'Negotiation', 'Won'].indexOf(selectedLead.status);
+                  {STAGES.map((s, idx) => {
+                    const activeIdx = STAGES.indexOf(selectedLead.status);
                     const isCompleted = idx <= activeIdx;
                     const isCurrent = idx === activeIdx;
                     return (
