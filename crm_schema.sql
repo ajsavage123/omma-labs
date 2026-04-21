@@ -132,6 +132,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='project_milestones_status') THEN
     ALTER TABLE public.crm_leads ADD COLUMN project_milestones_status jsonb DEFAULT '{"Design":"Pending","Development":"Pending","Testing":"Pending","Delivery":"Pending"}'::jsonb;
   END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='proposal_date') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN proposal_date timestamp with time zone;
+  END IF;
 END $$;
 
 ALTER TABLE public.crm_tasks ENABLE ROW LEVEL SECURITY;

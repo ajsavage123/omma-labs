@@ -42,10 +42,15 @@ export default function CRMPage() {
   const [newWebsite, setNewWebsite] = useState('');
   const [newExternalLink, setNewExternalLink] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newSource, setNewSource] = useState('Website');
+  const [newTags, setNewTags] = useState('Cold');
   
   // New List State
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+  const [filterSource, setFilterSource] = useState('All');
+  const [filterTag, setFilterTag] = useState('All');
+  const [filterStage, setFilterStage] = useState('All');
   const [isEditMode, setIsEditMode] = useState(false);
   const [editLeadId, setEditLeadId] = useState<string | null>(null);
   
@@ -57,16 +62,19 @@ export default function CRMPage() {
   const [fetchingActivities, setFetchingActivities] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const STAGES = ['New Lead', 'Contacted', 'Follow-Up', 'Meeting Pending', 'Proposal Sent', 'Onboarding', 'Not Interested'];
+  const STAGES = ['New Leads', 'Contacted', 'Qualified', 'Interested', 'Proposal Sent', 'Negotiation', 'Won (Converted)', 'Onboarding', 'Completed', 'Lost'];
 
 const STAGE_TACTICS: Record<string, string[]> = {
-  'New Lead': ['Website Audit', 'Initial SMS', 'Industry Research'],
-  'Contacted': ['Check Reply', 'Follow-Up #1', 'Send Case Studies'],
-  'Follow-Up': ['Schedule Discovery', 'Send Portfolio', 'Identify Blockers'],
-  'Meeting Pending': ['Prepare Deck', 'Confirm Schedule', 'Goal Alignment'],
-  'Proposal Sent': ['Follow-Up #2', 'Draft Contract', 'Value Negotiation'],
-  'Onboarding': ['Request Payment', 'Kickoff Meet', 'Setup Workspace'],
-  'Not Interested': ['Archive Profile', 'Post-Mortem Log']
+  'New Leads': ['Initial Contact', 'Research'],
+  'Contacted': ['Follow Up'],
+  'Qualified': ['Assess Needs', 'Budget Match'],
+  'Interested': ['Schedule Pitch'],
+  'Proposal Sent': ['Follow Up', 'Review Terms'],
+  'Negotiation': ['Discuss Pricing', 'Finalize'],
+  'Won (Converted)': ['Setup Project'],
+  'Onboarding': ['Client Intake', 'Kickoff'],
+  'Completed': ['Review', 'Testimonials'],
+  'Lost': ['Post-Mortem']
 };
 
   useEffect(() => {
@@ -96,11 +104,12 @@ const STAGE_TACTICS: Record<string, string[]> = {
       if (error) throw error;
       const cleanData = (data || []).map(opt => ({
         ...opt,
-        status: opt.status === 'New' ? 'New Lead' : 
-                opt.status === 'Won' ? 'Onboarding' : 
-                opt.status === 'Lost' ? 'Not Interested' : 
-                opt.status === 'Interested' ? 'Meeting Pending' : 
-                opt.status === 'Proposal' ? 'Proposal Sent' : opt.status
+        status: opt.status === 'New Lead' || opt.status === 'New' ? 'New Leads' : 
+                opt.status === 'Won' ? 'Won (Converted)' : 
+                opt.status === 'Not Interested' ? 'Lost' : 
+                opt.status === 'Meeting Pending' ? 'Interested' : 
+                opt.status === 'Proposal' ? 'Proposal Sent' : 
+                opt.status === 'Follow-Up' ? 'Contacted' : opt.status
       }));
       setLeads(cleanData);
     } catch (err: any) {
@@ -149,7 +158,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
   // --- ACTIONS ---
 
   const resetForm = () => {
-    setNewCompany(''); setNewContact(''); setNewEmail(''); setNewPhone(''); setNewValue(''); setNewConfidence('25'); setNewService(''); setNewFollowUp(''); setNewBusinessType(''); setNewWebsite(''); setNewExternalLink(''); setNewNotes(''); setIsEditMode(false); setEditLeadId(null);
+    setNewCompany(''); setNewContact(''); setNewEmail(''); setNewPhone(''); setNewValue(''); setNewConfidence('25'); setNewService(''); setNewFollowUp(''); setNewBusinessType(''); setNewWebsite(''); setNewExternalLink(''); setNewNotes(''); setNewSource('Website'); setNewTags('Cold'); setIsEditMode(false); setEditLeadId(null);
   };
 
   const openEditModal = (lead: any) => {
@@ -167,6 +176,8 @@ const STAGE_TACTICS: Record<string, string[]> = {
     setNewWebsite(lead.website || '');
     setNewExternalLink(lead.external_link || '');
     setNewNotes(lead.notes || '');
+    setNewSource(lead.source || 'Website');
+    setNewTags(lead.tags || 'Cold');
     setIsNewLeadModalOpen(true);
   };
 
@@ -178,7 +189,8 @@ const STAGE_TACTICS: Record<string, string[]> = {
       company_name: newCompany, contact_person: newContact, email: newEmail, phone: newPhone,
       estimated_value: parseInt(newValue) || 0, confidence: parseInt(newConfidence) || 25, service_interest: newService,
       follow_up_date: newFollowUp ? new Date(newFollowUp).toISOString() : null, workspace_id: user?.workspace_id,
-      business_type: newBusinessType, website: newWebsite, external_link: newExternalLink, notes: newNotes
+      business_type: newBusinessType, website: newWebsite, external_link: newExternalLink, notes: newNotes,
+      source: newSource, tags: newTags
     };
     try {
       if (isEditMode && editLeadId) {
@@ -186,7 +198,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
         if (error) throw error;
         toast.success('Account updated successfully!');
       } else {
-        const { error } = await supabase.from('crm_leads').insert([{ ...payload, status: 'New Lead' }]);
+        const { error } = await supabase.from('crm_leads').insert([{ ...payload, status: 'New Leads' }]);
         if (error) throw error;
         toast.success('Account created successfully!');
       }
@@ -527,7 +539,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
                 <div className="bg-[#111116] border border-white/5 p-6 rounded-3xl relative overflow-hidden">
                    <div className="absolute top-0 right-0 p-6 opacity-5"><TrendingUp className="h-24 w-24" /></div>
                    <p className="text-sm font-black text-emerald-500 uppercase tracking-widest mb-2">Total Closed Clients</p>
-                   <h3 className="text-5xl font-black text-white">{leads.filter(l => l.status === 'Onboarding').length}</h3>
+                   <h3 className="text-5xl font-black text-white">{leads.filter(l => ['Won (Converted)', 'Onboarding', 'Completed'].includes(l.status)).length}</h3>
                    <p className="text-[10px] text-gray-500 font-bold mt-4 uppercase">Successfull Deals on Board</p>
                 </div>
                 <div className="bg-[#111116] border border-white/5 p-6 rounded-3xl relative overflow-hidden text-right">
@@ -544,9 +556,9 @@ const STAGE_TACTICS: Record<string, string[]> = {
                     <span className="text-[10px] font-black text-indigo-400 bg-indigo-400/10 px-3 py-1 rounded-full uppercase tracking-widest">Active Tracking</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {['Onboarding', 'Proposal Sent', 'Meeting Pending', 'Not Interested'].map(st => {
+                    {['Won (Converted)', 'Proposal Sent', 'Interested', 'Lost'].map(st => {
                       const count = leads.filter(l => l.status === st).length;
-                      const color = st === 'Onboarding' ? 'emerald' : st === 'Not Interested' ? 'red' : st === 'Proposal Sent' ? 'indigo' : 'amber';
+                      const color = st === 'Won (Converted)' ? 'emerald' : st === 'Lost' ? 'red' : st === 'Proposal Sent' ? 'indigo' : 'amber';
                       return (
                         <div key={st} className={`p-5 rounded-2xl border border-${color}-500/10 bg-${color}-500/[0.02] flex flex-col justify-between`}>
                            <p className={`text-[10px] font-black text-${color}-500 uppercase tracking-widest mb-1`}>{st}</p>
@@ -679,16 +691,27 @@ const STAGE_TACTICS: Record<string, string[]> = {
                       </div>
                     </div>
                     
-                    <div className="flex-1 p-3 overflow-y-auto custom-scrollbar space-y-3">
+                    <div 
+                      className="flex-1 p-3 overflow-y-auto custom-scrollbar space-y-3"
+                      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-white/5'); }}
+                      onDragLeave={(e) => { e.currentTarget.classList.remove('bg-white/5'); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('bg-white/5');
+                        const leadId = e.dataTransfer.getData('leadId');
+                        if (leadId) handleUpdateStatus(leadId, stage);
+                      }}
+                    >
                       {stageLeads.map(lead => {
                         const idx = STAGES.indexOf(stage);
                         const getStageColor = (s: string) => {
-                          if (s === 'New Lead') return 'sky';
+                          if (s === 'New Leads') return 'sky';
                           if (s === 'Contacted') return 'purple';
-                          if (s === 'Follow-Up') return 'orange';
-                          if (s === 'Meeting Pending') return 'amber';
+                          if (s === 'Qualified') return 'blue';
+                          if (s === 'Interested') return 'orange';
                           if (s === 'Proposal Sent') return 'indigo';
-                          if (s === 'Onboarding') return 'emerald';
+                          if (s === 'Negotiation') return 'amber';
+                          if (s === 'Won (Converted)' || s === 'Onboarding') return 'emerald';
                           return 'red';
                         };
                         const color = getStageColor(stage);
@@ -697,7 +720,9 @@ const STAGE_TACTICS: Record<string, string[]> = {
                           <div 
                             key={lead.id} 
                             onClick={() => setSelectedLead(lead)}
-                            className={`bg-[#111116] border border-white/10 p-5 sm:p-6 rounded-[2rem] cursor-pointer group relative transition-all duration-300 hover:shadow-2xl overflow-hidden hover:border-${color}-500/50 hover:bg-[#0c0c0e]`}
+                            draggable
+                            onDragStart={(e) => e.dataTransfer.setData('leadId', lead.id)}
+                            className={`bg-[#111116] border border-white/10 p-5 sm:p-6 rounded-[2rem] cursor-grab active:cursor-grabbing group relative transition-all duration-300 hover:shadow-2xl overflow-hidden hover:border-${color}-500/50 hover:bg-[#0c0c0e]`}
                           >
                             <div className={`absolute -top-10 -right-10 h-32 w-32 rounded-full blur-3xl opacity-10 pointer-events-none group-hover:opacity-30 transition-all bg-${color}-500`}></div>
 
@@ -784,7 +809,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
                                   )}
                                   {idx < STAGES.length - 1 && (
                                     <button 
-                                      onClick={(e) => { e.stopPropagation(); if (!['Not Interested'].includes(STAGES[idx+1])) handleUpdateStatus(lead.id, STAGES[idx+1]); }}
+                                      onClick={(e) => { e.stopPropagation(); if (!['Lost'].includes(STAGES[idx+1])) handleUpdateStatus(lead.id, STAGES[idx+1]); }}
                                       className="h-8 w-8 flex items-center justify-center bg-white text-black hover:bg-indigo-500 hover:text-white rounded-lg transition-all shadow-sm"
                                     >
                                       <ArrowRight className="h-4 w-4" />
@@ -805,16 +830,39 @@ const STAGE_TACTICS: Record<string, string[]> = {
           {/* ACCOUNTS LIST MODULE */}
           {activeModule === 'accounts' && (
             <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
-              <div className="bg-[#0c0c0e] border border-white/5 rounded-3xl p-4 shadow-2xl flex flex-col md:flex-row gap-4 justify-between items-center">
-                <div className="relative w-full md:max-w-md">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search firm, name, or phone..." className="w-full bg-[#18181e] border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-white focus:border-indigo-500/50 outline-none transition-all" />
+              <div className="bg-[#0c0c0e] border border-white/5 rounded-3xl p-4 shadow-2xl flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+                  <div className="relative w-full md:max-w-md">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search firm, name, or phone..." className="w-full bg-[#18181e] border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-white focus:border-indigo-500/50 outline-none transition-all" />
+                  </div>
+                  <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto custom-scrollbar pb-1 md:pb-0">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 whitespace-nowrap ml-1 md:ml-0">Sort:</span>
+                    <button onClick={() => setSortConfig({ key: 'created_at', direction: 'desc' })} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${sortConfig.key === 'created_at' ? 'bg-indigo-500 text-white' : 'bg-[#18181e] text-gray-400 hover:text-white border border-white/5'}`}>Recent</button>
+                    <button onClick={() => setSortConfig({ key: 'estimated_value', direction: 'desc' })} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${sortConfig.key === 'estimated_value' ? 'bg-indigo-500 text-white' : 'bg-[#18181e] text-gray-400 hover:text-white border border-white/5'}`}>Value</button>
+                    <button onClick={() => setSortConfig({ key: 'company_name', direction: 'asc' })} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${sortConfig.key === 'company_name' ? 'bg-indigo-500 text-white' : 'bg-[#18181e] text-gray-400 hover:text-white border border-white/5'}`}>Name</button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto custom-scrollbar pb-1 md:pb-0">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 whitespace-nowrap ml-1 md:ml-0">Sort:</span>
-                  <button onClick={() => setSortConfig({ key: 'created_at', direction: 'desc' })} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${sortConfig.key === 'created_at' ? 'bg-indigo-500 text-white' : 'bg-[#18181e] text-gray-400 hover:text-white border border-white/5'}`}>Recent</button>
-                  <button onClick={() => setSortConfig({ key: 'estimated_value', direction: 'desc' })} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${sortConfig.key === 'estimated_value' ? 'bg-indigo-500 text-white' : 'bg-[#18181e] text-gray-400 hover:text-white border border-white/5'}`}>Value</button>
-                  <button onClick={() => setSortConfig({ key: 'company_name', direction: 'asc' })} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${sortConfig.key === 'company_name' ? 'bg-indigo-500 text-white' : 'bg-[#18181e] text-gray-400 hover:text-white border border-white/5'}`}>Name</button>
+                
+                <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 whitespace-nowrap">Filter:</span>
+                  <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="bg-[#18181e] border border-white/5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white outline-none">
+                    <option value="All">All Stages</option>
+                    {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="bg-[#18181e] border border-white/5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white outline-none">
+                    <option value="All">All Sources</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="Apollo">Apollo</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Website">Website</option>
+                  </select>
+                  <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="bg-[#18181e] border border-white/5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white outline-none">
+                    <option value="All">All Tags</option>
+                    <option value="Hot">Hot</option>
+                    <option value="Cold">Cold</option>
+                    <option value="High Budget">High Budget</option>
+                  </select>
                 </div>
               </div>
 
@@ -825,6 +873,9 @@ const STAGE_TACTICS: Record<string, string[]> = {
                         const q = searchQuery.toLowerCase();
                         res = res.filter(l => (l.company_name?.toLowerCase().includes(q) || l.contact_person?.toLowerCase().includes(q) || l.phone?.includes(q)));
                       }
+                      if (filterStage !== 'All') res = res.filter(l => l.status === filterStage);
+                      if (filterSource !== 'All') res = res.filter(l => l.source === filterSource);
+                      if (filterTag !== 'All') res = res.filter(l => l.tags === filterTag);
                       res.sort((a, b) => {
                          let vA = a[sortConfig.key]; let vB = b[sortConfig.key];
                          if (vA < vB) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -856,14 +907,22 @@ const STAGE_TACTICS: Record<string, string[]> = {
                           <span className="text-xl font-black text-emerald-400 flex items-center tooltip"><IndianRupee className="h-4 w-4 mr-1 opacity-50" />{(lead.estimated_value || 0).toLocaleString()}</span>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
                            <div className="px-3 py-2.5 bg-white/[0.02] rounded-2xl border border-white/5">
                              <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1 flex justify-between items-center">Service <span className={`h-2 w-2 rounded-full ${lead.service_interest ? 'bg-indigo-500' : 'bg-gray-700'}`}></span></p>
                              <p className="text-xs text-gray-300 font-bold truncate">{lead.service_interest || '—'}</p>
                            </div>
                            <div className="px-3 py-2.5 bg-white/[0.02] rounded-2xl border border-white/5">
-                             <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1 flex justify-between items-center">Stage <span className={`h-2 w-2 rounded-full ${lead.status === 'Won' ? 'bg-emerald-500' : lead.status === 'Lost' ? 'bg-red-500' : 'bg-amber-500'}`}></span></p>
-                             <p className={`text-xs font-black uppercase tracking-wider truncate ${lead.status === 'Won' ? 'text-emerald-400' : lead.status === 'Lost' ? 'text-red-400' : 'text-amber-400'}`}>{lead.status}</p>
+                             <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1 flex justify-between items-center">Stage <span className={`h-2 w-2 rounded-full ${lead.status === 'Won (Converted)' ? 'bg-emerald-500' : lead.status === 'Lost' ? 'bg-red-500' : 'bg-amber-500'}`}></span></p>
+                             <p className={`text-[10px] font-black uppercase tracking-wider truncate ${lead.status === 'Won (Converted)' ? 'text-emerald-400' : lead.status === 'Lost' ? 'text-red-400' : 'text-amber-400'}`}>{lead.status}</p>
+                           </div>
+                           <div className="px-3 py-2.5 bg-white/[0.02] rounded-2xl border border-white/5 text-center flex flex-col justify-center">
+                             <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Source</p>
+                             <p className="text-xs text-indigo-400 font-bold truncate">{lead.source || '—'}</p>
+                           </div>
+                           <div className="px-3 py-2.5 bg-white/[0.02] rounded-2xl border border-white/5 text-center flex flex-col justify-center">
+                             <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Tags</p>
+                             <p className={`text-xs font-bold truncate ${lead.tags === 'Hot' ? 'text-amber-500' : lead.tags === 'High Budget' ? 'text-emerald-500' : 'text-blue-400'}`}>{lead.tags || '—'}</p>
                            </div>
                         </div>
                      </div>
@@ -1085,7 +1144,26 @@ const STAGE_TACTICS: Record<string, string[]> = {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Projected Value (₹)</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Lead Source</label>
+                  <select value={newSource} onChange={(e) => setNewSource(e.target.value)} className="w-full bg-[#14141a] border border-white/5 rounded-xl px-3 py-2.5 text-[13px] font-bold text-white focus:border-indigo-500 outline-none">
+                    <option value="Instagram">Instagram</option>
+                    <option value="Apollo">Apollo</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Website">Website</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Tags</label>
+                  <select value={newTags} onChange={(e) => setNewTags(e.target.value)} className="w-full bg-[#14141a] border border-white/5 rounded-xl px-3 py-2.5 text-[13px] font-bold text-white focus:border-indigo-500 outline-none">
+                    <option value="Hot">Hot</option>
+                    <option value="Cold">Cold</option>
+                    <option value="High Budget">High Budget</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Budget / Projected Value (₹)</label>
                   <input type="text" inputMode="numeric" pattern="[0-9]*" value={newValue} onChange={(e) => setNewValue(e.target.value.replace(/\D/g, ''))} className="w-full bg-[#14141a] border border-white/5 rounded-xl px-3 py-2.5 text-[13px] font-bold text-emerald-400 focus:border-indigo-500 outline-none" placeholder="0" />
                 </div>
                 <div>
@@ -1340,7 +1418,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
             </div>{/* end profile body */}
 
             {/* PROJECT MODE: shown as extra panel for Won/Onboarding leads */}
-            {['Onboarding', 'Won'].includes(selectedLead.status) && (
+            {['Onboarding', 'Won (Converted)', 'Completed'].includes(selectedLead.status) && (
               <div className="border-t border-white/5 bg-[#0c0c0e] p-8 space-y-6 overflow-y-auto custom-scrollbar">
                 
                 {/* Header */}
@@ -1388,7 +1466,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
                 {/* Project Milestones */}
                 <div className="space-y-3">
                   <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Project Milestones</p>
-                  {['Design', 'Development', 'Testing', 'Delivery'].map((m, idx) => {
+                  {['Design', 'Development', 'Testing', 'Delivery'].map((m) => {
                     const ms = selectedLead.project_milestones_status?.[m] || 'Pending';
                     return (
                       <div
@@ -1432,9 +1510,10 @@ const STAGE_TACTICS: Record<string, string[]> = {
 }
 
 function termLabel(stage: string) {
-  if (stage === 'New') return 'New Lead';
-  if (stage === 'Won') return 'Closed Deal';
+  if (stage === 'New Leads' || stage === 'New') return 'New Leads';
+  if (stage === 'Won (Converted)' || stage === 'Won') return 'Closed Deal';
   if (stage === 'Lost') return 'Dropped';
   if (stage === 'Not Interested') return 'Not Interested';
+  if (stage === 'Onboarding') return 'Active Project';
   return 'In Progress';
 }
