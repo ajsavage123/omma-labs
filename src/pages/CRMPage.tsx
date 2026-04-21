@@ -5,7 +5,7 @@ import {
   Plus, Search, X, Phone, Mail, Trash2, ArrowRight, ArrowLeft, Building, User, 
   ListTodo, Send, LayoutDashboard, Briefcase, 
   CheckSquare, TrendingUp, Clock, IndianRupee, Edit, MessageCircle, Calendar, Upload, Loader2,
-  Globe, MapPin
+  Globe, MapPin, Check
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Papa from 'papaparse';
@@ -53,6 +53,7 @@ export default function CRMPage() {
   const [activities, setActivities] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskType, setNewTaskType] = useState('Call');
   const [fetchingActivities, setFetchingActivities] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -284,7 +285,7 @@ const STAGE_TACTICS: Record<string, string[]> = {
           assigned_to: user?.id,
           priority: customData?.priority || 'Medium',
           due_date: customData?.due_date || new Date(Date.now() + 86400000).toISOString(),
-          activity_type: customData?.activity_type || 'Task'
+          activity_type: customData?.activity_type || newTaskType
         }
       ]);
       if (error) throw error;
@@ -294,6 +295,20 @@ const STAGE_TACTICS: Record<string, string[]> = {
     } catch (err: any) {
       toast.error('Failed to create activity');
     }
+  };
+
+  const updateMilestone = async (leadId: string, milestone: string, status: string) => {
+    try {
+      const lead = leads.find((l: any) => l.id === leadId);
+      if (!lead) return;
+      const current = lead.project_milestones_status || { Design: 'Pending', Development: 'Pending', Testing: 'Pending', Delivery: 'Pending' };
+      const updated = { ...current, [milestone]: status };
+      const { error } = await supabase.from('crm_leads').update({ project_milestones_status: updated }).eq('id', leadId);
+      if (error) throw error;
+      setLeads(leads.map((l: any) => l.id === leadId ? { ...l, project_milestones_status: updated } : l));
+      if (selectedLead?.id === leadId) setSelectedLead((prev: any) => ({ ...prev, project_milestones_status: updated }));
+      toast.success(`${milestone}: ${status}`);
+    } catch { toast.error('Milestone update failed'); }
   };
 
   const handleCompleteTask = async (taskId: string) => {
@@ -1250,9 +1265,32 @@ const STAGE_TACTICS: Record<string, string[]> = {
               {/* Tasks Quick-Add */}
               <div>
                 <h3 className="text-[11px] font-black text-white uppercase tracking-widest mb-4 flex items-center"><CheckSquare className="h-3.5 w-3.5 mr-2 text-amber-500" /> Account Tasks</h3>
-                <form onSubmit={handleCreateTask} className="flex flex-col sm:flex-row gap-2 mb-4">
-                  <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Add specific task (e.g., Send NDA)..." className="flex-1 bg-[#111116] border border-white/5 rounded-xl px-4 py-3 text-sm sm:text-xs text-white focus:border-amber-500/50 outline-none placeholder:font-bold" />
-                  <button type="submit" disabled={!newTaskTitle.trim()} className="px-4 py-3 sm:py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-xl transition-colors disabled:opacity-30 font-black uppercase text-[10px] tracking-widest">Add</button>
+                <form onSubmit={handleCreateTask} className="space-y-3 mb-4">
+                  <div className="flex flex-wrap gap-1.5">
+                    {['Call', 'Follow-up', 'Meeting', 'Send Proposal'].map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setNewTaskType(type)}
+                        className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                          newTaskType === type
+                            ? 'bg-indigo-500 text-white border-indigo-500'
+                            : 'bg-white/5 text-gray-500 border-white/10 hover:border-indigo-500/40'
+                        }`}
+                      >{type}</button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder={`Add ${newTaskType} task...`} className="flex-1 bg-[#111116] border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500/50 outline-none placeholder:font-bold" />
+                    <button type="submit" disabled={!newTaskTitle.trim()} className="px-4 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-xl transition-colors disabled:opacity-30 font-black uppercase text-[10px] tracking-widest">Add</button>
+                  </div>
+                  <input
+                    type="datetime-local"
+                    value={newFollowUp}
+                    onChange={(e) => setNewFollowUp(e.target.value)}
+                    className="w-full bg-[#111116] border border-white/5 rounded-xl px-4 py-2.5 text-[11px] font-black uppercase text-indigo-400 outline-none focus:border-indigo-500"
+                    style={{ colorScheme: 'dark' }}
+                  />
                 </form>
                 {/* Local Tasks List */}
                 <div className="space-y-2">
@@ -1280,26 +1318,112 @@ const STAGE_TACTICS: Record<string, string[]> = {
                 <div className="space-y-4">
                    {fetchingActivities ? (
                     <div className="animate-pulse text-[10px] text-gray-600 font-black uppercase tracking-widest py-4">Synchronizing Logs...</div>
-                  ) : activities.filter(a => a.activity_type !== 'system').length > 0 ? (
-                    activities.filter(a => a.activity_type !== 'system').map(activity => (
+                  ) : activities.length > 0 ? (
+                    activities.map(activity => (
                       <div key={activity.id} className="relative pl-6 pb-2 border-l-2 border-white/5 last:border-transparent">
-                        <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-gray-500"></div>
+                        <div className={`absolute -left-[5px] top-0 h-2 w-2 rounded-full ${activity.activity_type === 'stage_change' ? 'bg-amber-500' : activity.activity_type === 'system' ? 'bg-indigo-500' : 'bg-gray-500'}`}></div>
                         <div className="flex gap-2 items-baseline mb-1">
-                          <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Agent Log</span>
+                          <span className={`text-[9px] font-black uppercase tracking-widest ${activity.activity_type === 'stage_change' ? 'text-amber-500' : activity.activity_type === 'system' ? 'text-indigo-400' : 'text-gray-500'}`}>
+                            {activity.activity_type === 'stage_change' ? 'Stage Change' : activity.activity_type === 'system' ? 'Auto-Task' : 'Note'}
+                          </span>
                           <span className="text-[9px] text-gray-600 font-bold">{new Date(activity.created_at).toLocaleString()}</span>
                         </div>
                         <p className="text-xs leading-relaxed text-gray-300">{activity.description}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">No manual notes logged</p>
+                    <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">No activity logged yet</p>
                   )}
                 </div>
               </div>
 
-            </div>
+            </div>{/* end profile body */}
 
-             {/* Footer Removed - Duplicate Movement removed as requested */}
+            {/* PROJECT MODE: shown as extra panel for Won/Onboarding leads */}
+            {['Onboarding', 'Won'].includes(selectedLead.status) && (
+              <div className="border-t border-white/5 bg-[#0c0c0e] p-8 space-y-6 overflow-y-auto custom-scrollbar">
+                
+                {/* Header */}
+                <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl">
+                  <Briefcase className="h-5 w-5 text-emerald-400 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Project Mode Active</p>
+                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Live onboarding flow</p>
+                  </div>
+                  <span className={`ml-auto text-[9px] font-black uppercase px-2 py-1 rounded-md ${selectedLead.payment_status === 'Paid' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black'}`}>
+                    {selectedLead.payment_status || 'Pending'}
+                  </span>
+                </div>
+
+                {/* Post-Sale Intake Checklist */}
+                <div className="space-y-3">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Post-Sale Intake</p>
+                  {[
+                    { id: 'info', label: 'Client Business Info' },
+                    { id: 'assets', label: 'Logo, Content & Branding' },
+                    { id: 'reqs', label: 'Detailed Requirements' }
+                  ].map(item => {
+                    const checked = selectedLead.onboarding_checklist?.includes(item.id);
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={async () => {
+                          const current: string[] = selectedLead.onboarding_checklist || [];
+                          const updated = checked ? current.filter((x: string) => x !== item.id) : [...current, item.id];
+                          await supabase.from('crm_leads').update({ onboarding_checklist: updated }).eq('id', selectedLead.id);
+                          setLeads(leads.map((l: any) => l.id === selectedLead.id ? { ...l, onboarding_checklist: updated } : l));
+                          setSelectedLead((prev: any) => ({ ...prev, onboarding_checklist: updated }));
+                        }}
+                        className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-xl cursor-pointer hover:border-white/20 transition-all"
+                      >
+                        <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${checked ? 'bg-emerald-500 border-emerald-500' : 'border-white/10 hover:border-indigo-500'}`}>
+                          {checked && <Check className="h-3 w-3 text-white" />}
+                        </div>
+                        <span className={`text-xs font-bold ${checked ? 'text-white' : 'text-gray-400'}`}>{item.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Project Milestones */}
+                <div className="space-y-3">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Project Milestones</p>
+                  {['Design', 'Development', 'Testing', 'Delivery'].map((m, idx) => {
+                    const ms = selectedLead.project_milestones_status?.[m] || 'Pending';
+                    return (
+                      <div
+                        key={m}
+                        onClick={() => {
+                          const next = ms === 'Pending' ? 'In Progress' : ms === 'In Progress' ? 'Completed' : 'Pending';
+                          updateMilestone(selectedLead.id, m, next);
+                        }}
+                        className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-xl cursor-pointer hover:border-white/20 transition-all group"
+                      >
+                        <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${ms === 'Completed' ? 'bg-emerald-500 border-emerald-500' : ms === 'In Progress' ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10'}`}>
+                          {ms === 'Completed' ? <Check className="h-3 w-3 text-white" /> : ms === 'In Progress' ? <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" /> : null}
+                        </div>
+                        <span className="text-xs font-bold text-gray-300 flex-1">{m}</span>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${ms === 'Completed' ? 'text-emerald-400' : ms === 'In Progress' ? 'text-indigo-400' : 'text-gray-600'}`}>{ms}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Payment Toggle */}
+                <button
+                  onClick={async () => {
+                    const next = selectedLead.payment_status === 'Paid' ? 'Pending' : 'Paid';
+                    await supabase.from('crm_leads').update({ payment_status: next }).eq('id', selectedLead.id);
+                    setLeads(leads.map((l: any) => l.id === selectedLead.id ? { ...l, payment_status: next } : l));
+                    setSelectedLead((prev: any) => ({ ...prev, payment_status: next }));
+                    toast.success(`Payment marked as ${next}`);
+                  }}
+                  className="w-full py-3 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 hover:text-white transition-all shadow-lg"
+                >
+                  {selectedLead.payment_status === 'Paid' ? 'Mark as Unpaid' : 'Mark as Fully Paid'}
+                </button>
+              </div>
+            )}
             </div>
           </div>
         )}

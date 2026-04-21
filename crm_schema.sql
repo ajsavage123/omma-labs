@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.crm_leads (
   website text,
   external_link text,
   notes text,
-  status text DEFAULT 'New'::text NOT NULL,
+  status text DEFAULT 'New Lead'::text NOT NULL,
   follow_up_date timestamp with time zone,
   workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
   assigned_to uuid REFERENCES public.users(id) ON DELETE SET NULL
@@ -103,6 +103,34 @@ BEGIN
   
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='last_activity_at') THEN
     ALTER TABLE public.crm_leads ADD COLUMN last_activity_at timestamp with time zone DEFAULT now();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='source') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN source text;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='tags') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN tags text;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='budget') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN budget integer DEFAULT 0;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='onboarding_checklist') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN onboarding_checklist jsonb DEFAULT '[]'::jsonb;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='payment_status') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN payment_status text DEFAULT 'Pending';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='amount_paid') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN amount_paid integer DEFAULT 0;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='crm_leads' AND column_name='project_milestones_status') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN project_milestones_status jsonb DEFAULT '{"Design":"Pending","Development":"Pending","Testing":"Pending","Delivery":"Pending"}'::jsonb;
   END IF;
 END $$;
 
