@@ -20,7 +20,7 @@ function Input({
     onCompositionEnd: handleCompositionEnd,
     onKeyDown: handleKeyDown,
   } = useComposition<HTMLInputElement>({
-    onKeyDown: (e) => {
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
       // Check if this is an Enter key that should be blocked
       const isComposing = (e.nativeEvent as any).isComposing || dialogComposition.justEndedComposing();
 
@@ -33,11 +33,11 @@ function Input({
       // Otherwise, call the user's onKeyDown
       onKeyDown?.(e);
     },
-    onCompositionStart: e => {
+    onCompositionStart: (e: React.CompositionEvent<HTMLInputElement>) => {
       dialogComposition.setComposing(true);
       onCompositionStart?.(e);
     },
-    onCompositionEnd: e => {
+    onCompositionEnd: (e: React.CompositionEvent<HTMLInputElement>) => {
       // Mark that composition just ended - this helps handle the Enter key that confirms input
       dialogComposition.markCompositionEnd();
       // Delay setting composing to false to handle Safari's event order

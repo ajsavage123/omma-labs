@@ -17,13 +17,6 @@ const STAGE_COLORS: Record<string, string> = {
   'Lost': 'bg-red-500',
 };
 
-const OWNER_COLORS: Record<string, string> = {
-  'PS': 'bg-purple-500',
-  'RV': 'bg-green-500',
-  'OA': 'bg-blue-500',
-  'AP': 'bg-orange-500',
-};
-
 export default function CRMLeads() {
   const { user } = useAuth();
   const [leads, setLeads] = useState<any[]>([]);

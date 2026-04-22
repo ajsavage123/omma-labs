@@ -1,8 +1,8 @@
 import { useAuth } from '@/hooks/useAuth';
-import { Building, User, Mail, Shield } from 'lucide-react';
+import { Building, Shield } from 'lucide-react';
 
 export default function CRMSettings() {
-  const { user } = useAuth();
+  const { user, supabaseUser } = useAuth();
 
   return (
     <div className="p-6 md:p-8 max-w-2xl space-y-6">
@@ -20,7 +20,7 @@ export default function CRMSettings() {
           </div>
           <div>
             <p className="font-black text-white text-lg">{user?.full_name || 'Admin'}</p>
-            <p className="text-xs text-gray-500">{user?.email}</p>
+            <p className="text-xs text-gray-500">{supabaseUser?.email}</p>
             <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[9px] text-indigo-400 font-black uppercase">
               <Shield size={9}/> {user?.role || 'Member'}
             </span>

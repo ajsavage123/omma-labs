@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Loader2, TrendingUp, TrendingDown, Clock, AlertCircle, Briefcase, IndianRupee, CheckCircle2 } from "lucide-react";
+import { Loader2, TrendingUp, Clock, AlertCircle, Briefcase, IndianRupee, CheckCircle2 } from "lucide-react";
 
 export default function CRMDashboard() {
   const { user } = useAuth();
