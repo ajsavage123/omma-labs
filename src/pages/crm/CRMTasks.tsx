@@ -67,31 +67,34 @@ export default function CRMTasks() {
   if (loading) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-1">Tasks</h1>
-          <p className="text-muted-foreground">Manage your follow-ups and to-dos</p>
+          <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Tasks</h1>
+          <p className="text-sm text-muted-foreground font-medium">Manage your follow-ups and to-dos</p>
         </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto rounded-xl font-bold shadow-lg shadow-primary/20">
           <Plus size={18} className="mr-2" />
           Add Task
         </Button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-border">
+      <div className="flex gap-2 border-b border-border overflow-x-auto custom-scrollbar whitespace-nowrap pb-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+            className={`px-4 py-3 font-bold text-[11px] uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${
               activeTab === tab.id
-                ? "border-primary text-foreground"
+                ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            {tab.label} <span className="ml-2 text-xs bg-background px-2 py-1 rounded">{tab.count}</span>
+            {tab.label} 
+            <span className={`px-2 py-0.5 rounded-full text-[9px] ${activeTab === tab.id ? 'bg-primary text-white' : 'bg-background text-muted-foreground'}`}>
+              {tab.count}
+            </span>
           </button>
         ))}
       </div>

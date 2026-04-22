@@ -75,29 +75,29 @@ export default function CRMCalendar() {
   if (loading) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground mb-1">Calendar</h1>
-        <p className="text-muted-foreground">View your tasks and follow-ups by day</p>
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Calendar</h1>
+        <p className="text-sm text-muted-foreground font-medium">View your tasks and follow-ups</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar */}
-        <Card className="bg-card border-border p-6 lg:col-span-2">
+        <Card className="bg-card border-border p-4 lg:p-6 lg:col-span-2 rounded-2xl shadow-xl">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-foreground">{monthName}</h2>
+            <h2 className="text-lg font-bold text-foreground tracking-tight">{monthName}</h2>
             <div className="flex gap-2">
               <button
                 onClick={handlePrevMonth}
-                className="p-2 hover:bg-background rounded transition-colors text-foreground"
+                className="p-2 hover:bg-background rounded-xl transition-colors text-foreground"
                 title="Previous month"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
                 onClick={handleNextMonth}
-                className="p-2 hover:bg-background rounded transition-colors text-foreground"
+                className="p-2 hover:bg-background rounded-xl transition-colors text-foreground"
                 title="Next month"
               >
                 <ChevronRight size={20} />
@@ -106,16 +106,16 @@ export default function CRMCalendar() {
           </div>
 
           {/* Weekdays */}
-          <div className="grid grid-cols-7 gap-2 mb-4">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div key={day} className="text-center text-sm font-semibold text-muted-foreground py-2">
+          <div className="grid grid-cols-7 gap-1 lg:gap-2 mb-4">
+            {["S", "M", "T", "W", "T", "F", "S"].map((day, idx) => (
+              <div key={`${day}-${idx}`} className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-widest py-2">
                 {day}
               </div>
             ))}
           </div>
 
           {/* Days Grid */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 lg:gap-2">
             {days.map((dayObj, idx) => {
               const isSelected = dayObj.isCurrentMonth && dayObj.day === selectedDate;
               const dateTasks = getTasksForDate(dayObj.day, dayObj.isCurrentMonth);
@@ -126,20 +126,20 @@ export default function CRMCalendar() {
                 <button
                   key={idx}
                   onClick={() => dayObj.isCurrentMonth && setSelectedDate(dayObj.day)}
-                  className={`p-2 rounded text-sm font-medium transition-colors relative h-12 flex items-center justify-center ${
+                  className={`p-1 rounded-xl text-xs lg:text-sm font-bold transition-all relative h-10 lg:h-14 flex items-center justify-center ${
                     !dayObj.isCurrentMonth
-                      ? "text-muted-foreground opacity-30 cursor-default"
+                      ? "text-muted-foreground opacity-20 cursor-default"
                       : isSelected
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                       : isToday
-                      ? "bg-primary/20 text-foreground border-2 border-primary"
+                      ? "bg-primary/10 text-primary border-2 border-primary/50"
                       : hasTask
-                      ? "bg-amber-500/20 text-foreground"
-                      : "text-foreground hover:bg-background"
+                      ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                      : "text-foreground hover:bg-background border border-transparent"
                   }`}
                 >
                   {dayObj.day}
-                  {hasTask && <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-amber-500 rounded-full" />}
+                  {hasTask && !isSelected && <div className="absolute bottom-1.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-amber-500 rounded-full" />}
                 </button>
               );
             })}
@@ -147,7 +147,7 @@ export default function CRMCalendar() {
         </Card>
 
         {/* Tasks for Selected Date */}
-        <Card className="bg-card border-border p-6">
+        <Card className="bg-card border-border p-6 rounded-2xl shadow-xl h-fit">
           <h3 className="font-semibold text-foreground mb-4">
             {new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
           </h3>

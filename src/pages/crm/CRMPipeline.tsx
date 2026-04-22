@@ -176,11 +176,11 @@ export default function CRMPipeline() {
   );
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6 h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-1">Pipeline</h1>
-          <p className="text-muted-foreground">Manage your sales opportunities</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-1">Pipeline</h1>
+          <p className="text-sm text-muted-foreground">Manage your sales opportunities</p>
           {unmappedLeads.length > 0 && (
             <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-1">
               ⚠ {unmappedLeads.length} leads in New Leads (Unmapped)
@@ -189,7 +189,7 @@ export default function CRMPipeline() {
         </div>
         <Button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto shadow-lg shadow-primary/20"
         >
           <Plus size={18} className="mr-2" />
           Add New Lead
@@ -197,8 +197,8 @@ export default function CRMPipeline() {
       </div>
 
       {/* Pipeline Board */}
-      <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-6 h-full min-w-max">
+      <div className="flex-1 overflow-x-auto pb-6 scroll-smooth custom-scrollbar">
+        <div className="flex gap-4 lg:gap-6 h-full min-w-max pb-2">
           {STAGES.map((stage, sIdx) => {
             const stageLeads = sIdx === 0 
               ? [...getLeadsForStage(stage), ...unmappedLeads]
@@ -207,99 +207,98 @@ export default function CRMPipeline() {
             const totalValue = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);
 
             return (
-              <div key={stage.name} className="flex-shrink-0 w-80 flex flex-col h-full">
+              <div key={stage.name} className="flex-shrink-0 w-[280px] sm:w-[320px] flex flex-col h-full bg-background/30 rounded-2xl border border-border/40 overflow-hidden">
                 {/* Stage Header */}
-                <div className="mb-4 flex-shrink-0 relative">
+                <div className="p-4 flex-shrink-0 relative bg-card/50 border-b border-border/50 backdrop-blur-sm">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-foreground">{stage.name}</h3>
+                      <h3 className="font-bold text-foreground text-sm truncate max-w-[150px]">{stage.name}</h3>
                       <button 
-                        onMouseEnter={() => setShowInfoFor(stage.key)}
-                        onMouseLeave={() => setShowInfoFor(null)}
+                        onClick={() => setShowInfoFor(showInfoFor === stage.key ? null : stage.key)}
                         className="text-muted-foreground hover:text-primary transition-colors"
                       >
                         <HelpCircle size={14} />
                       </button>
                     </div>
-                    <span className="text-xs bg-background text-muted-foreground px-2 py-1 rounded">{stageLeads.length}</span>
+                    <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-1 rounded-full">{stageLeads.length}</span>
                   </div>
-                  <div className="text-sm text-muted-foreground font-medium">₹{totalValue.toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground font-black">₹{totalValue.toLocaleString()}</div>
                   
                   {/* Stage Description Tooltip */}
                   {showInfoFor === stage.key && (
-                    <div className="absolute top-full left-0 z-50 w-64 p-3 bg-card border border-border shadow-2xl rounded-xl text-xs text-muted-foreground animate-in fade-in zoom-in duration-200">
-                      <p className="leading-relaxed font-medium">{stage.description}</p>
+                    <div className="absolute top-full left-4 right-4 z-50 p-4 bg-card border border-border shadow-2xl rounded-2xl text-[11px] text-muted-foreground animate-in slide-in-from-top-2 duration-300">
+                      <p className="leading-relaxed font-bold tracking-tight">{stage.description}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Stage Column */}
-                <div className="space-y-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="p-3 space-y-3 flex-1 overflow-y-auto custom-scrollbar bg-background/20">
                   {stageLeads.map((lead) => (
-                    <Card key={lead.id} className="bg-card border-border p-4 hover:shadow-xl transition-all relative group border-t-2 border-t-transparent hover:border-t-primary/50">
-                      {/* Stage Navigation Arrows */}
-                      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <Card key={lead.id} className="bg-card border-border p-4 hover:shadow-xl transition-all relative group border-t-2 border-t-transparent hover:border-t-primary/50 rounded-2xl overflow-hidden shadow-sm">
+                      {/* Stage Navigation Arrows (Hidden on touch, shown on hover/group) */}
+                      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-1 lg:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                         <button 
                           onClick={() => updateLeadStage(lead.id, lead.status, 'backward')}
                           disabled={sIdx === 0}
-                          className={`p-1 bg-background/90 backdrop-blur rounded-full border border-border shadow-md pointer-events-auto transition-transform active:scale-90 ${sIdx === 0 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
+                          className={`p-1.5 bg-background/90 backdrop-blur-md rounded-full border border-border shadow-xl pointer-events-auto transition-all active:scale-75 ${sIdx === 0 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
                         >
-                          <ChevronLeft size={16} />
+                          <ChevronLeft size={20} />
                         </button>
                         <button 
                           onClick={() => updateLeadStage(lead.id, lead.status, 'forward')}
                           disabled={sIdx === STAGES.length - 1}
-                          className={`p-1 bg-background/90 backdrop-blur rounded-full border border-border shadow-md pointer-events-auto transition-transform active:scale-90 ${sIdx === STAGES.length - 1 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
+                          className={`p-1.5 bg-background/90 backdrop-blur-md rounded-full border border-border shadow-xl pointer-events-auto transition-all active:scale-75 ${sIdx === STAGES.length - 1 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
                         >
-                          <ChevronRight size={16} />
+                          <ChevronRight size={20} />
                         </button>
                       </div>
 
                       <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h4 className="font-bold text-foreground text-sm tracking-tight">{lead.contact_person}</h4>
-                          <p className="text-xs text-muted-foreground font-medium">{lead.company_name}</p>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-black text-foreground text-sm tracking-tight truncate">{lead.contact_person}</h4>
+                          <p className="text-[11px] text-muted-foreground font-black truncate">{lead.company_name}</p>
                         </div>
-                        <button className="p-1 hover:bg-background rounded-md transition-colors">
+                        <button className="p-2 hover:bg-background rounded-xl transition-colors ml-2">
                           <MoreVertical size={14} className="text-muted-foreground" />
                         </button>
                       </div>
 
-                      {/* Contact Actions as SOLID BRAND BUTTONS */}
-                      <div className="flex gap-2 my-3 py-3 border-t border-b border-border/50">
-                        <button className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 active:scale-95" title="Call">
-                          <Phone size={16} />
-                          <span className="text-[10px] font-black uppercase">Call</span>
+                      {/* Contact Actions - FLEX WRAP for mobile */}
+                      <div className="flex flex-wrap gap-2 my-3 py-3 border-t border-b border-border/40">
+                        <button className="flex-1 min-w-[60px] py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/10 active:scale-90" title="Call">
+                          <Phone size={14} />
+                          <span className="text-[9px] font-black uppercase">Call</span>
                         </button>
-                        <button className="flex-1 py-2.5 bg-[#25D366] hover:bg-[#22c35e] text-white rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-500/20 active:scale-95" title="WhatsApp">
-                          <MessageCircle size={16} />
-                          <span className="text-[10px] font-black uppercase">WA</span>
+                        <button className="flex-1 min-w-[60px] py-2 bg-[#25D366] hover:bg-[#22c35e] text-white rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-600/10 active:scale-90" title="WhatsApp">
+                          <MessageCircle size={14} />
+                          <span className="text-[9px] font-black uppercase">WA</span>
                         </button>
-                        <button className="flex-1 py-2.5 bg-[#EA4335] hover:bg-[#d93025] text-white rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20 active:scale-95" title="Email">
-                          <Mail size={16} />
-                          <span className="text-[10px] font-black uppercase">Mail</span>
+                        <button className="flex-1 min-w-[60px] py-2 bg-[#EA4335] hover:bg-[#d93025] text-white rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/10 active:scale-90" title="Email">
+                          <Mail size={14} />
+                          <span className="text-[9px] font-black uppercase">Mail</span>
                         </button>
                       </div>
 
                       {/* Lead Info */}
                       <div className="flex items-center justify-between">
-                        <div className="text-sm font-black text-foreground">₹{(lead.estimated_value || 0).toLocaleString()}</div>
-                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-black text-white border-2 border-card shadow-sm`}>
+                        <div className="text-sm font-black text-foreground tracking-tighter">₹{(lead.estimated_value || 0).toLocaleString()}</div>
+                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-black text-white border-2 border-card shadow-lg`}>
                           {(lead.contact_person || lead.company_name || 'U')[0].toUpperCase()}
                         </div>
                       </div>
 
-                      {/* Create Task Button with HIGH COLORING */}
-                      <button className="w-full mt-3 px-3 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-indigo-500/30 transition-all active:scale-95 border border-white/10">
-                        + Create Action Task
+                      {/* Create Task Button */}
+                      <button className="w-full mt-3 px-3 py-3 bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-500 hover:to-purple-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-600/20 transition-all active:scale-95">
+                        + Next Action Task
                       </button>
                     </Card>
                   ))}
 
                   {/* Empty State */}
                   {stageLeads.length === 0 && (
-                    <div className="border-2 border-dashed border-border/40 rounded-2xl p-8 text-center bg-background/5">
-                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">No activity</p>
+                    <div className="border-2 border-dashed border-border/30 rounded-3xl p-10 text-center bg-background/5">
+                      <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-50">Empty Stage</p>
                     </div>
                   )}
                 </div>
@@ -309,77 +308,80 @@ export default function CRMPipeline() {
         </div>
       </div>
 
-      {/* Add Lead Modal */}
+      {/* Add Lead Modal - RESPONSIVE FORM */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-            <div className="p-6 border-b border-border flex items-center justify-between bg-background/50">
-              <h2 className="text-xl font-bold text-foreground">New Sales Opportunity</h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-background rounded-xl transition-colors text-muted-foreground"><X size={20}/></button>
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-card border-t sm:border border-border rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in duration-500">
+            <div className="p-6 border-b border-border flex items-center justify-between bg-background/30">
+              <div>
+                <h2 className="text-xl font-black text-foreground tracking-tight">New Opportunity</h2>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Add to Pipeline</p>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-background rounded-2xl transition-colors text-muted-foreground bg-background/50"><X size={20}/></button>
             </div>
-            <form onSubmit={handleAddLead} className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleAddLead} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 gap-5">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Client Name *</label>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Contact Name *</label>
                   <input 
                     type="text" 
                     required
                     value={newLead.contact_person}
                     onChange={(e) => setNewLead({...newLead, contact_person: e.target.value})}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Company *</label>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Company Name *</label>
                   <input 
                     type="text" 
                     required
                     value={newLead.company_name}
                     onChange={(e) => setNewLead({...newLead, company_name: e.target.value})}
                     placeholder="e.g. ABC Pvt Ltd"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Email Address</label>
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Email Address</label>
                 <input 
                   type="email" 
                   value={newLead.email}
                   onChange={(e) => setNewLead({...newLead, email: e.target.value})}
                   placeholder="contact@company.com"
-                  className="w-full px-4 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
+                  className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Project Value (₹)</label>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Value (₹)</label>
                   <input 
                     type="number" 
                     value={newLead.estimated_value}
                     onChange={(e) => setNewLead({...newLead, estimated_value: parseInt(e.target.value) || 0})}
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold" 
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Phone Number</label>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Phone</label>
                   <input 
                     type="tel" 
                     value={newLead.phone}
                     onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
                     placeholder="+91..."
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                   />
                 </div>
               </div>
 
-              <div className="pt-4 flex gap-3">
-                <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} className="flex-1 text-muted-foreground hover:bg-background rounded-xl">Cancel</Button>
-                <Button type="submit" disabled={submitting} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-bold">
-                  {submitting ? <Loader2 size={18} className="animate-spin mr-2" /> : <Plus size={18} className="mr-2" />}
+              <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} className="w-full py-6 text-muted-foreground hover:bg-background rounded-2xl font-bold order-2 sm:order-1">Cancel</Button>
+                <Button type="submit" disabled={submitting} className="w-full py-6 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 active:scale-95 order-1 sm:order-2">
+                  {submitting ? <Loader2 size={20} className="animate-spin mr-2" /> : <Plus size={20} className="mr-2" />}
                   Create Lead
                 </Button>
               </div>
