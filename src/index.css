@@ -4,20 +4,67 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --brand: #7C3AED;
-  --brand2: #EC4899;
-  --accent: #F59E0B;
-  --dark: #0F0A1E;
-  --surface: #1A1035;
-  --card: #221845;
-  --border: rgba(124,58,237,0.25);
-  --text: #E2D9F3;
-  --muted: #9B89C4;
-  --input-bg: rgba(124,58,237,0.08);
-  --red: #F43F5E;
-  --green: #10B981;
+/* =====================================================
+   CRM DESIGN SYSTEM - Exact clone of localhost:3002
+   ===================================================== */
+.crm-root {
+  --background: #0F172A;
+  --foreground: #F1F5F9;
+  --card: #1E293B;
+  --card-foreground: #F1F5F9;
+  --popover: #1E293B;
+  --popover-foreground: #F1F5F9;
+  --primary: #7C3AED;
+  --primary-foreground: #F1F5F9;
+  --secondary: #334155;
+  --secondary-foreground: #F1F5F9;
+  --muted: #475569;
+  --muted-foreground: #CBD5E1;
+  --accent: #7C3AED;
+  --accent-foreground: #F1F5F9;
+  --destructive: #EF4444;
+  --destructive-foreground: #F1F5F9;
+  --border: #334155;
+  --input: #334155;
+  --ring: #7C3AED;
+  --sidebar: #1E293B;
+  --sidebar-foreground: #F1F5F9;
+  --sidebar-primary: #7C3AED;
+  --sidebar-primary-foreground: #F1F5F9;
+  --sidebar-accent: #7C3AED;
+  --sidebar-accent-foreground: #F1F5F9;
+  --sidebar-border: #334155;
+  --radius: 0.65rem;
+
+  /* Apply tokens as bg/text */
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', 'DM Sans', sans-serif;
 }
+
+/* CRM utility classes matching Tailwind v4 tokens */
+.crm-root .bg-background { background-color: var(--background) !important; }
+.crm-root .bg-card { background-color: var(--card) !important; }
+.crm-root .bg-sidebar { background-color: var(--sidebar) !important; }
+.crm-root .bg-primary { background-color: var(--primary) !important; }
+.crm-root .bg-secondary { background-color: var(--secondary) !important; }
+.crm-root .bg-muted { background-color: var(--muted) !important; }
+.crm-root .text-foreground { color: var(--foreground) !important; }
+.crm-root .text-muted-foreground { color: var(--muted-foreground) !important; }
+.crm-root .text-primary { color: var(--primary) !important; }
+.crm-root .text-primary-foreground { color: var(--primary-foreground) !important; }
+.crm-root .text-sidebar-foreground { color: var(--sidebar-foreground) !important; }
+.crm-root .text-sidebar-primary-foreground { color: var(--sidebar-primary-foreground) !important; }
+.crm-root .border-border { border-color: var(--border) !important; }
+.crm-root .border-sidebar-border { border-color: var(--sidebar-border) !important; }
+.crm-root .border-input { border-color: var(--input) !important; }
+.crm-root .ring-ring { --tw-ring-color: var(--ring) !important; }
+.crm-root .bg-sidebar-primary { background-color: var(--sidebar-primary) !important; }
+.crm-root .hover\:bg-sidebar-accent\/10:hover { background-color: rgba(124,58,237,0.1) !important; }
+.crm-root .hover\:bg-primary\/90:hover { background-color: rgba(124,58,237,0.9) !important; }
+.crm-root .hover\:bg-background\/50:hover { background-color: rgba(15,23,42,0.5) !important; }
+
+
 
 @layer base {
   body {
