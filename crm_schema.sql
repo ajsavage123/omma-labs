@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.crm_leads (
   website text,
   external_link text,
   notes text,
+  custom_data jsonb DEFAULT '{}'::jsonb,
   status text DEFAULT 'New Lead'::text NOT NULL,
   follow_up_date timestamp with time zone,
   workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
@@ -50,6 +51,10 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='notes') THEN
     ALTER TABLE public.crm_leads ADD COLUMN notes text;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='custom_data') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN custom_data jsonb DEFAULT '{}'::jsonb;
   END IF;
 END $$;
 

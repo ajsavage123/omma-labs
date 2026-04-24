@@ -13,7 +13,24 @@ export default function CRMDashboard() {
 
   useEffect(() => {
     if (user?.workspace_id) {
-      Promise.all([fetchLeads(), fetchTasks()]).finally(() => setLoading(false));
+      const loadData = () => Promise.all([fetchLeads(), fetchTasks()]).finally(() => setLoading(false));
+      loadData();
+
+      // Enable Realtime Subscription for Dashboard (Leads & Tasks)
+      const leadsChannel = supabase
+        .channel('dashboard_leads_sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_leads', filter: `workspace_id=eq.${user.workspace_id}` }, () => fetchLeads())
+        .subscribe();
+
+      const tasksChannel = supabase
+        .channel('dashboard_tasks_sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_tasks', filter: `workspace_id=eq.${user.workspace_id}` }, () => fetchTasks())
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(leadsChannel);
+        supabase.removeChannel(tasksChannel);
+      };
     }
   }, [user]);
 

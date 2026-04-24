@@ -14,7 +14,8 @@ import {
   X,
   Search,
   Plus,
-  Bell
+  Bell,
+  Home
 } from "lucide-react";
 
 interface LayoutProps {
@@ -73,16 +74,18 @@ export default function CRMLayout({ children }: LayoutProps) {
             : `${sidebarOpen ? "w-64" : "w-20"}`
         } bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col h-full`}
       >
-        {/* Logo Section */}
-        <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
-          <div className={`flex items-center gap-2 ${!sidebarOpen && !isMobile && "justify-center w-full"}`}>
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/20">
-              <span className="text-white font-black text-xl">O</span>
-            </div>
+        {/* Logo Section - TIGHT & CLEAN */}
+        <div className="px-5 py-6 flex items-center justify-between">
+          <div className={`flex items-center gap-2.5 ${!sidebarOpen && !isMobile && "justify-center w-full"}`}>
+            <img 
+              src="/ooma-icon.png" 
+              alt="Ooma Logo" 
+              className="w-12 h-12 object-contain rounded-full mix-blend-screen contrast-[1.2] brightness-125 transition-all hover:scale-110" 
+            />
             {(sidebarOpen || isMobile) && (
               <div className="flex flex-col">
-                <span className="font-bold text-sm text-foreground tracking-tight">OomaLabs</span>
-                <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">CRM Suite</span>
+                <span className="text-xl font-black text-white tracking-tighter leading-none uppercase">OOMA</span>
+                <span className="text-[11px] font-black text-cyan-400 tracking-[0.25em] uppercase mt-1.5 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]">CRM ENGINE</span>
               </div>
             )}
           </div>
@@ -114,6 +117,19 @@ export default function CRMLayout({ children }: LayoutProps) {
               </Link>
             );
           })}
+
+          {/* Mobile Only Exit Button */}
+          {isMobile && (
+            <div className="pt-4 mt-4 border-t border-sidebar-border/50">
+              <Link
+                to="/"
+                className="flex items-center gap-3 px-3 py-3 rounded-xl bg-red-600/10 text-red-500 hover:bg-red-600/20 transition-all border border-red-500/20"
+              >
+                <Home size={20} className="flex-shrink-0" />
+                <span className="text-sm font-black tracking-tight">Exit CRM</span>
+              </Link>
+            </div>
+          )}
         </nav>
 
         {/* User Profile */}
@@ -160,10 +176,13 @@ export default function CRMLayout({ children }: LayoutProps) {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-card" />
             </button>
-            <button className="hidden sm:flex px-4 py-2 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95">
-              <Plus size={18} className="mr-2" />
-              New Lead
-            </button>
+            <Link 
+              to="/"
+              className="hidden sm:flex px-4 py-2 bg-red-600 text-white rounded-xl font-black text-sm hover:bg-red-500 transition-all shadow-lg shadow-red-600/20 active:scale-95 items-center"
+            >
+              <Home size={18} className="mr-2" />
+              Exit CRM
+            </Link>
             {/* Mobile Only Search/Plus */}
             <button className="sm:hidden p-2.5 hover:bg-background rounded-xl text-muted-foreground">
               <Search size={20} />
@@ -172,8 +191,12 @@ export default function CRMLayout({ children }: LayoutProps) {
         </header>
 
         {/* Page Container */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <div className="p-4 lg:p-8 max-w-7xl mx-auto w-full h-full min-h-full">
+        <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-background flex flex-col">
+          {!location.pathname.includes('/pipeline') && (
+            <div className="h-6 lg:h-8 w-full flex-shrink-0 block clear-both" id="crm-layout-spacer" />
+          )}
+          
+          <div className={location.pathname.includes('/pipeline') ? "flex-1 flex flex-col w-full h-full" : "px-6 lg:px-12 pb-20 max-w-7xl mx-auto w-full"}>
             {children}
           </div>
         </main>

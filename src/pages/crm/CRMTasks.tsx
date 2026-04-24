@@ -15,6 +15,27 @@ export default function CRMTasks() {
   useEffect(() => {
     if (user?.workspace_id) {
       fetchTasks();
+
+      // Enable Realtime Subscription
+      const channel = supabase
+        .channel('crm_tasks_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'crm_tasks',
+            filter: `workspace_id=eq.${user.workspace_id}`
+          },
+          () => {
+            fetchTasks();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 
@@ -67,7 +88,7 @@ export default function CRMTasks() {
   if (loading) return null;
 
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Tasks</h1>
