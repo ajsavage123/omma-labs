@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, MoreVertical, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, ArrowLeft, Pin, PinOff, Clock } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 
 const STAGES = [
@@ -76,7 +76,6 @@ const STAGES = [
 export default function CRMPipeline() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -169,7 +168,7 @@ export default function CRMPipeline() {
     }
   };
 
-  const openTaskModal = (lead: Lead) => {
+  const openTaskModal = (lead: any) => {
     const now = new Date();
     const hours24 = now.getHours();
     const minutes = now.getMinutes().toString().padStart(2, '0');

@@ -13,7 +13,6 @@ import {
   Menu,
   X,
   Search,
-  Plus,
   Bell,
   Home
 } from "lucide-react";

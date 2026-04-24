@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, X, Loader2, Trash2, Edit2, LogOut, ArrowLeft, Download, Upload, Filter } from "lucide-react";
+import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Filter } from "lucide-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/useToast";
 
@@ -23,7 +23,6 @@ const STAGE_COLORS: Record<string, string> = {
 export default function CRMLeads() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -474,7 +473,7 @@ export default function CRMLeads() {
                   <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Value (₹)</label>
                   <input 
                     type="text" 
-                    value={formData.estimated_value === 0 || formData.estimated_value === '0' ? '' : formData.estimated_value}
+                    value={formData.estimated_value === '0' ? '' : formData.estimated_value}
                     onChange={(e) => {
                       let val = e.target.value;
                       if (val.length > 1 && val.startsWith('0')) val = val.substring(1);
