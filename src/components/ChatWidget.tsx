@@ -180,7 +180,7 @@ export default function ChatWidget() {
     if (!user?.workspace_id) return;
     const { data, error } = await supabase
       .from('chat_messages')
-      .select('id, message, user_id, created_at, users(username, full_name, designation)')
+      .select('id, message, user_id, created_at, users!user_id(username, full_name, designation)')
       .eq('workspace_id', user.workspace_id)
       .order('created_at', { ascending: true })
       .limit(50);

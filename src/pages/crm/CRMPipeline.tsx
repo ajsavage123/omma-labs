@@ -3,73 +3,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Instagram, FileText } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 
 const STAGES = [
-  { 
-    name: "New Leads", 
-    key: 'New Leads', 
-    color: 'from-blue-500 to-blue-700',
-    borderColor: 'border-blue-500/20',
-    textColor: 'text-blue-500',
-    description: "Incoming prospects who haven't been qualified yet.",
-    aliases: ['New', 'new', 'NEW_LEAD']
-  },
-  { 
-    name: "Contacted", 
-    key: 'Contacted', 
-    color: 'from-cyan-500 to-cyan-700',
-    borderColor: 'border-cyan-500/20',
-    textColor: 'text-cyan-500',
-    description: "Initial reach-out performed via email or call.",
-    aliases: ['contacted', 'CONTACTED']
-  },
-  { 
-    name: "Interested", 
-    key: 'Interested', 
-    color: 'from-amber-500 to-amber-700',
-    borderColor: 'border-amber-500/20',
-    textColor: 'text-amber-500',
-    description: "Prospect has responded and shown active interest.",
-    aliases: ['interested', 'INTERESTED']
-  },
-  { 
-    name: "Proposal", 
-    key: 'Proposal Sent', 
-    color: 'from-indigo-500 to-indigo-700',
-    borderColor: 'border-indigo-500/20',
-    textColor: 'text-indigo-500',
-    description: "A formal proposal or price quote has been sent.",
-    aliases: ['Proposal', 'Quotation', 'PROPOSAL_SENT']
-  },
-  { 
-    name: "Negotiation", 
-    key: 'Negotiation', 
-    color: 'from-purple-500 to-purple-700',
-    borderColor: 'border-purple-500/20',
-    textColor: 'text-purple-500',
-    description: "Discussing final terms or pricing adjustments.",
-    aliases: ['negotiation', 'NEGOTIATING']
-  },
-  { 
-    name: "Won", 
-    key: 'Won (Converted)', 
-    color: 'from-emerald-500 to-emerald-700',
-    borderColor: 'border-emerald-500/20',
-    textColor: 'text-emerald-500',
-    description: "Success! Deal closed or payment received.",
-    aliases: ['Won', 'WON', 'Converted', 'CONVERTED']
-  },
-  { 
-    name: "Lost", 
-    key: 'Lost', 
-    color: 'from-rose-500 to-rose-700',
-    borderColor: 'border-rose-500/20',
-    textColor: 'text-rose-500',
-    description: "Opportunity did not convert.",
-    aliases: ['lost', 'LOST', 'Rejected']
-  },
+  { name: "New Leads", key: 'New Leads', color: 'from-indigo-500 to-blue-600', textColor: 'text-indigo-400', description: "Incoming prospects.", aliases: ['New', 'new', 'NEW_LEAD'] },
+  { name: "Contacted", key: 'Contacted', color: 'from-cyan-500 to-blue-500', textColor: 'text-cyan-400', description: "Initial reach-out performed.", aliases: ['contacted', 'CONTACTED'] },
+  { name: "Interested", key: 'Interested', color: 'from-amber-500 to-orange-600', textColor: 'text-amber-400', description: "Prospect has shown active interest.", aliases: ['interested', 'INTERESTED'] },
+  { name: "Proposal", key: 'Proposal Sent', color: 'from-purple-500 to-indigo-600', textColor: 'text-purple-400', description: "A formal proposal has been sent.", aliases: ['Proposal', 'Quotation', 'PROPOSAL_SENT'] },
+  { name: "Negotiation", key: 'Negotiation', color: 'from-fuchsia-500 to-purple-600', textColor: 'text-fuchsia-400', description: "Discussing final terms.", aliases: ['negotiation', 'NEGOTIATING'] },
+  { name: "Won", key: 'Won (Converted)', color: 'from-emerald-500 to-teal-600', textColor: 'text-emerald-400', description: "Success! Deal closed.", aliases: ['Won', 'WON', 'Converted', 'CONVERTED'] },
 ];
 
 export default function CRMPipeline() {
@@ -79,443 +22,132 @@ export default function CRMPipeline() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [taskFormData, setTaskFormData] = useState({
-    title: '',
-    task_type: 'call',
-    scheduled_date: '',
-    scheduled_time: '09:00',
-    scheduled_ampm: 'AM',
-    notes: '',
-    lead_id: ''
-  });
-  const [taskSubmitting, setTaskSubmitting] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showInfoFor, setShowInfoFor] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
 
-  // Lead Form State
   const [formData, setFormData] = useState({
     contact_person: '',
     company_name: '',
     email: '',
     phone: '',
     estimated_value: '',
-    service_interest: ''
+    service_interest: '',
+    website: '',
+    external_link: '',
+    notes: ''
   });
 
   useEffect(() => {
     if (user?.workspace_id) {
       fetchLeads();
-
-      // Enable Realtime Subscription
-      const channel = supabase
-        .channel(`crm_pipeline_${user.workspace_id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'crm_leads',
-            filter: `workspace_id=eq.${user.workspace_id}`
-          },
-          () => {
-            fetchLeads();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      const channel = supabase.channel(`crm_pipeline_${user.workspace_id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'crm_leads', filter: `workspace_id=eq.${user.workspace_id}` }, () => fetchLeads()).subscribe();
+      return () => { supabase.removeChannel(channel); };
     }
   }, [user?.workspace_id]);
 
   const fetchLeads = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('crm_leads')
-      .select('*')
-      .eq('workspace_id', user?.workspace_id);
-    
-    if (error) {
-      console.error("Supabase Error:", error);
-      toast.error("Error fetching leads");
-    }
-    
-    const sortedData = (data || []).sort((a, b) => {
-      if (a.is_pinned && !b.is_pinned) return -1;
-      if (!a.is_pinned && b.is_pinned) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-    setLeads(sortedData);
+    const { data } = await supabase.from('crm_leads').select('*').eq('workspace_id', user?.workspace_id);
+    const sorted = (data || []).sort((a, b) => (a.is_pinned === b.is_pinned) ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : a.is_pinned ? -1 : 1);
+    setLeads(sorted);
     setLoading(false);
-  };
-
-  const togglePin = async (leadId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('crm_leads')
-        .update({ is_pinned: !currentStatus })
-        .eq('id', leadId);
-      if (error) throw error;
-      toast.success(!currentStatus ? "Pinned to top" : "Unpinned");
-      fetchLeads();
-    } catch (error) {
-      toast.error("Failed to update pin");
-      console.error(error);
-    }
-  };
-
-  const openTaskModal = (lead: any) => {
-    const now = new Date();
-    const hours24 = now.getHours();
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    
-    // Convert to 12h format
-    const ampm = hours24 >= 12 ? 'PM' : 'AM';
-    const hours12 = hours24 % 12 || 12;
-    const time12 = `${hours12.toString().padStart(2, '0')}:${minutes}`;
-
-    setTaskFormData({
-      title: `Follow up with ${lead.contact_person}`,
-      task_type: 'call',
-      scheduled_date: now.toISOString().split('T')[0],
-      scheduled_time: time12,
-      scheduled_ampm: ampm,
-      notes: '',
-      lead_id: lead.id
-    });
-    setIsTaskModalOpen(true);
-  };
-
-  const handleTaskSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTaskSubmitting(true);
-    try {
-      // Convert 12h time to 24h for database
-      let [hours, minutes] = taskFormData.scheduled_time.split(':').map(Number);
-      if (taskFormData.scheduled_ampm === 'PM' && hours < 12) hours += 12;
-      if (taskFormData.scheduled_ampm === 'AM' && hours === 12) hours = 0;
-      
-      const scheduledAt = `${taskFormData.scheduled_date}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-
-      const { error } = await supabase
-        .from('crm_tasks')
-        .insert([{
-          title: taskFormData.title,
-          task_type: taskFormData.task_type,
-          notes: taskFormData.notes,
-          lead_id: taskFormData.lead_id,
-          scheduled_at: scheduledAt,
-          workspace_id: user?.workspace_id,
-          priority: 'medium',
-          status: 'pending'
-        }]);
-
-      if (error) throw error;
-      toast.success(`${taskFormData.task_type.toUpperCase()} scheduled successfully!`);
-      setIsTaskModalOpen(false);
-    } catch (error) {
-      toast.error("Failed to schedule task");
-      console.error(error);
-    } finally {
-      setTaskSubmitting(false);
-    }
-  };
-  const openAddModal = () => {
-    setIsEditMode(false);
-    setEditingLeadId(null);
-    setFormData({ contact_person: '', company_name: '', email: '', phone: '', estimated_value: '', service_interest: '' });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (lead: any) => {
-    setIsEditMode(true);
-    setEditingLeadId(lead.id);
-    setFormData({
-      contact_person: lead.contact_person || '',
-      company_name: lead.company_name || '',
-      email: lead.email || '',
-      phone: lead.phone || '',
-      estimated_value: lead.estimated_value === 0 ? '' : (lead.estimated_value || '').toString(),
-      service_interest: lead.service_interest || ''
-    });
-    setIsModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.contact_person || !formData.company_name) {
-      toast.error("Name and Company are required");
-      return;
-    }
-
     setSubmitting(true);
     try {
-      // Parse the free numeric string to an actual number for the database
-      const numericValue = typeof formData.estimated_value === 'string' 
-        ? parseInt(formData.estimated_value.replace(/[^0-9.]/g, '')) || 0 
-        : formData.estimated_value;
-
-      const dataToSave = { ...formData, estimated_value: numericValue };
-
+      const numericValue = parseInt(formData.estimated_value.replace(/[^0-9]/g, '')) || 0;
+      const dataToSave = { ...formData, estimated_value: numericValue, workspace_id: user?.workspace_id };
+      
       if (isEditMode && editingLeadId) {
-        const { error } = await supabase
-          .from('crm_leads')
-          .update(dataToSave)
-          .eq('id', editingLeadId);
-        if (error) throw error;
-        toast.success("Lead updated successfully");
+        await supabase.from('crm_leads').update(dataToSave).eq('id', editingLeadId);
+        toast.success("Opportunity Updated");
       } else {
-        const { error } = await supabase
-          .from('crm_leads')
-          .insert([{
-            ...dataToSave,
-            status: 'New Leads',
-            workspace_id: user?.workspace_id,
-            source: 'Manual Entry'
-          }]);
-        if (error) throw error;
-        toast.success("Lead added to New Leads");
+        await supabase.from('crm_leads').insert([{ ...dataToSave, status: 'New Leads' }]);
+        toast.success("New Opportunity Created");
       }
-
       setIsModalOpen(false);
       fetchLeads();
-    } catch (error) {
-      toast.error(isEditMode ? "Failed to update lead" : "Failed to add lead");
-      console.error(error);
+    } catch (err) {
+      toast.error("Process Failed");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const updateLeadStage = async (leadId: string, currentStageKey: string, direction: 'forward' | 'backward') => {
-    const currentIndex = STAGES.findIndex(s => s.key === currentStageKey || s.aliases.includes(currentStageKey));
-    let nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
-
-    if (nextIndex < 0 || nextIndex >= STAGES.length) return;
-
-    const nextStageKey = STAGES[nextIndex].key;
-
-    try {
-      const { error } = await supabase
-        .from('crm_leads')
-        .update({ status: nextStageKey })
-        .eq('id', leadId);
-
-      if (error) throw error;
-
-      toast.success(`Moved to ${STAGES[nextIndex].name}`);
-      fetchLeads();
-    } catch (error) {
-      toast.error("Failed to update stage");
-      console.error(error);
-    }
+  const updateLeadStage = async (id: string, current: string, dir: 'f' | 'b') => {
+    const idx = STAGES.findIndex(s => s.key === current || s.aliases.includes(current));
+    const next = dir === 'f' ? idx + 1 : idx - 1;
+    if (next < 0 || next >= STAGES.length) return;
+    await supabase.from('crm_leads').update({ status: STAGES[next].key }).eq('id', id);
+    fetchLeads();
+    toast.success(`Moved to ${STAGES[next].name}`);
   };
 
-  const deleteLead = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this lead?")) return;
-    
-    try {
-      const { error } = await supabase.from('crm_leads').delete().eq('id', id);
-      if (error) throw error;
-      toast.success("Lead deleted");
-      fetchLeads();
-    } catch (error) {
-      toast.error("Failed to delete lead");
-      console.error(error);
-    }
-  };
-
-  const getLeadsForStage = (stage: typeof STAGES[0]) => {
-    return leads.filter(l => 
-      l.status === stage.key || 
-      stage.aliases.includes(l.status)
-    );
-  };
-
-  const unmappedLeads = leads.filter(l => 
-    !STAGES.some(s => s.key === l.status || s.aliases.includes(l.status))
-  );
-
-  if (loading) return (
-    <div className="h-full flex items-center justify-center">
-      <Loader2 className="animate-spin text-primary" size={40} />
-    </div>
-  );
+  if (loading) return <div className="h-full flex items-center justify-center bg-[#030305]"><Loader2 className="animate-spin text-primary" size={40} /></div>;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-background relative w-full h-full" key="pipeline-root">
-      <style>{`
-        .custom-horizontal-scrollbar::-webkit-scrollbar {
-          height: 12px !important;
-          display: block !important;
-        }
-        .custom-horizontal-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.02) !important;
-          border-radius: 10px !important;
-        }
-        .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(99, 102, 241, 0.3) !important;
-          border-radius: 10px !important;
-          border: 3px solid transparent !important;
-          background-clip: content-box !important;
-        }
-        .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(99, 102, 241, 0.6) !important;
-          background-clip: content-box !important;
-        }
-      `}</style>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sticky top-0 z-20 bg-background/80 backdrop-blur-md p-4 lg:p-8 border-b border-border shadow-sm">
-        <div>
-          <h1 className="text-xl lg:text-3xl font-bold text-foreground leading-none">Pipeline</h1>
-          {unmappedLeads.length > 0 && (
-            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-1">
-              ⚠ {unmappedLeads.length} unmapped
-            </p>
-          )}
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#030305] w-full h-full p-2 lg:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10 relative">
+        <div className="relative z-10">
+          <h1 className="text-3xl font-black text-white tracking-tighter italic uppercase">Sales Pipeline</h1>
+          <p className="text-[10px] font-black text-indigo-400/60 uppercase tracking-[0.3em] mt-1">Real-time Revenue Operations</p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <Button 
-            onClick={openAddModal}
-            className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
-          >
-            <Plus size={18} className="mr-2" />
-            Add New Lead
-          </Button>
-        </div>
+        <Button onClick={() => { setIsEditMode(false); setFormData({ contact_person: '', company_name: '', email: '', phone: '', estimated_value: '', service_interest: '', website: '', external_link: '', notes: '' }); setIsModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs px-8 py-6 shadow-xl shadow-indigo-600/20 active:scale-95 transition-all">
+          <Plus size={18} className="mr-2" /> New Opportunity
+        </Button>
       </div>
 
-      {/* Pipeline Board */}
-      <div className="flex-1 overflow-x-auto pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto">
-        <div className="flex gap-4 lg:gap-6 h-full min-w-max pb-4">
+      <div className="flex-1 overflow-x-auto pb-10 custom-horizontal-scrollbar">
+        <div className="flex gap-6 h-full min-w-max">
           {STAGES.map((stage, sIdx) => {
-            const stageLeads = sIdx === 0 
-              ? [...getLeadsForStage(stage), ...unmappedLeads]
-              : getLeadsForStage(stage);
-            
+            const stageLeads = leads.filter(l => l.status === stage.key || stage.aliases.includes(l.status));
             const totalValue = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);
 
             return (
-              <div key={stage.name} className={`flex-shrink-0 w-[320px] sm:w-[380px] flex flex-col min-h-[850px] bg-card/40 rounded-[2.5rem] border-2 border-border shadow-2xl overflow-hidden backdrop-blur-md`}>
-                {/* Stage Header */}
-                <div className="p-6 flex-shrink-0 relative bg-background/50 border-b-2 border-border backdrop-blur-md">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <h3 className={`font-black ${stage.textColor} text-base tracking-tight truncate max-w-[200px] uppercase`}>{stage.name}</h3>
-                      <button 
-                        onClick={() => setShowInfoFor(showInfoFor === stage.key ? null : stage.key)}
-                        className="text-muted-foreground hover:text-primary transition-colors bg-background/50 p-1.5 rounded-full"
-                      >
-                        <HelpCircle size={16} />
-                      </button>
-                    </div>
-                    <span className={`text-xs font-black bg-gradient-to-br ${stage.color} text-white px-3 py-1 rounded-full shadow-lg shadow-primary/20`}>{stageLeads.length}</span>
+              <div key={stage.name} className="w-[340px] flex flex-col bg-[#0a0a0c]/50 rounded-[2.5rem] border border-white/10 overflow-hidden backdrop-blur-xl">
+                <div className="p-6 border-b border-white/5 bg-white/5 relative overflow-hidden">
+                  <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${stage.color}`}></div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className={`font-black ${stage.textColor} text-xs tracking-[0.2em] uppercase`}>{stage.name}</h3>
+                    <span className="text-[10px] font-black bg-white/10 text-white px-2 py-0.5 rounded-lg border border-white/10">{stageLeads.length}</span>
                   </div>
-                  <div className={`text-sm ${stage.textColor} font-black tracking-widest`}>₹{totalValue.toLocaleString()}</div>
-                  
-                  {/* Stage Description Tooltip */}
-                  {showInfoFor === stage.key && (
-                    <div className="absolute top-full left-4 right-4 z-50 p-5 bg-card border-2 border-border shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[2rem] text-xs text-muted-foreground animate-in slide-in-from-top-2 duration-300">
-                      <p className="leading-relaxed font-bold tracking-tight">{stage.description}</p>
-                    </div>
-                  )}
+                  <div className="text-xl font-black text-white tracking-tighter italic">₹{totalValue.toLocaleString()}</div>
                 </div>
 
-                {/* Stage Column */}
-                <div className={`p-4 space-y-5 flex-1 overflow-y-auto custom-scrollbar bg-background/20`}>
+                <div className="p-4 space-y-4 flex-1 overflow-y-auto custom-scrollbar bg-black/20">
                   {stageLeads.map((lead) => (
-                    <Card key={lead.id} className={`bg-card/80 border-border border-2 p-8 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[2.5rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between`}>
-                      {/* Stage Navigation Arrows (Hidden on touch, shown on hover/group) */}
-                      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 lg:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                        <button 
-                          onClick={() => updateLeadStage(lead.id, lead.status, 'backward')}
-                          disabled={sIdx === 0}
-                          className={`p-2 bg-background/95 backdrop-blur-md rounded-full border-2 border-border shadow-2xl pointer-events-auto transition-all active:scale-75 ${sIdx === 0 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
-                        >
-                          <ChevronLeft size={24} />
-                        </button>
-                        <button 
-                          onClick={() => updateLeadStage(lead.id, lead.status, 'forward')}
-                          disabled={sIdx === STAGES.length - 1}
-                          className={`p-2 bg-background/95 backdrop-blur-md rounded-full border-2 border-border shadow-2xl pointer-events-auto transition-all active:scale-75 ${sIdx === STAGES.length - 1 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
-                        >
-                          <ChevronRight size={24} />
-                        </button>
+                    <Card key={lead.id} className="group bg-[#0c0c0e]/80 border-white/15 p-6 rounded-[2rem] hover:border-indigo-500/40 transition-all duration-500 relative overflow-hidden shadow-xl hover:shadow-indigo-500/10">
+                      <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                         <button onClick={() => { setIsEditMode(true); setEditingLeadId(lead.id); setFormData({ contact_person: lead.contact_person, company_name: lead.company_name, email: lead.email || '', phone: lead.phone || '', estimated_value: lead.estimated_value?.toString() || '', service_interest: lead.service_interest || '', website: lead.website || '', external_link: lead.external_link || '', notes: lead.notes || '' }); setIsModalOpen(true); }} className="p-2 bg-white/5 rounded-xl border border-white/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all"><Edit2 size={12}/></button>
+                         <button onClick={async () => { if(confirm('Delete?')) await supabase.from('crm_leads').delete().eq('id', lead.id); fetchLeads(); }} className="p-2 bg-white/5 rounded-xl border border-white/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={12}/></button>
                       </div>
 
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1 pr-2">
-                          <h4 className="font-black text-foreground text-lg tracking-tight leading-tight mb-1">{lead.contact_person}</h4>
-                          <p className="text-xs text-primary font-black tracking-widest uppercase">{lead.company_name}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button 
-                            onClick={() => togglePin(lead.id, !!lead.is_pinned)}
-                            className={`p-2.5 rounded-2xl transition-all border ${lead.is_pinned ? 'bg-primary/10 border-primary text-primary opacity-100' : 'hover:bg-background border-transparent hover:border-primary/20 opacity-0 group-hover:opacity-100'} transition-opacity`}
-                            title={lead.is_pinned ? "Unpin" : "Pin to top"}
-                          >
-                            {lead.is_pinned ? <Pin size={16} fill="currentColor" /> : <Pin size={16} />}
-                          </button>
-                          <button 
-                            onClick={() => openEditModal(lead)}
-                            className="p-2.5 hover:bg-background rounded-2xl transition-colors text-primary border border-transparent hover:border-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit Lead"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button 
-                            onClick={() => deleteLead(lead.id)}
-                            className="p-2.5 hover:bg-red-500/10 rounded-2xl transition-colors text-red-400 border border-transparent hover:border-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Delete Lead"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                      <div className="mb-4">
+                        <h4 className="font-black text-white text-lg tracking-tight mb-1">{lead.contact_person}</h4>
+                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{lead.company_name}</p>
                       </div>
 
-                      {/* Contact Actions - LARGER BUTTONS */}
-                      <div className="flex flex-wrap gap-2.5 my-4 py-4 border-t border-b border-border/40">
-                        <button className="flex-1 min-w-[70px] py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-90" title="Call">
-                          <Phone size={16} />
-                          <span className="text-[10px] font-black uppercase tracking-tighter">Call</span>
-                        </button>
-                        <button className="flex-1 min-w-[70px] py-2.5 bg-[#25D366] hover:bg-[#22c35e] text-white rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-600/20 active:scale-90" title="WhatsApp">
-                          <MessageCircle size={16} />
-                          <span className="text-[10px] font-black uppercase tracking-tighter">WA</span>
-                        </button>
-                        <button className="flex-1 min-w-[70px] py-2.5 bg-[#EA4335] hover:bg-[#d93025] text-white rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/20 active:scale-90" title="Email">
-                          <Mail size={16} />
-                          <span className="text-[10px] font-black uppercase tracking-tighter">Mail</span>
-                        </button>
+                      <div className="flex items-center gap-2 mb-6">
+                         <div className={`px-3 py-1 bg-gradient-to-r ${stage.color} text-white text-[10px] font-black rounded-lg uppercase italic shadow-lg`}>₹{(lead.estimated_value || 0).toLocaleString()}</div>
+                         {lead.service_interest && <div className="px-3 py-1 bg-white/5 border border-white/10 text-gray-400 text-[9px] font-black rounded-lg uppercase truncate max-w-[120px]">{lead.service_interest}</div>}
                       </div>
 
-                      {/* Lead Info - MORE PROMINENT */}
-                      <div className="flex items-center justify-between mt-auto pt-2">
-                        <div className={`text-lg font-black ${stage.textColor} tracking-tighter bg-primary/5 px-3 py-1 rounded-xl border border-primary/10`}>₹{(lead.estimated_value || 0).toLocaleString()}</div>
-                        <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${stage.color} flex items-center justify-center text-xs font-black text-white border-2 border-card shadow-xl`}>
-                          {(lead.contact_person || lead.company_name || 'U')[0].toUpperCase()}
-                        </div>
+                      <div className="grid grid-cols-3 gap-2 mb-6">
+                        <button className="py-2.5 bg-blue-600/10 border border-blue-600/20 text-blue-400 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all active:scale-90"><Phone size={14}/></button>
+                        <button className="py-2.5 bg-emerald-600/10 border border-emerald-600/20 text-emerald-400 rounded-xl flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all active:scale-90"><MessageCircle size={14}/></button>
+                        <button className="py-2.5 bg-rose-600/10 border border-rose-600/20 text-rose-400 rounded-xl flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all active:scale-90"><Mail size={14}/></button>
                       </div>
 
-                      {/* Create Task Button - LARGER */}
-                      <button 
-                        onClick={() => openTaskModal(lead)}
-                        className={`w-full mt-4 px-4 py-3.5 bg-gradient-to-r ${stage.color} hover:brightness-110 text-white rounded-[1.25rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2`}
-                      >
-                        <Plus size={16} />
-                        Next Action Task
-                      </button>
+                      <div className="flex gap-2">
+                        <button onClick={() => updateLeadStage(lead.id, lead.status, 'b')} disabled={sIdx===0} className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-gray-500 hover:text-white disabled:opacity-0 transition-all"><ChevronLeft size={16}/></button>
+                        <button onClick={() => updateLeadStage(lead.id, lead.status, 'f')} disabled={sIdx===STAGES.length-1} className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-gray-500 hover:text-white disabled:opacity-0 transition-all"><ChevronRight size={16}/></button>
+                      </div>
                     </Card>
                   ))}
-
-                  {/* Empty State */}
-                  {stageLeads.length === 0 && (
-                    <div className="border-2 border-dashed border-border/30 rounded-3xl p-10 text-center bg-background/5">
-                      <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-50">Empty Stage</p>
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -523,214 +155,53 @@ export default function CRMPipeline() {
         </div>
       </div>
 
-      {/* Add Lead Modal - RESPONSIVE FORM */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-card border-t sm:border border-border rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in duration-500">
-            <div className="p-6 border-b border-border flex items-center justify-between bg-background/30">
-              <div>
-                <h2 className="text-xl font-black text-foreground tracking-tight">{isEditMode ? 'Edit Opportunity' : 'New Opportunity'}</h2>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">{isEditMode ? 'Update Details' : 'Add to Pipeline'}</p>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-background rounded-2xl transition-colors text-muted-foreground bg-background/50"><X size={20}/></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <Card className="bg-[#0a0a0c] border border-white/20 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+            <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">{isEditMode ? 'Edit Opportunity' : 'New Opportunity'}</h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white/5 border border-white/10 rounded-2xl text-gray-500 hover:text-white"><X size={20}/></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 gap-5">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Contact Name *</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={formData.contact_person}
-                    onChange={(e) => setFormData({...formData, contact_person: e.target.value})}
-                    placeholder="e.g. Rahul Sharma"
-                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Company Name *</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={formData.company_name}
-                    onChange={(e) => setFormData({...formData, company_name: e.target.value})}
-                    placeholder="e.g. ABC Pvt Ltd"
-                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Email Address</label>
-                <input 
-                  type="email" 
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  placeholder="contact@company.com"
-                  className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
-                />
-              </div>
-
+            <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Value (₹)</label>
-                  <div className="relative">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-primary font-black text-base">₹</div>
-                    <input 
-                      type="text" 
-                      value={formData.estimated_value}
-                      onChange={(e) => {
-                        let val = e.target.value;
-                        // Remove leading zeros if they are followed by other numbers
-                        if (val.length > 1 && val.startsWith('0')) {
-                          val = val.substring(1);
-                        }
-                        setFormData({...formData, estimated_value: val});
-                      }}
-                      placeholder="Enter amount..."
-                      className="w-full pl-10 pr-5 py-3.5 bg-background border border-input rounded-2xl text-base text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-black tracking-tight" 
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Phone</label>
-                  <input 
-                    type="tel" 
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    placeholder="+91..."
-                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
-                  />
-                </div>
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Contact Name *</label>
+                    <input required type="text" value={formData.contact_person} onChange={e => setFormData({...formData, contact_person: e.target.value})} className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white focus:border-indigo-500 outline-none transition-all font-bold" />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Company Name *</label>
+                    <input required type="text" value={formData.company_name} onChange={e => setFormData({...formData, company_name: e.target.value})} className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white focus:border-indigo-500 outline-none transition-all font-bold" />
+                 </div>
               </div>
-
-              <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button 
-                  type="submit" 
-                  disabled={submitting} 
-                  className="w-full py-6 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 active:scale-95"
-                >
-                  {submitting ? <Loader2 size={20} className="animate-spin mr-2" /> : <Plus size={20} className="mr-2" />}
-                  {isEditMode ? 'Save Changes' : 'Create Lead'}
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  onClick={() => setIsModalOpen(false)} 
-                  className="w-full py-6 text-muted-foreground hover:bg-background rounded-2xl font-bold"
-                >
-                  Cancel
-                </Button>
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Email</label>
+                    <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white focus:border-indigo-500 outline-none transition-all font-bold" />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Phone</label>
+                    <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white focus:border-indigo-500 outline-none transition-all font-bold" />
+                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Est. Value (₹)</label>
+                    <input type="text" value={formData.estimated_value} onChange={e => setFormData({...formData, estimated_value: e.target.value})} className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white focus:border-indigo-500 outline-none transition-all font-bold" />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Interest</label>
+                    <input type="text" value={formData.service_interest} onChange={e => setFormData({...formData, service_interest: e.target.value})} className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white focus:border-indigo-500 outline-none transition-all font-bold" />
+                 </div>
+              </div>
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Notes</label>
+                 <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white focus:border-indigo-500 outline-none transition-all font-bold resize-none" rows={3} />
+              </div>
+              <Button type="submit" disabled={submitting} className="w-full py-8 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-2xl shadow-indigo-600/30">
+                {submitting ? <Loader2 size={24} className="animate-spin" /> : 'Confirm Opportunity'}
+              </Button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Task Scheduler Modal */}
-      {isTaskModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-card border-2 border-border w-full max-w-lg rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-8 border-b border-border flex items-center justify-between bg-background/50">
-              <div>
-                <h2 className="text-2xl font-black text-foreground tracking-tight">Schedule Next Action</h2>
-                <p className="text-xs text-muted-foreground font-bold tracking-widest uppercase mt-1">Universal Scheduler</p>
-              </div>
-              <button onClick={() => setIsTaskModalOpen(false)} className="p-3 hover:bg-background rounded-2xl transition-colors text-muted-foreground"><X size={24} /></button>
-            </div>
-            
-            <form onSubmit={handleTaskSubmit} className="p-8 space-y-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Action Type</label>
-                    <select 
-                      value={taskFormData.task_type}
-                      onChange={(e) => setTaskFormData({...taskFormData, task_type: e.target.value})}
-                      className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold appearance-none cursor-pointer"
-                    >
-                      <option value="call">📞 Call</option>
-                      <option value="email">📧 Email</option>
-                      <option value="meeting">🤝 Meeting</option>
-                      <option value="quotation">📄 Send Quotation</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Schedule Date</label>
-                    <input 
-                      type="date" 
-                      value={taskFormData.scheduled_date}
-                      onChange={(e) => setTaskFormData({...taskFormData, scheduled_date: e.target.value})}
-                      className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold cursor-pointer"
-                      style={{ colorScheme: 'dark' }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Schedule Time (12h)</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="time" 
-                        value={taskFormData.scheduled_time}
-                        onChange={(e) => setTaskFormData({...taskFormData, scheduled_time: e.target.value})}
-                        className="flex-1 px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold cursor-pointer"
-                        style={{ colorScheme: 'dark' }}
-                      />
-                      <select 
-                        value={taskFormData.scheduled_ampm}
-                        onChange={(e) => setTaskFormData({...taskFormData, scheduled_ampm: e.target.value})}
-                        className="w-24 px-4 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-black appearance-none cursor-pointer text-center"
-                      >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Action Title</label>
-                  <input 
-                    type="text" 
-                    value={taskFormData.title}
-                    onChange={(e) => setTaskFormData({...taskFormData, title: e.target.value})}
-                    placeholder="e.g. Discuss new requirements"
-                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold" 
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Action Notes</label>
-                  <textarea 
-                    value={taskFormData.notes}
-                    onChange={(e) => setTaskFormData({...taskFormData, notes: e.target.value})}
-                    placeholder="Write down any specific details for this action..."
-                    rows={4}
-                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold resize-none" 
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button 
-                  type="submit" 
-                  disabled={taskSubmitting} 
-                  className="w-full py-6 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 active:scale-95"
-                >
-                  {taskSubmitting ? <Loader2 size={20} className="animate-spin mr-2" /> : <Clock size={20} className="mr-2" />}
-                  Schedule Action
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  onClick={() => setIsTaskModalOpen(false)} 
-                  className="w-full py-6 text-muted-foreground hover:bg-background rounded-2xl font-bold"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
+          </Card>
         </div>
       )}
     </div>
