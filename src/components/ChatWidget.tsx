@@ -177,6 +177,7 @@ export default function ChatWidget() {
       setMessages(mockStorage.getMessages());
       return;
     }
+    if (!user?.workspace_id) return;
     const { data, error } = await supabase
       .from('chat_messages')
       .select('id, message, user_id, created_at, users(username, full_name, designation)')
@@ -196,13 +197,13 @@ export default function ChatWidget() {
     if (MOCK_MODE) {
       const newMsg: ChatMessage = {
         id: Math.random().toString(36).substring(2, 9),
-        user_id: user.id,
+        user_id: user?.id || '',
         message: newMessage.trim(),
         created_at: new Date().toISOString(),
         users: {
-          username: user.username,
-          full_name: user.full_name || user.username,
-          designation: user.designation
+          username: user?.username || 'Unknown',
+          full_name: user?.full_name || user?.username || 'Unknown',
+          designation: user?.designation || 'Staff'
         }
       };
       mockStorage.addMessage(newMsg);
