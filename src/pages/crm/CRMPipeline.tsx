@@ -110,7 +110,7 @@ export default function CRMPipeline() {
 
       // Enable Realtime Subscription
       const channel = supabase
-        .channel('crm_leads_changes')
+        .channel(`crm_pipeline_${user.workspace_id}`)
         .on(
           'postgres_changes',
           {
@@ -129,7 +129,7 @@ export default function CRMPipeline() {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user?.workspace_id]);
 
   const fetchLeads = async () => {
     setLoading(true);

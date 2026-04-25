@@ -3,9 +3,7 @@ export type UserRole = 'partner' | 'admin';
 export type Designation =
   | 'Innovation & Research Team'
   | 'Developer & Engineering Team'
-  | 'Business Strategy & Marketing Team'
-  | 'Product Design & UX Team'
-  | 'Client Success & Accounts Team';
+  | 'Business Strategy & Marketing Team';
 
 export interface Workspace {
   id: string;
@@ -32,6 +30,8 @@ export interface User {
   designation: Designation;
   role: UserRole;
   workspace_id: string;
+  bio?: string;
+  skills?: string;
   created_at: string;
 }
 

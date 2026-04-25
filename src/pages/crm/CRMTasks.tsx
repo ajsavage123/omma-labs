@@ -18,7 +18,7 @@ export default function CRMTasks() {
 
       // Enable Realtime Subscription
       const channel = supabase
-        .channel('crm_tasks_changes')
+        .channel(`crm_tasks_${user.workspace_id}`)
         .on(
           'postgres_changes',
           {
@@ -37,7 +37,7 @@ export default function CRMTasks() {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user?.workspace_id]);
 
   const fetchTasks = async () => {
     setLoading(true);

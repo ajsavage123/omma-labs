@@ -15,6 +15,7 @@ import MeetingSchedulerPage from './pages/MeetingSchedulerPage';
 import ProjectMembersPage from './pages/ProjectMembersPage';
 import LiveOfficePage from './pages/LiveOfficePage';
 import CRMApp from './pages/crm/CRMApp';
+import { CRMAccessGuard } from './components/CRMAccessGuard';
 import { InstallPWA } from '@/components/InstallPWA';
 import ChatWidget from '@/components/ChatWidget';
 import { notificationService } from '@/utils/notificationService';
@@ -66,7 +67,11 @@ function App() {
             <Route path="/meetings" element={<MeetingSchedulerPage />} />
             <Route path="/directory" element={<ProjectMembersPage />} />
             <Route path="/office" element={<LiveOfficePage />} />
-            <Route path="/crm/*" element={<CRMApp />} />
+            <Route path="/crm/*" element={
+              <CRMAccessGuard>
+                <CRMApp />
+              </CRMAccessGuard>
+            } />
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/contacts" element={<ClientContactsPage />} />

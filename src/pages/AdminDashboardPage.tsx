@@ -16,17 +16,25 @@ import {
   RefreshCcw,
   AlertTriangle,
   Trash2,
-  X
+  X,
+  ShieldAlert,
+  Edit2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
+const DEPARTMENTS = [
+  'Innovation & Research Team',
+  'Developer & Engineering Team',
+  'Business Strategy & Marketing Team'
+];
+
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'team'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'team' | 'access'>('dashboard');
   
   const [stats, setStats] = useState<any>(null);
   const [projects, setProjects] = useState<(Project & { project_stages: ProjectStage[] })[]>([]);
@@ -37,15 +45,16 @@ export default function AdminDashboardPage() {
   // Team Management State
   const [members, setMembers] = useState<User[]>([]);
   const [activeInvites, setActiveInvites] = useState<Invitation[]>([]);
+  const [pendingAccess, setPendingAccess] = useState<any[]>([]);
   const [generating, setGenerating] = useState(false);
   const [newInviteData, setNewInviteData] = useState({
     role: 'partner' as const,
-    designation: 'Innovation & Research Team'
+    designations: ['Innovation & Research Team']
   });
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editMemberData, setEditMemberData] = useState({
     role: 'partner' as 'admin' | 'partner',
-    designation: 'Innovation & Research Team'
+    designations: [] as string[]
   });
 
   // Rating Form State
@@ -80,13 +89,17 @@ export default function AdminDashboardPage() {
         ]);
         setStats(statsData);
         setProjects(projectsData);
-      } else {
+      } else if (activeTab === 'team') {
         const [membersData, invitesData] = await Promise.all([
           adminService.getTeamMembers(user.workspace_id),
           adminService.getActiveInvitations(user.workspace_id)
         ]);
         setMembers(membersData);
         setActiveInvites(invitesData);
+      } else if (activeTab === 'access') {
+        const { crmAccessService } = await import('@/services/crmAccessService');
+        const requests = await crmAccessService.getPendingRequests(user.workspace_id);
+        setPendingAccess(requests);
       }
     } catch (err) {
       console.error(err);
@@ -95,13 +108,27 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleApproveAccess = async (requestId: string, approve: boolean) => {
+    try {
+      const { crmAccessService } = await import('@/services/crmAccessService');
+      await crmAccessService.updateRequestStatus(requestId, approve ? 'approved' : 'rejected');
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to process request.");
+    }
+  };
+
   const handleGenerateInvite = async () => {
-    if (!user?.workspace_id) return;
+    if (!user?.workspace_id || newInviteData.designations.length === 0) {
+      alert("Please select at least one department.");
+      return;
+    }
     setGenerating(true);
     try {
       const invite = await adminService.generateInvite(
         newInviteData.role,
-        newInviteData.designation,
+        newInviteData.designations.join(', '),
         user.workspace_id
       );
       
@@ -131,8 +158,15 @@ export default function AdminDashboardPage() {
   };
 
   const handleUpdateMember = async (memberId: string) => {
+    if (editMemberData.designations.length === 0) {
+      alert("Please select at least one department.");
+      return;
+    }
     try {
-      await adminService.updateUserRole(memberId, editMemberData.designation, editMemberData.role);
+      await adminService.updateUserProfile(memberId, { 
+        designation: editMemberData.designations.join(', '), 
+        role: editMemberData.role 
+      });
       setEditingMember(null);
       await fetchData();
     } catch (error) {
@@ -252,6 +286,24 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const toggleDeptForInvite = (dept: string) => {
+    setNewInviteData(prev => ({
+      ...prev,
+      designations: prev.designations.includes(dept) 
+        ? prev.designations.filter(d => d !== dept) 
+        : [...prev.designations, dept]
+    }));
+  };
+
+  const toggleDeptForEdit = (dept: string) => {
+    setEditMemberData(prev => ({
+      ...prev,
+      designations: prev.designations.includes(dept) 
+        ? prev.designations.filter(d => d !== dept) 
+        : [...prev.designations, dept]
+    }));
+  };
+
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#0a0f1c] z-50">
       <div className="flex flex-col items-center relative">
@@ -296,6 +348,12 @@ export default function AdminDashboardPage() {
           >
             Teams
           </button>
+          <button 
+            onClick={() => setActiveTab('access')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'access' ? 'bg-indigo-500/20 text-indigo-300 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+          >
+            Access
+          </button>
         </div>
         
         {/* Mobile Spacer if tabs hidden */}
@@ -315,6 +373,12 @@ export default function AdminDashboardPage() {
           className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'team' ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white/5 text-gray-500'}`}
         >
           Teams
+        </button>
+        <button 
+          onClick={() => setActiveTab('access')}
+          className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'access' ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white/5 text-gray-500'}`}
+        >
+          Access
         </button>
       </div>
 
@@ -596,183 +660,267 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </>
-        ) : (
+        ) : activeTab === 'team' ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Main Directory - 2/3 width */}
             <div className="lg:col-span-2">
-              <div className="bg-[#111827]/60 backdrop-blur-xl rounded-2xl shadow-xl border border-white/5 overflow-hidden">
-                <div className="p-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                  <h3 className="font-bold text-white flex items-center text-lg tracking-tight">
-                    Workspace Members
-                  </h3>
+              <div className="bg-[#111827]/40 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/5 overflow-hidden">
+                <div className="p-8 border-b border-white/5 bg-gradient-to-r from-indigo-500/5 to-transparent flex justify-between items-center">
+                  <div>
+                    <h3 className="text-2xl font-black text-white tracking-tighter uppercase">Workspace Registry</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                      <p className="text-[10px] text-indigo-400/70 uppercase tracking-[0.2em] font-black">Authorized Personnel Only</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-3xl font-black text-white/10 tracking-tighter leading-none">{members.length}</span>
+                    <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-1">Active Profiles</span>
+                  </div>
                 </div>
-                <div className="p-6">
-                  {members.map(member => (
-                    <div key={member.id} className="p-4 bg-black/20 rounded-xl border border-white/5 mb-3 group hover:bg-white/5 transition-colors">
-                      {editingMember === member.id ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between mb-2">
-                             <div className="flex items-center">
-                                <div className="h-8 w-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold border border-indigo-500/30 text-xs">
-                                  {member.username.substring(0, 2).toUpperCase()}
-                                </div>
-                                <div className="ml-3">
-                                  <p className="font-bold text-gray-200 text-sm">{member.username}</p>
-                                </div>
-                             </div>
-                             <div className="flex space-x-2">
-                                <button 
-                                  onClick={() => handleUpdateMember(member.id)}
-                                  className="px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold rounded hover:bg-indigo-500/40 transition-colors"
-                                >
-                                  Save
-                                </button>
-                                <button 
-                                  onClick={() => setEditingMember(null)}
-                                  className="px-3 py-1 bg-white/5 text-gray-400 border border-white/10 text-xs font-bold rounded hover:bg-white/10 transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                             </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Designation</label>
-                               <select 
-                                 value={editMemberData.designation}
-                                 onChange={(e) => setEditMemberData({...editMemberData, designation: e.target.value as any})}
-                                 className="w-full bg-[#0a0a0d] border border-white/20 rounded-md p-2 text-xs text-gray-200 outline-none focus:border-indigo-500/50"
-                               >
-                                  <option value="Innovation & Research Team">Innovation & Research Team</option>
-                                  <option value="Developer & Engineering Team">Developer & Engineering Team</option>
-                                  <option value="Business Strategy & Marketing Team">Business Strategy & Marketing Team</option>
-                               </select>
-                            </div>
-                            <div>
-                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Role</label>
-                               <select 
-                                 value={editMemberData.role}
-                                 onChange={(e) => setEditMemberData({...editMemberData, role: e.target.value as any})}
-                                 className="w-full bg-[#0a0a0d] border border-white/20 rounded-md p-2 text-xs text-gray-200 outline-none focus:border-indigo-500/50"
-                               >
-                                  <option value="partner">Partner</option>
-                                  <option value="admin">Admin</option>
-                               </select>
-                            </div>
-                          </div>
+                
+                <div className="p-8 space-y-12 h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar pr-4">
+                  
+                  {DEPARTMENTS.map(deptCategory => (
+                    <div key={deptCategory} className="space-y-4">
+                      <div className="flex items-center gap-3 border-b border-white/10 pb-3">
+                        <div className={`h-8 w-8 rounded-xl flex items-center justify-center border 
+                          ${deptCategory.includes('Innovation') ? 'bg-indigo-500/10 border-indigo-500/20' : 
+                            deptCategory.includes('Developer') ? 'bg-emerald-500/10 border-emerald-500/20' : 
+                            deptCategory.includes('Business') ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/10'}
+                        `}>
+                          <span className={`h-2.5 w-2.5 rounded-full 
+                            ${deptCategory.includes('Innovation') ? 'bg-indigo-500' : 
+                              deptCategory.includes('Developer') ? 'bg-emerald-500' : 
+                              deptCategory.includes('Business') ? 'bg-amber-500' : 'bg-gray-500'}
+                          `}></span>
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold border border-indigo-500/30">
-                              {member.username.substring(0, 2).toUpperCase()}
+                        <h4 className="text-sm font-black text-white uppercase tracking-widest">{deptCategory.replace(' Team', '')}</h4>
+                        <span className="ml-auto text-[10px] font-black text-gray-500 bg-black/40 px-2 py-1 rounded-md border border-white/5">
+                          {members.filter(m => m.designation.includes(deptCategory)).length} Members
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {members.filter(m => m.designation.includes(deptCategory)).length > 0 ? (
+                          members.filter(m => m.designation.includes(deptCategory)).map(member => (
+                            <div key={member.id} className="relative group h-full">
+                              {editingMember === member.id ? (
+                                <div className="bg-[#0c0c0e] rounded-2xl border border-indigo-500/50 p-5 shadow-[0_0_15px_rgba(99,102,241,0.2)] h-full flex flex-col justify-center">
+                                  <h4 className="font-black text-white mb-4">Manage Profile</h4>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest block mb-2">Assign Departments</label>
+                                      <div className="grid grid-cols-1 gap-1.5 max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                                        {DEPARTMENTS.map(dept => (
+                                          <label key={dept} className="flex items-center gap-2 cursor-pointer hover:bg-white/5 p-1.5 rounded transition-colors group/dept">
+                                            <input 
+                                              type="checkbox" 
+                                              checked={editMemberData.designations.includes(dept)}
+                                              onChange={() => toggleDeptForEdit(dept)}
+                                              className="rounded border-white/20 bg-black text-indigo-500 focus:ring-0 h-3 w-3"
+                                            />
+                                            <span className="text-[10px] font-bold text-gray-400 group-hover/dept:text-white">{dept.replace(' Team', '')}</span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest block mb-1">Platform Role</label>
+                                      <select value={editMemberData.role} onChange={(e) => setEditMemberData({...editMemberData, role: e.target.value as 'admin' | 'partner'})} disabled={member.id === user?.id} className="w-full bg-black/60 border border-white/10 rounded-lg p-2 text-xs text-white disabled:opacity-50 outline-none focus:border-indigo-500/50">
+                                        <option value="partner">Partner</option>
+                                        <option value="admin">Admin</option>
+                                      </select>
+                                    </div>
+                                    <div className="flex gap-2 pt-2">
+                                      <button onClick={() => handleUpdateMember(member.id)} className="flex-1 bg-indigo-500 text-white py-2 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all">Execute Update</button>
+                                      <button onClick={() => setEditingMember(null)} className="flex-1 bg-white/5 text-gray-400 py-2 rounded-lg text-xs font-black uppercase tracking-widest border border-white/5 hover:bg-white/10 hover:text-white transition-all">Cancel</button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="absolute -inset-0.5 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-3xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
+                                  <div className="relative bg-[#0c0c0e] rounded-2xl border border-white/10 p-5 flex flex-col h-full shadow-xl transition-all duration-500 group-hover:-translate-y-1">
+                                    <div className="flex items-start justify-between mb-5">
+                                      <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                          <div className={`h-12 w-12 rounded-xl flex items-center justify-center text-white font-black text-lg border border-white/5 shadow-inner transition-transform duration-500 group-hover:rotate-3 
+                                            ${deptCategory.includes('Innovation') ? 'bg-indigo-500/20' : 
+                                              deptCategory.includes('Developer') ? 'bg-emerald-500/20' : 
+                                              deptCategory.includes('Business') ? 'bg-amber-500/20' : 'bg-white/5'}
+                                          `}>
+                                            {member.username.substring(0, 2).toUpperCase()}
+                                          </div>
+                                          <div className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#0c0c0e] ${member.role === 'admin' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                        </div>
+                                        <div>
+                                          <h4 className="font-black text-white text-base tracking-tight">{member.username}</h4>
+                                          <div className="flex flex-wrap gap-1 mt-0.5">
+                                            {member.designation.split(', ').map((d, idx) => (
+                                              <span key={idx} className="text-[7px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">{d.replace(' Team', '')}</span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-col gap-2">
+                                        <button title="Manage Profile" onClick={() => { setEditingMember(member.id); setEditMemberData({ designations: member.designation.split(', '), role: member.role as 'admin' | 'partner' }); }} className="p-1.5 bg-white/5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all border border-white/5"><Edit2 className="h-3.5 w-3.5" /></button>
+                                        {member.id !== user?.id && (
+                                          <button onClick={() => handleDeleteMember(member.id)} className="p-1.5 bg-white/5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all border border-white/5"><Trash2 className="h-3.5 w-3.5" /></button>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="mt-auto flex items-center justify-between pt-3 border-t border-white/5">
+                                      <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-md border ${member.role === 'admin' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-gray-400 border-white/10'}`}>
+                                        {member.role === 'admin' ? 'Admin' : 'Partner'}
+                                      </span>
+                                      <span className="text-[8px] font-mono text-white/20">#{member.id.substring(0, 8)}</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
-                            <div className="ml-4">
-                              <p className="font-bold text-gray-200 group-hover:text-white transition-colors">{member.username}</p>
-                              <p className="text-xs text-indigo-400 font-medium">{member.designation}</p>
-                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-1 sm:col-span-2 p-8 bg-black/20 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center">
+                            <p className="text-[9px] text-gray-600 font-black uppercase tracking-widest">No active personnel in this department</p>
                           </div>
-                          <div className="text-right flex items-center space-x-3">
-                             <span className="px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase bg-white/5 text-gray-400 rounded border border-white/10">
-                               {member.role}
-                             </span>
-                             <button
-                               onClick={() => {
-                                  setEditingMember(member.id);
-                                  setEditMemberData({
-                                    designation: member.designation,
-                                    role: member.role as 'admin' | 'partner'
-                                  });
-                               }}
-                               className="opacity-0 group-hover:opacity-100 p-1.5 bg-white/5 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-all text-xs border border-white/5"
-                             >
-                               Edit
-                             </button>
-                             {member.id !== user?.id && (
-                               <button
-                                 onClick={() => handleDeleteMember(member.id)}
-                                 className="opacity-0 group-hover:opacity-100 p-1.5 bg-white/5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs border border-white/5"
-                                 title="Delete User"
-                               >
-                                 <Trash2 className="h-3.5 w-3.5" />
-                               </button>
-                             )}
-
-                          </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   ))}
+
                 </div>
               </div>
             </div>
-            
+
+            {/* Side Panel - 1/3 width */}
             <div className="lg:col-span-1 space-y-8">
-               <div className="bg-[#111827]/60 backdrop-blur-xl rounded-2xl shadow-xl border border-white/5 p-6 relative overflow-hidden">
+               <div className="bg-[#111827]/60 backdrop-blur-xl rounded-3xl shadow-xl border border-white/5 p-8 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-                  <h3 className="font-bold text-white mb-4">Generate Invite Link</h3>
+                  <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tight">Onboard Member</h3>
                   
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Assign Designation</label>
-                      <select 
-                        value={newInviteData.designation}
-                        onChange={(e) => setNewInviteData({...newInviteData, designation: e.target.value as any})}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500/50 outline-none"
-                      >
-                        <option value="Innovation & Research Team">Innovation & Research Team</option>
-                        <option value="Developer & Engineering Team">Developer & Engineering Team</option>
-                        <option value="Business Strategy & Marketing Team">Business Strategy & Marketing Team</option>
-                      </select>
+                      <label className="text-xs font-black text-gray-500 uppercase tracking-widest block mb-3">Assign Departments</label>
+                      <div className="space-y-2 bg-black/40 border border-white/10 rounded-xl p-4 max-h-[200px] overflow-y-auto custom-scrollbar">
+                        {DEPARTMENTS.map(dept => (
+                          <label key={dept} className="flex items-center gap-3 cursor-pointer group/dept">
+                            <input 
+                              type="checkbox" 
+                              checked={newInviteData.designations.includes(dept)}
+                              onChange={() => toggleDeptForInvite(dept)}
+                              className="rounded border-white/20 bg-black text-emerald-500 focus:ring-0 h-4 w-4"
+                            />
+                            <span className="text-xs font-bold text-gray-400 group-hover/dept:text-white transition-colors">{dept}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Assign Role</label>
+                      <label className="text-xs font-black text-gray-500 uppercase tracking-widest block mb-2">Workspace Role</label>
                       <select 
                         value={newInviteData.role}
                         onChange={(e) => setNewInviteData({...newInviteData, role: e.target.value as any})}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500/50 outline-none"
+                        className="w-full bg-black/60 border border-white/10 rounded-xl p-4 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all"
                       >
-                        <option value="partner">Partner</option>
-                        <option value="admin">Administrator (Admin Dashboard Access)</option>
+                        <option value="partner">Partner (Collaborator)</option>
+                        <option value="admin">Administrator (Full Access)</option>
                       </select>
                     </div>
                     
                     <button 
                       onClick={handleGenerateInvite}
-                      disabled={generating}
-                      className="w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 py-3 rounded-xl font-bold text-sm hover:bg-emerald-500/20 transition-all flex items-center justify-center disabled:opacity-50"
+                      disabled={generating || newInviteData.designations.length === 0}
+                      className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
                     >
-                      {generating ? 'Generating...' : 'Create Invite Code'}
+                      {generating ? 'Generating Security Key...' : 'Generate Invite Link'}
                     </button>
                   </div>
                </div>
 
                {activeInvites.length > 0 && (
-                 <div className="bg-[#111827]/60 backdrop-blur-xl rounded-2xl shadow-xl border border-white/5 p-6">
-                    <h3 className="font-bold text-white mb-4 text-sm text-gray-400">Pending Invitations</h3>
-                    <div className="space-y-3">
+                 <div className="bg-[#111827]/60 backdrop-blur-xl rounded-3xl shadow-xl border border-white/5 p-8">
+                    <h3 className="font-black text-gray-500 mb-6 text-xs uppercase tracking-widest flex justify-between items-center">
+                      Active Invitations
+                      <span className="bg-white/5 px-2 py-0.5 rounded text-[9px]">{activeInvites.length}</span>
+                    </h3>
+                    <div className="space-y-4">
                       {activeInvites.map(invite => (
-                        <div key={invite.id} className="bg-black/20 border border-white/5 rounded-lg p-3 group">
-                          <div className="flex justify-between items-start mb-2">
-                             <div className="font-mono text-indigo-400 text-sm tracking-widest font-bold bg-indigo-500/10 px-2 py-1 rounded inline-block">
+                        <div key={invite.id} className="bg-black/40 border border-white/5 rounded-2xl p-4 group">
+                          <div className="flex justify-between items-start mb-3">
+                             <div className="font-mono text-indigo-400 text-sm tracking-widest font-black bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
                                {invite.code}
                              </div>
-                             <div className="flex items-center space-x-2">
-                               <span className="text-[10px] text-gray-500 uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded">Pending</span>
-                               <button 
-                                 onClick={() => handleDeleteInvite(invite.id)}
-                                 className="opacity-0 group-hover:opacity-100 p-1 bg-white/5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all border border-white/5"
-                                 title="Delete Invite"
-                               >
-                                 <Trash2 className="h-3.5 w-3.5" />
-                               </button>
-                             </div>
+                             <button 
+                               onClick={() => handleDeleteInvite(invite.id)}
+                               className="p-2 bg-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all border border-white/5"
+                             >
+                               <Trash2 className="h-3.5 w-3.5" />
+                             </button>
                           </div>
-                          <p className="text-xs text-gray-400">{invite.designation}</p>
+                          <div className="flex flex-wrap gap-1">
+                             {invite.designation.split(', ').map((d, i) => (
+                               <span key={i} className="text-[7px] text-gray-400 font-bold uppercase tracking-widest bg-white/5 px-1.5 py-0.5 rounded border border-white/5">{d.replace(' Team', '')}</span>
+                             ))}
+                          </div>
                         </div>
                       ))}
                     </div>
                  </div>
                )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-[#111827]/60 backdrop-blur-xl rounded-2xl shadow-xl border border-white/5 overflow-hidden">
+            <div className="p-6 border-b border-white/5 bg-white/5">
+              <h3 className="font-bold text-white flex items-center text-lg tracking-tight">
+                <ShieldAlert className="mr-3 h-5 w-5 text-amber-500" />
+                CRM Access Requests
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-bold">Review authorization requests for Developers & Engineers</p>
+            </div>
+            <div className="p-6">
+              {pendingAccess.length > 0 ? (
+                <div className="space-y-4">
+                  {pendingAccess.map(request => (
+                    <div key={request.id} className="p-5 bg-black/40 rounded-2xl border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-6 hover:bg-white/5 transition-all">
+                      <div className="flex items-center">
+                        <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500 font-bold">
+                          {request.users?.username.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="ml-4">
+                          <p className="font-bold text-white text-lg">{request.users?.username}</p>
+                          <p className="text-xs text-indigo-400 font-medium">{request.users?.designation}</p>
+                          <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">Requested: {new Date(request.requested_at).toLocaleDateString()} {new Date(request.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <button
+                          onClick={() => handleApproveAccess(request.id, true)}
+                          className="flex-1 sm:flex-none px-6 py-2.5 bg-green-600/10 text-green-400 border border-green-600/20 rounded-xl font-bold text-xs hover:bg-green-600/20 transition-all uppercase tracking-widest"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleApproveAccess(request.id, false)}
+                          className="flex-1 sm:flex-none px-6 py-2.5 bg-red-600/10 text-red-400 border border-red-600/20 rounded-xl font-bold text-xs hover:bg-red-600/20 transition-all uppercase tracking-widest"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-20 text-center flex flex-col items-center">
+                  <div className="h-20 w-20 rounded-full bg-white/5 flex items-center justify-center mb-6 border border-white/5 opacity-50">
+                    <CheckCircle2 className="h-8 w-8 text-indigo-500" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-300">Queue is Clear</h3>
+                  <p className="text-sm text-gray-600 mt-1 max-w-xs mx-auto uppercase tracking-widest font-black">No pending CRM access requests at this time.</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -835,4 +983,3 @@ function RatingInput({ label, value, onChange }: { label: string, value: number,
     </div>
   );
 }
-

@@ -7,7 +7,7 @@ import { ChevronLeft, CheckCircle, Copy, Check, Plus, X, Pencil, Eye, Download, 
 interface ScopeItem { title: string; desc: string; }
 interface Phase { name: string; days: string; tasks: string; }
 interface PaymentMilestone { pct: string; label: string; trigger: string; }
-interface CostItem { label: string; amount: string; }
+interface CostItem { label: string; amount: string; qty?: string; unitPrice?: string; }
 
 const serviceScopeMap: Record<string, ScopeItem[]> = {
   'Web Application': [
@@ -156,7 +156,7 @@ export default function QuotationPage() {
   ]);
   const [companyName, setCompanyName] = useState('OomaLabs');
   const [companyAddress, setCompanyAddress] = useState('Gachibowli, Hyderabad, Telangana, India');
-  const [companyContact, setCompanyContact] = useState('oomalabs@gmail.com | 9381167058 | www.oomalabs.in');
+  const [companyContact, setCompanyContact] = useState('oomalabs@gmail.com | 9381167058 | www.oomalabs.com');
   const [signatureName, setSignatureName] = useState('OomaLabs Team');
   const [signatureTitle, setSignatureTitle] = useState('Authorized Signature');
   const [executiveSummaryGoal, setExecutiveSummaryGoal] = useState('generate leads, build digital presence, and streamline operations');
@@ -245,7 +245,11 @@ export default function QuotationPage() {
   `;
 
   // Compute subtotal from cost items
-  const computeSubtotal = () => costItems.reduce((sum, c) => sum + (parseInt(String(c.amount).replace(/,/g, '')) || 0), 0);
+  const computeSubtotal = () => costItems.reduce((sum, c) => {
+    const qty = parseFloat(String(c.qty) || '1');
+    const unitPrice = parseFloat(String(c.unitPrice || c.amount).replace(/,/g, '')) || 0;
+    return sum + (qty * unitPrice);
+  }, 0);
   const subtotal = computeSubtotal();
   const disc = parseInt(discount) || 0;
   const priceAfterDiscount = Math.round(subtotal * (1 - disc / 100));
@@ -280,7 +284,12 @@ export default function QuotationPage() {
     }
 
     // Auto-generate cost items from selected services
-    const newCosts = selectedServices.map(s => ({ label: s, amount: (servicePriceMap[s] || 0).toLocaleString() }));
+    const newCosts = selectedServices.map(s => ({ 
+      label: s, 
+      qty: '1',
+      unitPrice: (servicePriceMap[s] || 0).toLocaleString(),
+      amount: (servicePriceMap[s] || 0).toLocaleString() 
+    }));
     setCostItems(newCosts);
   }, [selectedServices]);
 
@@ -304,7 +313,7 @@ export default function QuotationPage() {
   const removeNextStep = (i: number) => setNextSteps(nextSteps.filter((_, idx) => idx !== i));
   const addPayment = () => setPayments([...payments, { pct: '0%', label: 'New', trigger: 'Trigger event' }]);
   const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
-  const addCostItem = () => setCostItems([...costItems, { label: 'New Line Item', amount: '0' }]);
+  const addCostItem = () => setCostItems([...costItems, { label: 'New Line Item', qty: '1', unitPrice: '0', amount: '0' }]);
   const removeCostItem = (i: number) => setCostItems(costItems.filter((_, idx) => idx !== i));
   const updateCostItem = (i: number, f: keyof CostItem, v: string) => { const n = [...costItems]; n[i] = { ...n[i], [f]: v }; setCostItems(n); };
 
@@ -750,11 +759,24 @@ export default function QuotationPage() {
             
             <div className="flex flex-col gap-2 mb-4">
               {costItems.map((c, i) => (
-                <div key={i} className="flex gap-2 items-center" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '8px 32px 8px 12px' }}>
-                  <input value={c.label} onChange={e => updateCostItem(i, 'label', e.target.value)} style={{ flex: 2, border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 12, color: '#1a1a2e', outline: 'none' }} placeholder="Item description" />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ fontSize: 11, color: '#8888aa' }}>{symbol}</span>
-                    <input value={c.amount} onChange={e => updateCostItem(i, 'amount', e.target.value)} style={{ width: 80, border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 700, color: '#2d7a5f', outline: 'none', textAlign: 'right' }} placeholder="0" />
+                <div key={i} className="flex flex-col gap-2" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 10, padding: '12px 32px 12px 12px' }}>
+                  <input value={c.label} onChange={e => updateCostItem(i, 'label', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 700, color: '#1a1a2e', outline: 'none' }} placeholder="Item description" />
+                  
+                  <div className="flex gap-4 items-center">
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Quantity</label>
+                      <input value={c.qty || '1'} onChange={e => updateCostItem(i, 'qty', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 8px', fontSize: 12, outline: 'none' }} placeholder="1" />
+                    </div>
+                    <div style={{ flex: 2 }}>
+                      <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Unit Price ({symbol})</label>
+                      <input value={c.unitPrice || c.amount} onChange={e => updateCostItem(i, 'unitPrice', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 8px', fontSize: 12, outline: 'none' }} placeholder="0" />
+                    </div>
+                    <div style={{ flex: 2, textAlign: 'right' }}>
+                      <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Line Total</label>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#2d7a5f' }}>
+                        {symbol}{(parseFloat(String(c.qty) || '1') * (parseFloat(String(c.unitPrice || c.amount).replace(/,/g, '')) || 0)).toLocaleString(locale)}
+                      </div>
+                    </div>
                   </div>
                   <button onClick={() => removeCostItem(i)} style={removeBtnStyle}><X className="h-3 w-3" /></button>
                 </div>
@@ -1019,13 +1041,27 @@ export default function QuotationPage() {
                     💰 Price Summary
                   </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #1a1a2e' }}>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'left' }}>Item Description</th>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'center' }}>Qty</th>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'right' }}>Unit Price</th>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'right' }}>Total</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {costItems.map((c, i) => (
-                      <tr key={i}>
-                        <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6' }}>{c.label}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600 }}>{symbol}{c.amount}</td>
-                      </tr>
-                    ))}
+                    {costItems.map((c, i) => {
+                      const qty = parseFloat(String(c.qty) || '1');
+                      const unitPrice = parseFloat(String(c.unitPrice || c.amount).replace(/,/g, '')) || 0;
+                      return (
+                        <tr key={i}>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6' }}>{c.label}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'center' }}>{qty}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'right' }}>{symbol}{unitPrice.toLocaleString(locale)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 700, color: '#1a1a2e' }}>{symbol}{(qty * unitPrice).toLocaleString(locale)}</td>
+                        </tr>
+                      );
+                    })}
                     <tr>
                       <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', color: '#8888aa', textDecoration: 'line-through' }}>Subtotal</td>
                       <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#8888aa', textDecoration: 'line-through' }}>{symbol}{subtotal.toLocaleString(locale)}</td>

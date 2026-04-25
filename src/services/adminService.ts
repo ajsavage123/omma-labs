@@ -94,7 +94,7 @@ export const adminService = {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, username, full_name, designation, role, workspace_id, created_at')
+        .select('id, username, full_name, designation, role, workspace_id, skills, created_at')
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: false });
 
@@ -153,13 +153,21 @@ export const adminService = {
     if (error) throw error;
   },
 
-  async updateUserRole(userId: string, designation: string, role: string) {
+  async updateUserProfile(userId: string, data: { designation?: string; role?: string; bio?: string; skills?: string }) {
     const { error } = await supabase
       .from('users')
-      .update({ designation, role })
+      .update(data)
       .eq('id', userId);
 
     if (error) throw error;
+    
+    // Clear cache to ensure fresh data on next fetch
+    const cacheKey = `members_${userId}`; // Or more accurately, the workspace_id key
+    // Since we don't always have workspace_id here, we can clear all member caches or fetch it
+    const { data: userData } = await supabase.from('users').select('workspace_id').eq('id', userId).single();
+    if (userData?.workspace_id) {
+      queryCache.invalidate(`members_${userData.workspace_id}`);
+    }
   },
 
   async deleteUser(userId: string) {

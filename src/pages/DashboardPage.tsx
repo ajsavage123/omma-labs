@@ -211,10 +211,64 @@ export default function DashboardPage() {
           <Book className="mr-3 h-4 w-4 text-blue-400" />
           Docs Library
         </Link>
-        <Link to="/crm" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <CircleDollarSign className="mr-3 h-4 w-4 text-emerald-400" />
-          CRM Pipeline
-        </Link>
+        {(() => {
+          const isDev = user?.designation === 'Developer & Engineering Team';
+          const [accessStatus, setAccessStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+          
+          useEffect(() => {
+            if (isDev && user?.id && user?.workspace_id) {
+              import('@/services/crmAccessService').then(({ crmAccessService }) => {
+                crmAccessService.getAccessStatus(user.id, user.workspace_id).then(status => {
+                  setAccessStatus(status as any);
+                });
+              });
+            }
+          }, [isDev, user?.id, user?.workspace_id]);
+
+          const handleCRMClick = async (e: React.MouseEvent) => {
+            if (isDev && accessStatus !== 'approved') {
+              e.preventDefault();
+              if (accessStatus === 'none') {
+                if (window.confirm("You don't have access to the CRM Pipeline. Would you like to request access from the admin?")) {
+                  try {
+                    const { crmAccessService } = await import('@/services/crmAccessService');
+                    await crmAccessService.requestAccess(user!.id, user!.workspace_id);
+                    setAccessStatus('pending');
+                    toast.success("Access request sent to admin.");
+                  } catch (err) {
+                    toast.error("Failed to send request.");
+                  }
+                }
+              } else if (accessStatus === 'pending') {
+                alert("Your access request is still pending approval.");
+              } else if (accessStatus === 'rejected') {
+                alert("Your access request was rejected. Please contact an admin for details.");
+              }
+            } else {
+              setIsMobileMenuOpen(false);
+            }
+          };
+
+          return (
+            <Link 
+              to="/crm" 
+              onClick={handleCRMClick} 
+              className={`flex items-center px-4 py-3 text-[13px] font-bold rounded-xl transition-colors ${
+                isDev && accessStatus !== 'approved' 
+                  ? 'text-gray-500 bg-white/[0.01] cursor-pointer' 
+                  : 'text-gray-400 hover:bg-white/[0.02] hover:text-white'
+              }`}
+            >
+              <CircleDollarSign className={`mr-3 h-4 w-4 ${isDev && accessStatus !== 'approved' ? 'text-gray-600' : 'text-emerald-400'}`} />
+              <div className="flex flex-col">
+                <span>CRM Pipeline</span>
+                {isDev && accessStatus === 'pending' && <span className="text-[8px] text-amber-500 uppercase">Request Pending</span>}
+                {isDev && accessStatus === 'rejected' && <span className="text-[8px] text-red-500 uppercase">Access Denied</span>}
+                {isDev && accessStatus === 'none' && <span className="text-[8px] text-indigo-400 uppercase">Locked • Click to Request</span>}
+              </div>
+            </Link>
+          );
+        })()}
         {user?.role === 'admin' && (
           <>
             <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
