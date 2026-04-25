@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, Loader2, Rocket, LogOut, ShieldCheck } from 'lucide-react';
+import { KeyRound, Loader2, LogOut, ShieldCheck } from 'lucide-react';
 import { ThreeDBackground } from '@/components/ThreeDBackground';
 import { OomaLogo } from '@/components/OomaLogo';
 

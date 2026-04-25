@@ -50,64 +50,33 @@ export default function ProjectWorkspacePage() {
   if (!project) return <div className="min-h-screen flex items-center justify-center bg-[#050505] text-gray-500 font-bold">Project not found</div>;
 
   const teamTools: Record<Designation, { name: string, url: string }[]> = {
-    'Product Design & UX Team': [
+    'Innovation & Research Team': [
       { name: 'Figma', url: 'https://figma.com' },
       { name: 'Spline', url: 'https://spline.design' },
       { name: 'Miro', url: 'https://miro.com' },
-      { name: 'Canva', url: 'https://canva.com' },
-      { name: 'Loom', url: 'https://loom.com' },
     ],
     'Developer & Engineering Team': [
       { name: 'GitHub', url: 'https://github.com' },
       { name: 'VS Code', url: 'https://vscode.dev' },
       { name: 'Supabase', url: 'https://supabase.com' },
-      { name: 'Postman', url: 'https://postman.com' },
       { name: 'Vercel', url: 'https://vercel.com' },
     ],
-    'Client Success & Accounts Team': [
-      { name: 'Perplexity AI', url: 'https://www.perplexity.ai' },
+    'Business Strategy & Marketing Team': [
+      { name: 'HubSpot', url: 'https://hubspot.com' },
       { name: 'ChatGPT', url: 'https://chat.openai.com' },
-      { name: 'DocuSign', url: 'https://docusign.com' },
-      { name: 'Stripe', url: 'https://stripe.com' },
-      { name: 'Notion', url: 'https://notion.so' },
-      { name: 'Loom', url: 'https://loom.com' },
       { name: 'Google Meet', url: 'https://meet.google.com' },
     ],
-    'Business Strategy & Marketing Team': [
-      { name: 'LinkedIn', url: 'https://linkedin.com' },
-      { name: 'HubSpot', url: 'https://hubspot.com' },
-    ],
-    'Innovation & Research Team': []
   };
 
-  const teamStages: Record<string, string[]> = {
-    // 1. Client Accounts & Business Growth
-    'Client Success & Accounts Team': [
-      'discovery',           // Client 1
-      'proposals_contracts', // Client 2
-      'client_uat',          // Client 7
-      'maintenance_support'  // Client 9
-    ],
-    // 2. Innovation Room: Venture Studio Core
-    'Innovation & Research Team': [
-      'ideology',            // Internal 1
-      'research'             // Internal 2
-    ],
-    // 3. Design & UX: Visuals & Branding
-    'Product Design & UX Team': [
-      'ui_ux_design',        // Client 3
-      'client_approval'      // Client 4
-    ],
-    // 4. Engineering Group: Code, QA & Launch
-    'Developer & Engineering Team': [
-      'development',         // Client 5 / Shared
-      'qa_testing',          // Client 6
-      'deployment'           // Client 8
-    ],
-    // 5. Marketing & Business: Strategy & Sales
+  const teamStages: Record<Designation, string[]> = {
     'Business Strategy & Marketing Team': [
-      'business',            // Internal 3
-      'marketing'            // Internal 4
+      'discovery', 'proposals_contracts', 'business', 'marketing'
+    ],
+    'Innovation & Research Team': [
+      'ideology', 'research', 'ui_ux_design', 'client_approval'
+    ],
+    'Developer & Engineering Team': [
+      'technical_architecture', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support'
     ],
   };
 
@@ -162,57 +131,36 @@ export default function ProjectWorkspacePage() {
              </div>
 
               {/* Rooms are rendered in the exact workflow sequence order - NOT by DB order */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-                {/* 1. Accounts & Discovery: The entry point */}
-                {requiredTeams.includes('Client Success & Accounts Team') && (
-                  <TeamCard
-                    name="Client Accounts"
-                    icon={<Users className="h-7 w-7 md:h-8 md:w-8 text-amber-400" />}
-                    description="Discovery, contracts & long-term client success."
-                    isHighlighted={highlightedTeam === 'Client Success & Accounts Team'}
-                    onClick={() => setSelectedTeam('Client Success & Accounts Team')}
-                    colorClass="amber"
-                  />
-                )}
-                {/* 2. Innovation Room: Only for Internal Ventures */}
+              {/* Rooms are rendered in the exact workflow sequence order */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+                {/* 1. Innovation Lab */}
                 {requiredTeams.includes('Innovation & Research Team') && (
                   <TeamCard
                     name="Innovation Lab"
                     icon={<Sparkles className="h-7 w-7 md:h-8 md:w-8 text-cyan-400" />}
-                    description="Ideation, research and prototype development."
+                    description="Ideology, Research, UX Design & Prototypes."
                     isHighlighted={highlightedTeam === 'Innovation & Research Team'}
                     onClick={() => setSelectedTeam('Innovation & Research Team')}
                     colorClass="cyan"
                   />
                 )}
-                {/* 3. Visuals: Design & UX */}
-                {requiredTeams.includes('Product Design & UX Team') && (
-                  <TeamCard
-                    name="Design & UX"
-                    icon={<PenTool className="h-7 w-7 md:h-8 md:w-8 text-purple-400" />}
-                    description="User experience, UI design & prototyping."
-                    isHighlighted={highlightedTeam === 'Product Design & UX Team'}
-                    onClick={() => setSelectedTeam('Product Design & UX Team')}
-                    colorClass="purple"
-                  />
-                )}
-                {/* 4. Coding: Engineering Group */}
+                {/* 2. Engineering Group */}
                 {requiredTeams.includes('Developer & Engineering Team') && (
                   <TeamCard
                     name="Engineering Group"
                     icon={<Code className="h-7 w-7 md:h-8 md:w-8 text-indigo-400" />}
-                    description="Software engineering, testing & deployment."
+                    description="Architecture, Development, QA & Deployment."
                     isHighlighted={highlightedTeam === 'Developer & Engineering Team'}
                     onClick={() => setSelectedTeam('Developer & Engineering Team')}
                     colorClass="indigo"
                   />
                 )}
-                {/* 5. Business & Marketing */}
+                {/* 3. Business & Strategy */}
                 {requiredTeams.includes('Business Strategy & Marketing Team') && (
                   <TeamCard
-                    name="Marketing Room"
+                    name="Business Studio"
                     icon={<Users className="h-7 w-7 md:h-8 md:w-8 text-emerald-400" />}
-                    description="Business strategy and market entry."
+                    description="Client Discovery, Strategy, Sales & Marketing."
                     isHighlighted={highlightedTeam === 'Business Strategy & Marketing Team'}
                     onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
                     colorClass="emerald"

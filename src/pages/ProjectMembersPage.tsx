@@ -3,7 +3,7 @@ import { adminService } from '@/services/adminService';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import type { User } from '@/types';
-import { ChevronLeft, Users, Briefcase, Shield, Search, Edit2, Check, X, Star, ExternalLink } from 'lucide-react';
+import { ChevronLeft, Users, Briefcase, Search, Edit2, Check, X, Star, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
 import { ToastContainer } from '@/components/Toast';

@@ -162,7 +162,6 @@ export const adminService = {
     if (error) throw error;
     
     // Clear cache to ensure fresh data on next fetch
-    const cacheKey = `members_${userId}`; // Or more accurately, the workspace_id key
     // Since we don't always have workspace_id here, we can clear all member caches or fetch it
     const { data: userData } = await supabase.from('users').select('workspace_id').eq('id', userId).single();
     if (userData?.workspace_id) {

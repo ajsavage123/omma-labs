@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { crmAccessService } from '@/services/crmAccessService';
 import { ShieldAlert, Lock, Clock, XCircle } from 'lucide-react';

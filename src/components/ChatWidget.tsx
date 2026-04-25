@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { queryCache } from '@/utils/cache';
-import { MessageSquare, X, Send, Circle } from 'lucide-react';
+import { MessageSquare, X, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import type { ChatMessage } from '@/types';
 import { useToast } from '@/hooks/useToast';
@@ -191,7 +191,7 @@ export default function ChatWidget() {
 
   const sendMessage = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !user?.workspace_id) return;
 
     if (MOCK_MODE) {
       const newMsg: ChatMessage = {
