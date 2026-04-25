@@ -16,15 +16,50 @@ export default function CRMDashboard() {
       const loadData = () => Promise.all([fetchLeads(), fetchTasks()]).finally(() => setLoading(false));
       loadData();
 
+      let leadsTimeout: NodeJS.Timeout;
+      let tasksTimeout: NodeJS.Timeout;
+      
+      const throttledLeads = () => {
+        clearTimeout(leadsTimeout);
+        leadsTimeout = setTimeout(fetchLeads, 1000);
+      };
+
+      const throttledTasks = () => {
+        clearTimeout(tasksTimeout);
+        tasksTimeout = setTimeout(fetchTasks, 1000);
+      };
+
       // Enable Realtime Subscription for Dashboard (Leads & Tasks)
       const leadsChannel = supabase
         .channel('dashboard_leads_sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_leads', filter: `workspace_id=eq.${user.workspace_id}` }, () => fetchLeads())
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'crm_leads', 
+          filter: `workspace_id=eq.${user.workspace_id}` 
+        }, (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setLeads(prev => prev.map(l => l.id === payload.new.id ? { ...l, ...payload.new } : l));
+          } else {
+            throttledLeads();
+          }
+        })
         .subscribe();
 
       const tasksChannel = supabase
         .channel('dashboard_tasks_sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_tasks', filter: `workspace_id=eq.${user.workspace_id}` }, () => fetchTasks())
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'crm_tasks', 
+          filter: `workspace_id=eq.${user.workspace_id}` 
+        }, (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setTasks(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+          } else {
+            throttledTasks();
+          }
+        })
         .subscribe();
 
       return () => {

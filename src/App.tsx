@@ -20,6 +20,7 @@ import { InstallPWA } from '@/components/InstallPWA';
 import ChatWidget from '@/components/ChatWidget';
 import { notificationService } from '@/utils/notificationService';
 import { useEffect } from 'react';
+import TaskNotificationManager from '@/components/TaskNotificationManager';
 
 // Helper for the Onboarding route to ensure they are logged in to Supabase first
 function OnboardingRoute() {
@@ -79,6 +80,7 @@ function App() {
           </Route>
         </Routes>
         <ChatWidget />
+        <TaskNotificationManager />
         <InstallPWA />
       </BrowserRouter>
     </AuthProvider>

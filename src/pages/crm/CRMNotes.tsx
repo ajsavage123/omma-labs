@@ -11,6 +11,32 @@ export default function CRMNotes() {
   useEffect(() => {
     if (user?.workspace_id) {
       fetchNotes();
+
+      let fetchTimeout: NodeJS.Timeout;
+      const throttledFetch = () => {
+        clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(fetchNotes, 1000);
+      };
+
+      const channel = supabase
+        .channel('crm_notes_sync')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'crm_activities', 
+          filter: `workspace_id=eq.${user.workspace_id}` 
+        }, (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setNotes(prev => prev.map(n => n.id === payload.new.id ? { ...n, ...payload.new } : n));
+          } else {
+            throttledFetch();
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 

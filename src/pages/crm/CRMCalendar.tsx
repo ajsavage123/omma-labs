@@ -17,6 +17,32 @@ export default function CRMCalendar() {
   useEffect(() => {
     if (user?.workspace_id) {
       fetchTasks();
+
+      let fetchTimeout: NodeJS.Timeout;
+      const throttledFetch = () => {
+        clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(fetchTasks, 1000);
+      };
+
+      const channel = supabase
+        .channel('crm_calendar_sync')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'crm_tasks', 
+          filter: `workspace_id=eq.${user.workspace_id}` 
+        }, (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setTasks(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+          } else {
+            throttledFetch();
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 

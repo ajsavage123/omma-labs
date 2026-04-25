@@ -12,6 +12,32 @@ export default function CRMReports() {
   useEffect(() => {
     if (user?.workspace_id) {
       fetchLeads();
+
+      let fetchTimeout: NodeJS.Timeout;
+      const throttledFetch = () => {
+        clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(fetchLeads, 1000);
+      };
+
+      const channel = supabase
+        .channel('crm_reports_sync')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'crm_leads', 
+          filter: `workspace_id=eq.${user.workspace_id}` 
+        }, (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setLeads(prev => prev.map(l => l.id === payload.new.id ? { ...l, ...payload.new } : l));
+          } else {
+            throttledFetch();
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 

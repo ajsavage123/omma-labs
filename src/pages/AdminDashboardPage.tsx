@@ -197,7 +197,10 @@ export default function AdminDashboardPage() {
 
   const calculateScore = () => {
     const vals = Object.values(ratings);
-    return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+    if (vals.length === 0) return '0.0';
+    const sum = vals.reduce((a, b) => a + b, 0);
+    const average = sum / vals.length;
+    return (isNaN(average) ? 0 : average).toFixed(1);
   };
 
   const handleAdminAction = async (status: 'completed' | 'active' | 'rejected') => {

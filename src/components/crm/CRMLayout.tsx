@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useEffect } from "react";
+import { type ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,8 +14,12 @@ import {
   X,
   Search,
   Bell,
-  Home
+  Home,
+  CheckCircle2
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { notificationService } from "@/utils/notificationService";
 
 interface LayoutProps {
   children: ReactNode;
@@ -34,9 +38,13 @@ const navItems = [
 ];
 
 export default function CRMLayout({ children }: LayoutProps) {
+  const { user } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -54,6 +62,80 @@ export default function CRMLayout({ children }: LayoutProps) {
   useEffect(() => {
     if (isMobile) setSidebarOpen(false);
   }, [location.pathname, isMobile]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!user?.workspace_id) return;
+
+    const fetchPendingTasks = async () => {
+      const { data } = await supabase
+        .from('crm_tasks')
+        .select('*, crm_leads(company_name)')
+        .eq('workspace_id', user.workspace_id)
+        .eq('status', 'Pending')
+        .order('due_date', { ascending: true });
+      
+      if (data) setTasks(data);
+    };
+
+    fetchPendingTasks();
+    notificationService.requestPermission(); // Request native push on mount
+
+    const channel = supabase
+      .channel('layout_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'crm_tasks',
+          filter: `workspace_id=eq.${user.workspace_id}`
+        },
+        (payload) => {
+          const { eventType, new: newRecord, old: oldRecord } = payload;
+          
+          if (eventType === 'INSERT' && newRecord.status === 'Pending') {
+            setTasks(prev => {
+              const updated = [...prev, newRecord].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+              // Trigger native push when a new task is assigned/created
+              notificationService.showNotification(`New Task: ${newRecord.title}`, {
+                body: `Due: ${newRecord.due_date}`,
+                tag: newRecord.id
+              });
+              return updated;
+            });
+          } else if (eventType === 'UPDATE') {
+            if (newRecord.status !== 'Pending') {
+              setTasks(prev => prev.filter(t => t.id !== newRecord.id));
+            } else {
+              setTasks(prev => {
+                const exists = prev.some(t => t.id === newRecord.id);
+                const updated = exists 
+                  ? prev.map(t => t.id === newRecord.id ? { ...t, ...newRecord } : t)
+                  : [...prev, newRecord];
+                return updated.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+              });
+            }
+          } else if (eventType === 'DELETE') {
+            setTasks(prev => prev.filter(t => t.id !== oldRecord.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.workspace_id]);
 
   return (
     <div className="crm-root h-screen flex overflow-hidden relative">
@@ -171,10 +253,87 @@ export default function CRMLayout({ children }: LayoutProps) {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
-            <button className="p-2.5 hover:bg-background rounded-xl transition-colors text-muted-foreground relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-card" />
-            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button 
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className={`p-2.5 rounded-xl transition-colors relative ${notificationsOpen ? 'bg-primary/10 text-primary' : 'hover:bg-background text-muted-foreground'}`}
+              >
+                <Bell size={20} />
+                {tasks.length > 0 && !notificationsOpen && (
+                  <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border-2 border-card"></span>
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute top-full right-0 mt-3 w-80 sm:w-96 bg-card border border-border shadow-2xl rounded-2xl overflow-hidden z-50 flex flex-col max-h-[85vh]">
+                  <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between sticky top-0">
+                    <h3 className="font-black text-sm text-foreground uppercase tracking-wider">Notifications</h3>
+                    <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">{tasks.length} Pending</span>
+                  </div>
+                  
+                  <div className="overflow-y-auto custom-scrollbar flex-1">
+                    {tasks.length === 0 ? (
+                      <div className="px-4 py-8 text-center flex flex-col items-center gap-2">
+                        <CheckCircle2 size={32} className="text-muted-foreground/30" />
+                        <p className="text-sm font-medium text-muted-foreground">You're all caught up!</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border/50">
+                        {tasks
+                          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+                          .slice(0, 5)
+                          .map((task) => (
+                          <Link 
+                            key={task.id} 
+                            to="/crm/tasks"
+                            onClick={() => setNotificationsOpen(false)}
+                            className="p-4 hover:bg-muted/50 transition-colors flex items-start gap-3 group"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
+                              <Bell size={14} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-foreground truncate">{task.title}</p>
+                              {task.crm_leads && (
+                                <p className="text-xs text-muted-foreground truncate font-medium mt-0.5">{task.crm_leads.company_name}</p>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <span className={`text-[9px] flex-shrink-0 font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                                  task.priority === 'High' ? 'text-red-500 border-red-500/30 bg-red-500/10' : 
+                                  task.priority === 'Low' ? 'text-green-500 border-green-500/30 bg-green-500/10' : 
+                                  'text-amber-500 border-amber-500/30 bg-amber-500/10'
+                                }`}>
+                                  {task.priority || 'Medium'}
+                                </span>
+                                <span className="text-[10px] font-bold text-primary truncate">
+                                  Due: {task.due_date ? new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Date'} 
+                                  {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {tasks.length > 0 && (
+                    <div className="p-2 border-t border-border bg-card sticky bottom-0">
+                      <Link 
+                        to="/crm/tasks"
+                        onClick={() => setNotificationsOpen(false)}
+                        className="block w-full py-2 text-center text-xs font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      >
+                        View All Tasks
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <Link 
               to="/"
               className="hidden sm:flex px-4 py-2 bg-red-600 text-white rounded-xl font-black text-sm hover:bg-red-500 transition-all shadow-lg shadow-red-600/20 active:scale-95 items-center"

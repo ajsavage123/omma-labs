@@ -17,6 +17,7 @@ export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -33,14 +34,19 @@ export default function ChatWidget() {
     projectService.cleanupOldMessages();
     notificationService.requestPermission();
 
-    if (MOCK_MODE) return;
+    if (MOCK_MODE || !user) return;
 
+    // 1. Message Subscription
     const subscription = supabase
-      .channel('public:chat_messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, async (payload: any) => {
+      .channel('chat_messages_channel')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'chat_messages',
+        filter: `workspace_id=eq.${user.workspace_id}`
+      }, async (payload: any) => {
         const newMsg = payload.new as ChatMessage;
         
-        // Handle unread count and toast
         if (newMsg.user_id !== user?.id) {
           if (!isOpenRef.current) {
             setUnreadCount((prev: number) => prev + 1);
@@ -48,8 +54,7 @@ export default function ChatWidget() {
           }
         }
 
-        // Fetch user data for this message from cache or DB
-        let userData = queryCache.get<any>(`user_profile_${newMsg.user_id}`, 3600000); // 1 hour cache
+        let userData = queryCache.get<any>(`user_profile_${newMsg.user_id}`, 3600000);
         if (!userData) {
           const { data } = await supabase
             .from('users')
@@ -62,17 +67,40 @@ export default function ChatWidget() {
 
         const msgWithUser = { ...newMsg, users: userData };
         setMessages(prev => {
-          // Double check for duplicates
           if (prev.find(m => m.id === newMsg.id)) return prev;
           return [...prev, msgWithUser];
         });
       })
       .subscribe();
 
+    // 2. Presence Subscription
+    const presenceChannel = supabase.channel(`chat_presence_${user.workspace_id}`, {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const onlineIds = new Set(Object.keys(state));
+        setOnlineUsers(onlineIds);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
     return () => {
       supabase.removeChannel(subscription);
+      supabase.removeChannel(presenceChannel);
     };
-  }, [user?.id, toast]);
+  }, [user?.id, user?.workspace_id, toast]);
 
   useEffect(() => {
     if (isOpen) {
@@ -81,24 +109,17 @@ export default function ChatWidget() {
   }, [isOpen]);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-
   const shouldScrollRef = useRef(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-
-  // Keep track of the last processed message ID to prevent unnecessary scrolls
   const lastMessageIdRef = useRef<string | null>(null);
 
-  // Track scroll position to decide if we should auto-scroll later
   const handleScroll = () => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    
-    // If user is within 100px of bottom, we "pin" the scroll to keep auto-scrolling
     const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
     shouldScrollRef.current = atBottom;
   };
 
-  // Initial snap to bottom when opening
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => {
@@ -111,7 +132,6 @@ export default function ChatWidget() {
     }
   }, [isOpen]);
 
-  // Handle auto-scroll on new messages
   useEffect(() => {
     if (messages.length === 0) return;
 
@@ -124,15 +144,9 @@ export default function ChatWidget() {
     
     if (isNewMessage) {
         lastMessageIdRef.current = lastMessage?.id;
-        
         const atBottom = shouldScrollRef.current;
 
-        // RULE: Only auto-scroll if:
-        // 1. I am the sender
-        // 2. OR this is the first time we load (snap to latest)
-        // 3. OR the user is already at the bottom and a new message arrives (keep pinned)
         if (isMe || isInitialLoad || atBottom) {
-            // Use requestAnimationFrame for the most immediate DOM timing
             requestAnimationFrame(() => {
                 if (isInitialLoad) {
                     container.scrollTop = container.scrollHeight;
@@ -145,7 +159,6 @@ export default function ChatWidget() {
         }
     }
 
-    // Show push notification logic (only for others)
     if (lastMessage && !isMe) {
         const timestamp = new Date(lastMessage.created_at).getTime();
         const now = Date.now();
@@ -159,14 +172,12 @@ export default function ChatWidget() {
     }
   }, [messages, user?.id]);
 
-
-
   const fetchMessages = async () => {
+    if (!user) return;
     if (MOCK_MODE) {
       setMessages(mockStorage.getMessages());
       return;
     }
-    if (!user?.workspace_id) return;
     const { data, error } = await supabase
       .from('chat_messages')
       .select('id, message, user_id, created_at, users!user_id(username, full_name, designation)')
@@ -232,20 +243,32 @@ export default function ChatWidget() {
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
+          {/* Pulse dot if someone else is online */}
+          {onlineUsers.size > 1 && (
+            <span className="absolute bottom-0 right-0 h-3 w-3 bg-emerald-500 rounded-full border-2 border-[#0A0A0B] animate-pulse"></span>
+          )}
         </button>
       </div>
     );
   }
 
   return (
-    <div className="no-print fixed bottom-4 sm:bottom-6 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-96 bg-[#121216] rounded-2xl shadow-2xl border border-[#1F1F26] flex flex-col h-[500px] max-h-[80vh] z-[9999]">
+    <div className="no-print fixed bottom-4 sm:bottom-6 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-96 bg-[#121216] rounded-2xl shadow-2xl border border-[#1F1F26] flex flex-col h-[500px] max-h-[80vh] z-[9999] overflow-hidden">
       {/* Header */}
-      <div className="p-4 bg-indigo-600 text-white rounded-t-2xl flex justify-between items-center">
-        <div>
-          <h3 className="font-bold">Team Chat</h3>
-          <p className="text-xs text-indigo-100">Live discussion</p>
+      <div className="p-4 bg-indigo-600 text-white flex justify-between items-center relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-indigo-500/20 to-transparent pointer-events-none"></div>
+        <div className="relative z-10">
+          <h3 className="font-bold flex items-center gap-2">
+            Team Chat
+            {onlineUsers.size > 1 && (
+              <span className="bg-emerald-500/20 text-emerald-300 text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-emerald-500/30 animate-pulse">
+                {onlineUsers.size - 1} Online
+              </span>
+            )}
+          </h3>
+          <p className="text-xs text-indigo-100/70">Ooma Workspace Communication</p>
         </div>
-        <button onClick={() => setIsOpen(false)} className="text-white hover:text-indigo-200 transition-colors">
+        <button onClick={() => setIsOpen(false)} className="relative z-10 p-2 hover:bg-white/10 rounded-lg transition-colors">
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -254,26 +277,47 @@ export default function ChatWidget() {
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0A0A0B]"
+        className="flex-1 overflow-y-auto p-4 space-y-6 bg-[#0A0A0B] custom-scrollbar"
       >
         {messages.map((msg: ChatMessage) => {
           const isMe = msg.user_id === user?.id;
+          const isOnline = onlineUsers.has(msg.user_id);
+          
           return (
-            <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-xs font-bold text-gray-300">{msg.users?.full_name || msg.users?.username || 'User'}</span>
-                {!isMe && <span className="text-[10px] text-gray-500">{msg.users?.designation}</span>}
+            <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}>
+              <div className={`flex items-center gap-2 mb-1.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+                <div className="relative">
+                  <div className={`h-6 w-6 rounded-lg bg-gradient-to-br from-indigo-500/20 to-[#121216] border border-white/10 flex items-center justify-center text-[10px] font-black text-white shadow-lg`}>
+                    {msg.users?.username.substring(0, 2).toUpperCase() || '??'}
+                  </div>
+                  {isOnline && (
+                    <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 bg-emerald-500 rounded-full border border-[#0A0A0B] shadow-[0_0_5px_rgba(16,185,129,0.8)]"></div>
+                  )}
+                </div>
+                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-tight">{msg.users?.username || 'User'}</span>
+                    {isOnline && !isMe && <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse"></span>}
+                  </div>
+                </div>
               </div>
+              
               <div
-                className={`px-4 py-2 rounded-2xl max-w-[85%] ${
-                  isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#1F1F26] text-gray-200 border border-[#2F2F3B] rounded-tl-none'
+                className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-sm shadow-xl transition-all ${
+                  isMe 
+                    ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-900/20' 
+                    : 'bg-[#1F1F26] text-gray-200 border border-[#2F2F3B] rounded-tl-none shadow-black/40'
                 }`}
               >
-                <p className="text-sm">{msg.message}</p>
+                <p className="leading-relaxed font-medium">{msg.message}</p>
               </div>
-              <span className="text-[9px] text-gray-500 mt-1">
-                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
+              
+              <div className={`flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity ${isMe ? 'flex-row-reverse' : ''}`}>
+                <span className="text-[8px] font-black text-gray-600 uppercase tracking-[0.2em]">
+                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                {!isMe && <span className="text-[8px] font-bold text-indigo-400/50 uppercase tracking-widest">{msg.users?.designation?.split(',')[0]}</span>}
+              </div>
             </div>
           );
         })}
@@ -281,26 +325,42 @@ export default function ChatWidget() {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-[#121216] border-t border-[#1F1F26] rounded-b-2xl">
+      <div className="p-4 bg-[#121216] border-t border-white/5">
         <form onSubmit={sendMessage} className="flex gap-2 relative">
           <input
             type="text"
             value={newMessage}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 pl-4 pr-10 py-2.5 bg-[#0A0A0B] border border-[#2F2F3B] rounded-xl text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            placeholder="Broadcast a message..."
+            className="flex-1 pl-4 pr-12 py-3 bg-[#0A0A0B] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 transition-all font-medium"
             disabled={loading}
           />
           <button
             type="submit"
             disabled={loading || !newMessage.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-50"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-indigo-400 hover:text-white hover:bg-indigo-500/20 rounded-lg transition-all disabled:opacity-30"
           >
             <Send className="h-4 w-4" />
           </button>
         </form>
       </div>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(99, 102, 241, 0.3);
+        }
+      `}</style>
     </div>
   );
 }

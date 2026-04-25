@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Filter } from "lucide-react";
+import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin } from "lucide-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/useToast";
 
@@ -22,19 +23,28 @@ const STAGE_COLORS: Record<string, string> = {
 export default function CRMLeads() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [workspaceUsers, setWorkspaceUsers] = useState<any[]>([]);
   
   // Smart Filters State
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterMinValue, setFilterMinValue] = useState("");
   const [filterDate, setFilterDate] = useState("All");
+  const [filterSalesperson, setFilterSalesperson] = useState("All");
+
+  // Role check
+  const isAdmin = user?.role === 'admin' || user?.role === 'partner';
+  const isBusinessMarketing = (user?.designation || '').toLowerCase().includes('business') ||
+                               (user?.designation || '').toLowerCase().includes('marketing');
+  const isSalesperson = !isAdmin && isBusinessMarketing;
   
   // Lead Form State
   const [formData, setFormData] = useState({
@@ -45,14 +55,21 @@ export default function CRMLeads() {
     estimated_value: '',
     service_interest: '',
     website: '',
-    external_link: ''
+    external_link: '',
+    assigned_to: ''
   });
 
   useEffect(() => {
     if (user?.workspace_id) {
       fetchLeads();
+      fetchWorkspaceUsers();
 
-      // Enable Realtime Subscription
+      let fetchTimeout: NodeJS.Timeout;
+      const throttledFetch = () => {
+        clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(fetchLeads, 1000);
+      };
+
       const channel = supabase
         .channel('crm_leads_table_changes')
         .on(
@@ -63,8 +80,14 @@ export default function CRMLeads() {
             table: 'crm_leads',
             filter: `workspace_id=eq.${user.workspace_id}`
           },
-          () => {
-            fetchLeads();
+          (payload) => {
+            if (payload.eventType === 'UPDATE') {
+              setLeads(prev => prev.map(lead => 
+                lead.id === payload.new.id ? { ...lead, ...payload.new } : lead
+              ));
+            } else {
+              throttledFetch();
+            }
           }
         )
         .subscribe();
@@ -73,23 +96,47 @@ export default function CRMLeads() {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user?.workspace_id]);
 
   const fetchLeads = async () => {
     setLoading(true);
     const { data } = await supabase
       .from('crm_leads')
-      .select('*')
+      .select('*, assigned_user:assigned_to(full_name, username)')
       .eq('workspace_id', user?.workspace_id)
       .order('created_at', { ascending: false });
     setLeads(data || []);
     setLoading(false);
   };
 
+  const fetchWorkspaceUsers = async () => {
+    if (!user?.workspace_id) return;
+    const { data } = await supabase
+      .from('users')
+      .select('id, full_name, username, designation')
+      .eq('workspace_id', user.workspace_id);
+    // Only show Business & Marketing team as salespersons
+    const salesUsers = (data || []).filter(u => 
+      (u.designation || '').toLowerCase().includes('business') || 
+      (u.designation || '').toLowerCase().includes('marketing')
+    );
+    setWorkspaceUsers(salesUsers);
+  };
+
   const openAddModal = () => {
     setIsEditMode(false);
     setEditingLeadId(null);
-    setFormData({ contact_person: '', company_name: '', email: '', phone: '', estimated_value: '', service_interest: '' });
+    setFormData({ 
+      contact_person: '', 
+      company_name: '', 
+      email: '', 
+      phone: '', 
+      estimated_value: '', 
+      service_interest: '',
+      website: '',
+      external_link: '',
+      assigned_to: user?.id || ''
+    });
     setIsModalOpen(true);
   };
 
@@ -101,8 +148,11 @@ export default function CRMLeads() {
       company_name: lead.company_name,
       email: lead.email || '',
       phone: lead.phone || '',
-      estimated_value: lead.estimated_value || 0,
-      service_interest: lead.service_interest || ''
+      estimated_value: lead.estimated_value === 0 ? '' : (lead.estimated_value || '').toString(),
+      service_interest: lead.service_interest || '',
+      website: lead.website || '',
+      external_link: lead.external_link || '',
+      assigned_to: lead.assigned_to || ''
     });
     setIsModalOpen(true);
   };
@@ -128,7 +178,8 @@ export default function CRMLeads() {
           ...formData,
           status: 'New Leads',
           workspace_id: user?.workspace_id,
-          source: 'Manual Entry'
+          source: 'Manual Entry',
+          assigned_to: formData.assigned_to || user?.id
         }]);
         if (error) throw error;
         toast.success("Lead added successfully");
@@ -155,6 +206,34 @@ export default function CRMLeads() {
     } catch (error) {
       toast.error("Failed to delete lead");
       console.error(error);
+    }
+  };
+
+  const deleteAllLeads = async () => {
+    if (!leads.length) return toast.error("No leads to delete");
+    
+    const confirm1 = confirm("⚠ WARNING: This will permanently delete ALL leads in your workspace. Are you absolutely sure?");
+    if (!confirm1) return;
+    
+    const confirm2 = confirm("FINAL CONFIRMATION: This action CANNOT be undone. Delete all data?");
+    if (!confirm2) return;
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('crm_leads')
+        .delete()
+        .eq('workspace_id', user?.workspace_id);
+      
+      if (error) throw error;
+      
+      toast.success("All leads deleted successfully");
+      fetchLeads();
+    } catch (error) {
+      toast.error("Failed to delete all leads");
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -253,7 +332,6 @@ export default function CRMLeads() {
   const filteredLeads = leads.filter(l => {
     const q = searchQuery.toLowerCase().trim();
     
-    // Robust search that checks all fields and safely handles null/undefined
     const matchesSearch = !q || 
       (l.company_name || '').toLowerCase().includes(q) || 
       (l.contact_person || '').toLowerCase().includes(q) || 
@@ -264,6 +342,7 @@ export default function CRMLeads() {
 
     const matchesStatus = filterStatus === "All" || l.status === filterStatus;
     const matchesValue = !filterMinValue || (l.estimated_value || 0) >= parseInt(filterMinValue);
+    const matchesSalesperson = filterSalesperson === "All" || l.assigned_to === filterSalesperson;
     
     let matchesDate = true;
     if (filterDate === "Last 7 Days") {
@@ -272,92 +351,125 @@ export default function CRMLeads() {
       matchesDate = new Date(l.created_at) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    return matchesSearch && matchesStatus && matchesValue && matchesDate;
+    return matchesSearch && matchesStatus && matchesValue && matchesDate && matchesSalesperson &&
+      (!isSalesperson || l.assigned_to === user?.id); // Salespersons only see their own
   });
 
   if (loading) return null;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-1">Leads</h1>
-          <p className="text-sm text-muted-foreground">Manage all your sales leads</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground leading-tight">Leads</h1>
+          <p className="text-xs text-muted-foreground hidden sm:block">Manage all your sales leads</p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+        <Button 
+          onClick={openAddModal}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+        >
+          <Plus size={18} className="mr-1 sm:mr-2" />
+          <span className="hidden sm:inline">Add Lead</span>
+          <span className="sm:hidden">Add</span>
+        </Button>
+      </div>
+
+      {/* Action Bar: Owner filter + bulk actions */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {/* Admin-only: Owner filter */}
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 bg-background border border-input rounded-xl px-2.5 py-1.5 shadow-sm">
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest hidden sm:inline">Owner:</span>
+              <select 
+                value={filterSalesperson}
+                onChange={(e) => setFilterSalesperson(e.target.value)}
+                className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-3"
+              >
+                <option value="All">All</option>
+                {workspaceUsers.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name || u.username} {u.id === user?.id ? '(Me)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {/* Business & Marketing: show My Leads badge */}
+          {isSalesperson && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">My Leads</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
           <input type="file" id="csv-upload" accept=".csv" className="hidden" onChange={handleImportCSV} />
           <Button 
             variant="outline"
             onClick={() => document.getElementById('csv-upload')?.click()}
             disabled={importing}
-            className="flex-1 sm:flex-none border-primary/20 hover:bg-primary/10 text-primary transition-all"
+            className="border-primary/20 hover:bg-primary/10 text-primary transition-all px-2.5 sm:px-4 h-9"
           >
-            {importing ? <Loader2 size={16} className="animate-spin mr-2" /> : <Download size={16} className="mr-2" />}
-            Import
+            {importing ? <Loader2 size={14} className="animate-spin sm:mr-2" /> : <Download size={14} className="sm:mr-2" />}
+            <span className="hidden sm:inline">Import</span>
           </Button>
           <Button 
             variant="outline"
             onClick={handleExportCSV}
-            className="flex-1 sm:flex-none border-primary/20 hover:bg-primary/10 text-primary transition-all"
+            className="border-primary/20 hover:bg-primary/10 text-primary transition-all px-2.5 sm:px-4 h-9"
           >
-            <Upload size={16} className="mr-2" />
-            Export
+            <Upload size={14} className="sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
           <Button 
-            onClick={openAddModal}
-            className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+            variant="outline"
+            onClick={deleteAllLeads}
+            className="border-rose-500/20 hover:bg-rose-500/10 text-rose-500 transition-all px-2.5 sm:px-4 h-9"
           >
-            <Plus size={18} className="mr-2" />
-            Add Lead
+            <Trash2 size={14} className="sm:mr-2" />
+            <span className="hidden sm:inline">Delete All</span>
           </Button>
         </div>
       </div>
 
-      {/* Search and Smart Filters */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-            <input
-              type="text"
-              placeholder="Search leads by name, company, or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <select 
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="pl-9 pr-8 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-medium cursor-pointer"
-              >
-                <option value="All">All Stages</option>
-                {Object.keys(STAGE_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-black text-xs">₹</div>
-              <input 
-                type="number"
-                placeholder="Min Value..."
-                value={filterMinValue}
-                onChange={(e) => setFilterMinValue(e.target.value)}
-                className="w-32 pl-7 pr-4 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-              />
-            </div>
-            <select 
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="px-4 py-2.5 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-medium cursor-pointer"
-            >
-              <option value="All">All Time</option>
-              <option value="Last 7 Days">Last 7 Days</option>
-              <option value="Last 30 Days">Last 30 Days</option>
-            </select>
-          </div>
+      {/* Search + Compact Filters Row */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+          <input
+            type="text"
+            placeholder="Search leads..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+          />
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <select 
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none appearance-none font-bold cursor-pointer whitespace-nowrap"
+          >
+            <option value="All">All Stages</option>
+            {Object.keys(STAGE_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <input 
+            type="number"
+            placeholder="Min ₹"
+            value={filterMinValue}
+            onChange={(e) => setFilterMinValue(e.target.value)}
+            className="w-20 sm:w-28 px-3 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none transition-all"
+          />
+          <select 
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="px-3 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none appearance-none font-bold cursor-pointer whitespace-nowrap"
+          >
+            <option value="All">All Time</option>
+            <option value="Last 7 Days">7 Days</option>
+            <option value="Last 30 Days">30 Days</option>
+          </select>
         </div>
       </div>
 
@@ -371,6 +483,7 @@ export default function CRMLeads() {
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Email</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Phone</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Service</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Owner</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Links</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Value</th>
@@ -392,9 +505,31 @@ export default function CRMLeads() {
                   </td>
                   <td className="px-6 py-4 text-sm text-foreground font-medium">{lead.service_interest || '—'}</td>
                   <td className="px-6 py-4 text-sm text-foreground">
+                    {lead.assigned_user ? (
+                       <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex items-center justify-center text-[10px] font-black">
+                             {(lead.assigned_user.full_name || lead.assigned_user.username || 'U')[0].toUpperCase()}
+                          </div>
+                          <span className="text-xs font-bold text-muted-foreground">{lead.assigned_user.full_name || lead.assigned_user.username}</span>
+                       </div>
+                    ) : '—'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-foreground">
                     <div className="flex gap-2">
-                       {lead.website && <a href={lead.website} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-primary/5 hover:bg-primary/10 rounded-lg text-primary transition-all"><Globe size={14}/></a>}
-                       {lead.external_link && <a href={lead.external_link} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-primary/5 hover:bg-primary/10 rounded-lg text-primary transition-all"><MapPin size={14}/></a>}
+                       {lead.website && (
+                         <a href={lead.website} target="_blank" rel="noopener noreferrer" 
+                            className="p-2 bg-indigo-600/10 border border-indigo-500/30 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-90 group/link"
+                            title="Visit Website">
+                            <Globe size={14} className="group-hover/link:rotate-12 transition-transform" />
+                         </a>
+                       )}
+                       {lead.external_link && (
+                         <a href={lead.external_link} target="_blank" rel="noopener noreferrer" 
+                            className="p-2 bg-rose-600/10 border border-rose-500/30 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-90 group/link"
+                            title="Google Maps">
+                            <MapPin size={14} className="group-hover/link:-translate-y-0.5 transition-transform" />
+                         </a>
+                       )}
                        {!lead.website && !lead.external_link && <span className="text-muted-foreground/30">—</span>}
                     </div>
                   </td>
@@ -509,6 +644,22 @@ export default function CRMLeads() {
                     className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Assigned Salesperson / Owner</label>
+                <select 
+                  value={formData.assigned_to}
+                  onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
+                  className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium appearance-none cursor-pointer"
+                >
+                  <option value="">Select a salesperson...</option>
+                  {workspaceUsers.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.full_name || u.username} {u.id === user?.id ? '(You)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
