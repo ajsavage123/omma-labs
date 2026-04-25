@@ -469,7 +469,7 @@ export default function CRMTasks() {
                       <>
                         <span className="hidden sm:inline">•</span>
                         <Link 
-                          to={`/crm/leads?search=${encodeURIComponent(task.crm_leads.company_name)}`}
+                          to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads.company_name)}`}
                           className="font-semibold text-primary/80 hover:text-primary hover:underline transition-colors"
                         >
                           {task.crm_leads.contact_person} ({task.crm_leads.company_name})

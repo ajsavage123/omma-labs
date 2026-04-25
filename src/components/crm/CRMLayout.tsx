@@ -288,7 +288,7 @@ export default function CRMLayout({ children }: LayoutProps) {
                           .map((task) => (
                           <Link 
                             key={task.id} 
-                            to="/crm/tasks"
+                            to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads?.company_name || '')}`}
                             onClick={() => setNotificationsOpen(false)}
                             className="p-4 hover:bg-muted/50 transition-colors flex items-start gap-3 group"
                           >

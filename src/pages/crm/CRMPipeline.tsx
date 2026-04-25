@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Search } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/Toast";
 
@@ -76,7 +77,9 @@ const STAGES = [
 export default function CRMPipeline() {
   const { user } = useAuth();
   const { toast, toasts, removeToast } = useToast();
+  const [searchParams] = useSearchParams();
   const [leads, setLeads] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -495,6 +498,16 @@ export default function CRMPipeline() {
               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">My Leads</span>
             </div>
           )}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+            <input 
+              type="text"
+              placeholder="Search in pipeline..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all w-48"
+            />
+          </div>
           <Button 
             onClick={openAddModal}
             className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
@@ -509,9 +522,14 @@ export default function CRMPipeline() {
       <div className="flex-1 overflow-x-auto pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto">
         <div className="flex gap-4 lg:gap-6 h-full min-w-max pb-4">
           {STAGES.map((stage, sIdx) => {
-            const stageLeads = sIdx === 0 
+            const rawLeads = sIdx === 0 
               ? [...getLeadsForStage(stage), ...unmappedLeads]
               : getLeadsForStage(stage);
+            
+            const stageLeads = rawLeads.filter(l => 
+              l.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              l.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
             
             const totalValue = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);
 
