@@ -100,7 +100,7 @@ export default function LoginPage() {
                 {isSignUp ? 'Join Innovation Network' : 'Access Workspace'}
               </h2>
               <p className="text-gray-400 text-sm">
-                {isSignUp ? 'Create a secure account with your work email.' : 'Sign in with your team credentials.'}
+                {isSignUp ? 'Create an account, then use your invite code to join the workspace.' : 'Sign in with your team credentials.'}
               </p>
             </div>
 
@@ -114,7 +114,7 @@ export default function LoginPage() {
                     type="email"
                     required
                     className="block w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-white/30 focus:bg-white/10 transition-all sm:text-sm shadow-inner"
-                    placeholder="Work Email"
+                    placeholder="Username"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />

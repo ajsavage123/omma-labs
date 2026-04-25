@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, Loader2, LogOut, ShieldCheck } from 'lucide-react';
+import { KeyRound, Loader2, Rocket, LogOut, ShieldCheck } from 'lucide-react';
 import { ThreeDBackground } from '@/components/ThreeDBackground';
-import { OomaLogo } from '@/components/OomaLogo';
 
 export default function OnboardingPage() {
   const { supabaseUser, refreshUser, signOut } = useAuth();
@@ -66,7 +65,9 @@ export default function OnboardingPage() {
       {/* Top Bar */}
       <div className="fixed top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4 bg-[#0a0f1c]/80 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center gap-3">
-          <OomaLogo size={32} />
+          <div className="h-8 w-8 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Rocket className="h-4 w-4 text-white" />
+          </div>
           <span className="text-white font-bold tracking-tight text-lg">Ooma Labs</span>
         </div>
         <div className="flex items-center gap-4">
@@ -97,7 +98,7 @@ export default function OnboardingPage() {
                 Join Ooma Workspace
               </h2>
               <p className="mt-2 text-sm text-gray-500">
-                Complete your profile by entering your full name and the invitation code.
+                Enter the invite code provided by your administrator.
               </p>
             </div>
 
