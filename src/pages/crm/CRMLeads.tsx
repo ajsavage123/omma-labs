@@ -43,7 +43,9 @@ export default function CRMLeads() {
     email: '',
     phone: '',
     estimated_value: '',
-    service_interest: ''
+    service_interest: '',
+    website: '',
+    external_link: ''
   });
 
   useEffect(() => {
@@ -364,14 +366,15 @@ export default function CRMLeads() {
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-background/30">
-                <th className="px-4 lg:px-6 py-4 text-left font-black text-[10px] uppercase tracking-widest text-muted-foreground">Name / Company</th>
-                <th className="px-4 lg:px-6 py-4 text-left font-black text-[10px] uppercase tracking-widest text-muted-foreground">Email</th>
-                <th className="px-4 lg:px-6 py-4 text-left font-black text-[10px] uppercase tracking-widest text-muted-foreground">Phone</th>
-                <th className="px-4 lg:px-6 py-4 text-left font-black text-[10px] uppercase tracking-widest text-muted-foreground">Service</th>
-                <th className="px-4 lg:px-6 py-4 text-left font-black text-[10px] uppercase tracking-widest text-muted-foreground">Stage</th>
-                <th className="px-4 lg:px-6 py-4 text-left font-black text-[10px] uppercase tracking-widest text-muted-foreground">Value</th>
-                <th className="px-4 lg:px-6 py-4 text-right font-black text-[10px] uppercase tracking-widest text-muted-foreground">Action</th>
+              <tr className="border-b border-border bg-background/50">
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Contact & Company</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Email</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Phone</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Service</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Links</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Value</th>
+                <th className="px-6 py-4 text-right text-[10px] font-black text-muted-foreground uppercase tracking-widest">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -387,7 +390,14 @@ export default function CRMLeads() {
                   <td className="px-6 py-4 text-sm text-foreground">
                     {lead.phone || <span className="text-muted-foreground opacity-30 italic">No phone</span>}
                   </td>
-                  <td className="px-6 py-4 text-sm text-foreground">{lead.service_interest || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-foreground font-medium">{lead.service_interest || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-foreground">
+                    <div className="flex gap-2">
+                       {lead.website && <a href={lead.website} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-primary/5 hover:bg-primary/10 rounded-lg text-primary transition-all"><Globe size={14}/></a>}
+                       {lead.external_link && <a href={lead.external_link} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-primary/5 hover:bg-primary/10 rounded-lg text-primary transition-all"><MapPin size={14}/></a>}
+                       {!lead.website && !lead.external_link && <span className="text-muted-foreground/30">—</span>}
+                    </div>
+                  </td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium text-white ${STAGE_COLORS[lead.status] || 'bg-gray-500'}`}>
                       {lead.status}
@@ -465,6 +475,40 @@ export default function CRMLeads() {
                   placeholder="contact@company.com"
                   className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Service Interest</label>
+                <input 
+                  type="text" 
+                  value={formData.service_interest}
+                  onChange={(e) => setFormData({...formData, service_interest: e.target.value})}
+                  placeholder="e.g. Web Development, SEO"
+                  className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Website Link</label>
+                  <input 
+                    type="url" 
+                    value={formData.website}
+                    onChange={(e) => setFormData({...formData, website: e.target.value})}
+                    placeholder="https://..."
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Google Maps Link</label>
+                  <input 
+                    type="url" 
+                    value={formData.external_link}
+                    onChange={(e) => setFormData({...formData, external_link: e.target.value})}
+                    placeholder="https://maps.google.com/..."
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

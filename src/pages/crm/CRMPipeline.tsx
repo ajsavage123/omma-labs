@@ -488,6 +488,25 @@ export default function CRMPipeline() {
                         </div>
                       </div>
 
+                      {/* New Data Badges: Service & Interest */}
+                      <div className="flex flex-wrap gap-2 mb-1">
+                         {lead.service_interest && (
+                           <div className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-[9px] font-black rounded-lg uppercase tracking-wider">
+                             {lead.service_interest}
+                           </div>
+                         )}
+                         {lead.website && (
+                            <a href={lead.website} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm">
+                               <Globe size={12} />
+                            </a>
+                         )}
+                         {lead.external_link && (
+                            <a href={lead.external_link} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all shadow-sm">
+                               <MapPin size={12} />
+                            </a>
+                         )}
+                      </div>
+
                       {/* Contact Actions - LARGER BUTTONS */}
                       <div className="flex flex-wrap gap-2.5 my-4 py-4 border-t border-b border-border/40">
                         <button className="flex-1 min-w-[70px] py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-90" title="Call">
