@@ -101,7 +101,9 @@ export default function CRMPipeline() {
     email: '',
     phone: '',
     estimated_value: '',
-    service_interest: ''
+    service_interest: '',
+    website: '',
+    external_link: ''
   });
 
   useEffect(() => {
@@ -226,7 +228,16 @@ export default function CRMPipeline() {
   const openAddModal = () => {
     setIsEditMode(false);
     setEditingLeadId(null);
-    setFormData({ contact_person: '', company_name: '', email: '', phone: '', estimated_value: '', service_interest: '' });
+    setFormData({ 
+      contact_person: '', 
+      company_name: '', 
+      email: '', 
+      phone: '', 
+      estimated_value: '', 
+      service_interest: '',
+      website: '',
+      external_link: ''
+    });
     setIsModalOpen(true);
   };
 
@@ -239,7 +250,9 @@ export default function CRMPipeline() {
       email: lead.email || '',
       phone: lead.phone || '',
       estimated_value: lead.estimated_value === 0 ? '' : (lead.estimated_value || '').toString(),
-      service_interest: lead.service_interest || ''
+      service_interest: lead.service_interest || '',
+      website: lead.website || '',
+      external_link: lead.external_link || ''
     });
     setIsModalOpen(true);
   };
@@ -599,6 +612,40 @@ export default function CRMPipeline() {
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                     placeholder="+91..."
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Service Interest</label>
+                <input 
+                  type="text" 
+                  value={formData.service_interest}
+                  onChange={(e) => setFormData({...formData, service_interest: e.target.value})}
+                  placeholder="e.g. Web Development, SEO"
+                  className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Website Link</label>
+                  <input 
+                    type="url" 
+                    value={formData.website}
+                    onChange={(e) => setFormData({...formData, website: e.target.value})}
+                    placeholder="https://company.com"
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Google Maps Link</label>
+                  <input 
+                    type="url" 
+                    value={formData.external_link}
+                    onChange={(e) => setFormData({...formData, external_link: e.target.value})}
+                    placeholder="https://maps.google.com/..."
                     className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                   />
                 </div>
