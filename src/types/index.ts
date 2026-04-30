@@ -1,9 +1,6 @@
 export type UserRole = 'partner' | 'admin';
 
-export type Designation =
-  | 'Innovation & Research Team'
-  | 'Developer & Engineering Team'
-  | 'Business Strategy & Marketing Team';
+export type Designation = string;
 
 export interface Workspace {
   id: string;

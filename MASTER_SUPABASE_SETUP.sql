@@ -208,6 +208,28 @@ CREATE POLICY "Allow chat read" ON chat_messages FOR SELECT TO authenticated USI
 DROP POLICY IF EXISTS "Allow chat insert" ON chat_messages;
 CREATE POLICY "Allow chat insert" ON chat_messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+-- Invitations Policies
+DROP POLICY IF EXISTS "Allow reading invitations for workspace" ON invitations;
+CREATE POLICY "Allow reading invitations for workspace" ON invitations FOR SELECT USING (
+    workspace_id IN (SELECT workspace_id FROM users WHERE users.id = auth.uid()) OR used = false
+);
+
+DROP POLICY IF EXISTS "Allow admins to create invitations" ON invitations;
+CREATE POLICY "Allow admins to create invitations" ON invitations FOR INSERT WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "Allow updating used status" ON invitations;
+CREATE POLICY "Allow updating used status" ON invitations FOR UPDATE USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Allow deleting invitations" ON invitations;
+CREATE POLICY "Allow deleting invitations" ON invitations FOR DELETE USING (is_admin());
+
+-- Admin Ratings Policies
+DROP POLICY IF EXISTS "Allow admins to manage ratings" ON admin_ratings;
+CREATE POLICY "Allow admins to manage ratings" ON admin_ratings FOR ALL USING (is_admin());
+
+DROP POLICY IF EXISTS "Allow members to view ratings" ON admin_ratings;
+CREATE POLICY "Allow members to view ratings" ON admin_ratings FOR SELECT USING (auth.role() = 'authenticated');
+
 -- ==========================================
 -- 4. TRIGGERS (MAINTENANCE)
 -- ==========================================
