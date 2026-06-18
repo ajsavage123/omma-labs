@@ -293,7 +293,6 @@ const businessSubPanels = [
 
 export function StageCard({ project, stage, tools, onUpdate, designation, role, isOwner = true, onToast, logs }: StageCardProps) {
   const [updateText, setUpdateText] = useState('');
-  const [githubUrl, setGithubUrl] = useState(project.github_link || '');
   const [loading, setLoading] = useState(false);
 
   const stageLabel = STAGE_LABEL_MAP[stage.stage_name] ?? stage.stage_name;
@@ -321,20 +320,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
     }
   };
 
-  const handleUpdateGithub = async () => {
-    if (!githubUrl.trim() || !project.workspace_id) return;
-    setLoading(true);
-    try {
-      await projectService.updateGithubLink(project.id, githubUrl);
-      await projectService.logActivity(project.id, designation, stage.stage_name, `GitHub repository linked: ${githubUrl}`, project.workspace_id);
-      await onUpdate();
-      onToast?.('GitHub link updated!', 'success');
-    } catch {
-      onToast?.('Failed to update GitHub link.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const handleNextStage = async () => {
     const clientOrder: StageName[] = ['discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support', 'admin_review'];
