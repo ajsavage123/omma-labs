@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { queryCache } from '@/utils/cache';
 import { useAuth } from '@/hooks/useAuth';
 import { projectService } from '@/services/projectService';
 import type { Project, ProjectStage, TimelineLog, Designation } from '@/types';
@@ -27,14 +28,38 @@ export default function ProjectWorkspacePage() {
     if (id) fetchData(id);
   }, [id]);
 
-  const fetchData = async (projectId: string) => {
+  const fetchData = async (projectId: string, forceRefresh = false) => {
     try {
+      // On forced refresh (e.g. after stage submit), bust the cache first
+      if (forceRefresh) {
+        queryCache.invalidate(`project_${projectId}`);
+        queryCache.invalidate('projects_list');
+      }
       const [projectData, logsData] = await Promise.all([
         projectService.getProjectById(projectId),
         projectService.getTimelineLogs(projectId)
       ]);
       setProject(projectData);
       setLogs(logsData);
+
+      // Auto-switch room if the current room has no active stages but another room does
+      if (forceRefresh && projectData && selectedTeam) {
+        const myStages = teamStages[selectedTeam] || [];
+        const myActive = projectData.project_stages?.some(
+          (s: ProjectStage) => myStages.includes(s.stage_name) && s.status === 'in_progress'
+        );
+        if (!myActive) {
+          // Find which room now has the active stage
+          const activeStage = projectData.project_stages?.find((s: ProjectStage) => s.status === 'in_progress');
+          if (activeStage) {
+            const nextRoom = getTeamForStage(activeStage.stage_name);
+            if (nextRoom && nextRoom !== selectedTeam) {
+              setSelectedTeam(nextRoom);
+              toast.info(`Stage moved to ${nextRoom === 'Innovation & Research Team' ? 'Innovation Lab' : nextRoom === 'Developer & Engineering Team' ? 'Engineering Group' : 'Business Studio'}`);
+            }
+          }
+        }
+      }
     } catch {
       toast.error('Failed to load workspace data.');
     } finally {
@@ -285,7 +310,7 @@ export default function ProjectWorkspacePage() {
                    stage={stage}
                    logs={logs}
                    tools={selectedTeam ? teamTools[selectedTeam] : []}
-                   onUpdate={() => fetchData(project.id)}
+                   onUpdate={() => fetchData(project.id, true)}
                    designation={user?.designation || selectedTeam || 'Innovation Team'}
                    role={user?.role}
                    isOwner={selectedTeam ? teamStages[selectedTeam]?.includes(stage.stage_name) : false}

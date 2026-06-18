@@ -4,6 +4,7 @@ import type { User } from '@/types';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { MOCK_MODE } from '@/lib/mockMode';
 import { mockStorage } from '@/utils/mockStorage';
+import { logError } from '@/utils/logger';
 
 // Define an extended User type that includes workspaceName for convenience in the UI
 export interface AuthenticatedUser extends User {
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      logError('Error fetching user profile', error);
     } finally {
       setLoading(false);
     }

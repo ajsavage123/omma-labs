@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { FC } from 'react';
 
 interface OomaLogoProps {
@@ -8,7 +9,8 @@ interface OomaLogoProps {
 
 export const OomaLogo: FC<OomaLogoProps> = ({ className = '', size = 24 }) => {
   // Use a stable unique id per component instance to avoid SVG gradient conflicts
-  const uid = `ooma-grad-${Math.random().toString(36).slice(2, 7)}`;
+  const baseId = useId();
+  const uid = `ooma-grad-${baseId.replace(/:/g, '')}`;
   return (
     <div className={`flex-shrink-0 flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       <svg

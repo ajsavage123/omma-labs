@@ -601,7 +601,14 @@ export default function DashboardPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Repository Link</label>
-                    <input type="url" value={newGithubLink} onChange={e => setNewGithubLink(e.target.value)} placeholder="GitHub / Repo..." className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
+                    <input 
+                      type="url" 
+                      value={newGithubLink} 
+                      onChange={e => setNewGithubLink(e.target.value)} 
+                      placeholder="GitHub / Repo..." 
+                      disabled={!!editingProject}
+                      className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                    />
                   </div>
                 </div>
 

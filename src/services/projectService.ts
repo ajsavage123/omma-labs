@@ -247,6 +247,9 @@ export const projectService = {
     await this.logActivity(projectId, designation, currentStage, `Completed ${stageLabelMap[currentStage]} stage and advanced to ${nextLabel}.`, workspaceId);
     queryCache.invalidate('projects_list');
     queryCache.invalidate(`project_${projectId}`);
+    // Also clear throttle keys so the immediate re-fetch hits the network
+    localStorage.removeItem('last_fetch_projects');
+    localStorage.removeItem(`last_fetch_logs_${projectId}`);
   },
 
   async sendBackToStage(projectId: string, workspaceId: string, targetStage: StageName, feedbackNote: string, projectType: 'internal' | 'client') {

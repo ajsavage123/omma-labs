@@ -493,29 +493,24 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
           </div>
         </div>
 
-        {/* GitHub link (dev stage only) - Visible to everyone, Editable only by owner */}
+        {/* GitHub link (dev stage only) - Visible to everyone, Read-Only Link */}
         {stage.stage_name === 'development' && (
           <div className="pt-2">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">GitHub Repository</p>
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={githubUrl}
-                onChange={(e) => setGithubUrl(e.target.value)}
-                placeholder="https://github.com/..."
-                disabled={!isOwner}
-                className="flex-1 text-sm px-4 py-2.5 bg-black/40 border border-white/5 rounded-xl text-white outline-none focus:border-indigo-500/50 placeholder-gray-500 disabled:opacity-50"
-              />
-              {isOwner && (
-                <button
-                  onClick={handleUpdateGithub}
-                  disabled={loading || !githubUrl.trim()}
-                  className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-all"
-                >
-                  <Github className="h-4.5 w-4.5" />
-                </button>
-              )}
-            </div>
+            {project.github_link ? (
+              <a
+                href={project.github_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 text-[13px] font-bold text-indigo-400 rounded-xl border border-white/15 hover:border-indigo-500/30 transition-all shadow-md max-w-full truncate"
+              >
+                <Github className="h-4 w-4 shrink-0 text-indigo-400" />
+                <span className="truncate">{project.github_link}</span>
+                <ExternalLink className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+              </a>
+            ) : (
+              <p className="text-xs text-gray-600 font-bold italic ml-1">No repository linked during creation</p>
+            )}
           </div>
         )}
 

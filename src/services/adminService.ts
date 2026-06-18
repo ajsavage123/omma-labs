@@ -3,7 +3,8 @@ import { queryCache } from '@/utils/cache';
 import type { AdminRating, ProjectStatus, Project, ProjectStage, User, Invitation } from '@/types';
 import { MOCK_MODE } from '@/lib/mockMode';
 import { mockStorage } from '@/utils/mockStorage';
-
+import { generateSecureInviteCode } from '@/utils/crypto';
+import { logError } from '@/utils/logger';
 export const adminService = {
   async getAdminStats() {
     if (MOCK_MODE) return { activeProjects: 0, researchCount: 0, developmentCount: 0, launchCount: 0, mostActiveTeam: 'Mock Team' };
@@ -103,7 +104,7 @@ export const adminService = {
       queryCache.set(cacheKey, result);
       return result;
     } catch (err) {
-      console.error('adminService.getTeamMembers failed:', err);
+      logError('adminService.getTeamMembers failed', err);
       throw err;
     }
   },
@@ -124,8 +125,8 @@ export const adminService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Generate a secure random 8-character hex code
-    const code = Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    // Generate a secure 8-character code
+    const code = generateSecureInviteCode();
     
     const { data, error } = await supabase
       .from('invitations')

@@ -20,9 +20,22 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { notificationService } from "@/utils/notificationService";
+import { OomaLogo } from "@/components/OomaLogo";
 
 interface LayoutProps {
   children: ReactNode;
+}
+
+interface CRMTask {
+  id: string;
+  title: string;
+  due_date: string;
+  status: string;
+  created_at?: string;
+  crm_leads?: {
+    company_name: string;
+  } | null;
+  [key: string]: any;
 }
 
 const navItems = [
@@ -43,7 +56,7 @@ export default function CRMLayout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<CRMTask[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,12 +113,12 @@ export default function CRMLayout({ children }: LayoutProps) {
           table: 'crm_tasks',
           filter: `workspace_id=eq.${user.workspace_id}`
         },
-        (payload) => {
+        (payload: any) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
           
           if (eventType === 'INSERT' && newRecord.status === 'Pending') {
-            setTasks(prev => {
-              const updated = [...prev, newRecord].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+            setTasks((prev: CRMTask[]) => {
+              const updated = [...prev, newRecord].sort((a: CRMTask, b: CRMTask) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
               // Trigger native push when a new task is assigned/created
               notificationService.showNotification(`New Task: ${newRecord.title}`, {
                 body: `Due: ${newRecord.due_date}`,
@@ -115,18 +128,18 @@ export default function CRMLayout({ children }: LayoutProps) {
             });
           } else if (eventType === 'UPDATE') {
             if (newRecord.status !== 'Pending') {
-              setTasks(prev => prev.filter(t => t.id !== newRecord.id));
+              setTasks((prev: CRMTask[]) => prev.filter((t: CRMTask) => t.id !== newRecord.id));
             } else {
-              setTasks(prev => {
-                const exists = prev.some(t => t.id === newRecord.id);
+              setTasks((prev: CRMTask[]) => {
+                const exists = prev.some((t: CRMTask) => t.id === newRecord.id);
                 const updated = exists 
-                  ? prev.map(t => t.id === newRecord.id ? { ...t, ...newRecord } : t)
+                  ? prev.map((t: CRMTask) => t.id === newRecord.id ? { ...t, ...newRecord } : t)
                   : [...prev, newRecord];
-                return updated.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+                return updated.sort((a: CRMTask, b: CRMTask) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
               });
             }
           } else if (eventType === 'DELETE') {
-            setTasks(prev => prev.filter(t => t.id !== oldRecord.id));
+            setTasks((prev: CRMTask[]) => prev.filter((t: CRMTask) => t.id !== oldRecord.id));
           }
         }
       )
@@ -157,16 +170,15 @@ export default function CRMLayout({ children }: LayoutProps) {
       >
         {/* Logo Section - TIGHT & CLEAN */}
         <div className="px-5 py-6 flex items-center justify-between">
-          <div className={`flex items-center gap-2.5 ${!sidebarOpen && !isMobile && "justify-center w-full"}`}>
-            <img 
-              src="/ooma-icon.png" 
-              alt="Ooma Logo" 
-              className="w-12 h-12 object-contain rounded-full mix-blend-screen contrast-[1.2] brightness-125 transition-all hover:scale-110" 
-            />
+          <div className={`flex items-center gap-3 ${!sidebarOpen && !isMobile && "justify-center w-full"}`}>
+            {/* Original OomaLogo - the ¾ arc gradient mark */}
+            <div className="relative flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:shadow-[0_0_30px_rgba(99,102,241,0.35)] transition-all hover:scale-105">
+              <OomaLogo size={32} />
+            </div>
             {(sidebarOpen || isMobile) && (
               <div className="flex flex-col">
-                <span className="text-xl font-black text-white tracking-tighter leading-none uppercase">OOMA</span>
-                <span className="text-[11px] font-black text-cyan-400 tracking-[0.25em] uppercase mt-1.5 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]">CRM ENGINE</span>
+                <span className="text-md font-bold tracking-tight text-white uppercase">OOMA</span>
+                <span className="text-[9px] font-extrabold text-cyan-400 tracking-[0.2em] uppercase mt-0.5">CRM ENGINE</span>
               </div>
             )}
           </div>
@@ -283,9 +295,9 @@ export default function CRMLayout({ children }: LayoutProps) {
                     ) : (
                       <div className="divide-y divide-border/50">
                         {tasks
-                          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+                          .sort((a: CRMTask, b: CRMTask) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
                           .slice(0, 5)
-                          .map((task) => (
+                          .map((task: CRMTask) => (
                           <Link 
                             key={task.id} 
                             to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads?.company_name || '')}`}
