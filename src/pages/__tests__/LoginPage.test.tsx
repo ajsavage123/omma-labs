@@ -33,9 +33,9 @@ describe('LoginPage', () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByLabelText(/Email Address/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Enter Workspace/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Email address/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/^Password$/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Authenticate Securely/i })).toBeInTheDocument();
   });
 
   it('handles successful login', async () => {
@@ -47,9 +47,9 @@ describe('LoginPage', () => {
       </BrowserRouter>
     );
 
-    fireEvent.change(screen.getByLabelText(/Email Address/i), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'password123' } });
-    fireEvent.click(screen.getByRole('button', { name: /Enter Workspace/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Email address/i), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText(/^Password$/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: /Authenticate Securely/i }));
 
     await waitFor(() => {
       expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
@@ -72,9 +72,9 @@ describe('LoginPage', () => {
       </BrowserRouter>
     );
 
-    fireEvent.change(screen.getByLabelText(/Email Address/i), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'wrong-password' } });
-    fireEvent.click(screen.getByRole('button', { name: /Enter Workspace/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Email address/i), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText(/^Password$/i), { target: { value: 'wrong-password' } });
+    fireEvent.click(screen.getByRole('button', { name: /Authenticate Securely/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Invalid credentials/i)).toBeInTheDocument();

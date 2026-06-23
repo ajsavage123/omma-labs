@@ -46,6 +46,8 @@ function OnboardingRoute() {
   return <OnboardingPage />;
 }
 
+import { CRMDataProvider } from '@/contexts/CRMDataContext';
+
 function App() {
   useEffect(() => {
     notificationService.requestPermission();
@@ -54,34 +56,36 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/onboarding" element={<OnboardingRoute />} />
+        <CRMDataProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/onboarding" element={<OnboardingRoute />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/project/:id" element={<ProjectWorkspacePage />} />
-            <Route path="/ideas" element={<IdeaVaultPage />} />
-            <Route path="/quotation" element={<QuotationPage />} />
-            <Route path="/requirement-form" element={<ClientRequirementPage />} />
-            <Route path="/library" element={<LibraryPage />} />
-            <Route path="/meetings" element={<MeetingSchedulerPage />} />
-            <Route path="/directory" element={<ProjectMembersPage />} />
-            <Route path="/office" element={<LiveOfficePage />} />
-            <Route path="/crm/*" element={
-              <CRMAccessGuard>
-                <CRMApp />
-              </CRMAccessGuard>
-            } />
-            <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminDashboardPage />} />
-              <Route path="/contacts" element={<ClientContactsPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/project/:id" element={<ProjectWorkspacePage />} />
+              <Route path="/ideas" element={<IdeaVaultPage />} />
+              <Route path="/quotation" element={<QuotationPage />} />
+              <Route path="/requirement-form" element={<ClientRequirementPage />} />
+              <Route path="/library" element={<LibraryPage />} />
+              <Route path="/meetings" element={<MeetingSchedulerPage />} />
+              <Route path="/directory" element={<ProjectMembersPage />} />
+              <Route path="/office" element={<LiveOfficePage />} />
+              <Route path="/crm/*" element={
+                <CRMAccessGuard>
+                  <CRMApp />
+                </CRMAccessGuard>
+              } />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/contacts" element={<ClientContactsPage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-        <ChatWidget />
-        <TaskNotificationManager />
-        <InstallPWA />
+          </Routes>
+          <ChatWidget />
+          <TaskNotificationManager />
+          <InstallPWA />
+        </CRMDataProvider>
       </BrowserRouter>
     </AuthProvider>
   );

@@ -1,57 +1,15 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useCRMData } from "@/contexts/CRMDataContext";
 
 const daysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 const firstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
 export default function CRMCalendar() {
-  const { user } = useAuth();
+  const { tasks, loading } = useCRMData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user?.workspace_id) {
-      fetchTasks();
-
-      let fetchTimeout: NodeJS.Timeout;
-      const throttledFetch = () => {
-        clearTimeout(fetchTimeout);
-        fetchTimeout = setTimeout(fetchTasks, 1000);
-      };
-
-      const channel = supabase
-        .channel('crm_calendar_sync')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'crm_tasks', 
-          filter: `workspace_id=eq.${user.workspace_id}` 
-        }, (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setTasks(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
-          } else {
-            throttledFetch();
-          }
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user]);
-
-  const fetchTasks = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('crm_tasks').select(`*, crm_leads(company_name, contact_person)`).eq('workspace_id', user?.workspace_id);
-    setTasks(data || []);
-    setLoading(false);
-  };
 
   const monthName = currentDate.toLocaleDateString("en-US", {
     month: "long",

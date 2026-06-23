@@ -1,6 +1,4 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
+import { useCRMData } from "@/contexts/CRMDataContext";
 import { Card } from "@/components/ui/card";
 
 const statusColors: Record<string, string> = {
@@ -10,27 +8,12 @@ const statusColors: Record<string, string> = {
 };
 
 export default function CRMProjects() {
-  const { user } = useAuth();
-  const [clients, setClients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user?.workspace_id) {
-      fetchClients();
-    }
-  }, [user]);
-
-  const fetchClients = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('crm_leads').select('*')
-      .in('status', ['Won (Converted)', 'Onboarding', 'Completed'])
-      .eq('workspace_id', user?.workspace_id)
-      .order('created_at', { ascending: false });
-    setClients(data || []);
-    setLoading(false);
-  };
+  const { leads, loading } = useCRMData();
 
   if (loading) return null;
+
+  const clients = leads
+    .filter(project => ['Won (Converted)', 'Onboarding', 'Completed'].includes(project.status));
 
   return (
     <div className="space-y-6">

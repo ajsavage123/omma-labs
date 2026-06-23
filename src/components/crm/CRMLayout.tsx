@@ -17,10 +17,9 @@ import {
   Home,
   CheckCircle2
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/hooks/useAuth";
 import { notificationService } from "@/utils/notificationService";
 import { OomaLogo } from "@/components/OomaLogo";
+import { useCRMData } from "@/contexts/CRMDataContext";
 
 interface LayoutProps {
   children: ReactNode;
@@ -51,13 +50,17 @@ const navItems = [
 ];
 
 export default function CRMLayout({ children }: LayoutProps) {
-  const { user } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [tasks, setTasks] = useState<CRMTask[]>([]);
+  const { tasks: globalTasks } = useCRMData();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Filter tasks to show only pending ones in the notification layout dropdown
+  const tasks = globalTasks
+    .filter((t: any) => t.status === 'Pending')
+    .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
   useEffect(() => {
     const handleResize = () => {
@@ -87,68 +90,9 @@ export default function CRMLayout({ children }: LayoutProps) {
   }, []);
 
   useEffect(() => {
-    if (!user?.workspace_id) return;
+    notificationService.requestPermission(); // Request native push on mount once
+  }, []);
 
-    const fetchPendingTasks = async () => {
-      const { data } = await supabase
-        .from('crm_tasks')
-        .select('*, crm_leads(company_name)')
-        .eq('workspace_id', user.workspace_id)
-        .eq('status', 'Pending')
-        .order('due_date', { ascending: true });
-      
-      if (data) setTasks(data);
-    };
-
-    fetchPendingTasks();
-    notificationService.requestPermission(); // Request native push on mount
-
-    const channel = supabase
-      .channel('layout_notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'crm_tasks',
-          filter: `workspace_id=eq.${user.workspace_id}`
-        },
-        (payload: any) => {
-          const { eventType, new: newRecord, old: oldRecord } = payload;
-          
-          if (eventType === 'INSERT' && newRecord.status === 'Pending') {
-            setTasks((prev: CRMTask[]) => {
-              const updated = [...prev, newRecord].sort((a: CRMTask, b: CRMTask) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
-              // Trigger native push when a new task is assigned/created
-              notificationService.showNotification(`New Task: ${newRecord.title}`, {
-                body: `Due: ${newRecord.due_date}`,
-                tag: newRecord.id
-              });
-              return updated;
-            });
-          } else if (eventType === 'UPDATE') {
-            if (newRecord.status !== 'Pending') {
-              setTasks((prev: CRMTask[]) => prev.filter((t: CRMTask) => t.id !== newRecord.id));
-            } else {
-              setTasks((prev: CRMTask[]) => {
-                const exists = prev.some((t: CRMTask) => t.id === newRecord.id);
-                const updated = exists 
-                  ? prev.map((t: CRMTask) => t.id === newRecord.id ? { ...t, ...newRecord } : t)
-                  : [...prev, newRecord];
-                return updated.sort((a: CRMTask, b: CRMTask) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
-              });
-            }
-          } else if (eventType === 'DELETE') {
-            setTasks((prev: CRMTask[]) => prev.filter((t: CRMTask) => t.id !== oldRecord.id));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.workspace_id]);
 
   return (
     <div className="crm-root h-screen flex overflow-hidden relative">

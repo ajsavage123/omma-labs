@@ -1,54 +1,8 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
+import { useCRMData } from "@/contexts/CRMDataContext";
 
 export default function CRMNotes() {
-  const { user } = useAuth();
-  const [notes, setNotes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user?.workspace_id) {
-      fetchNotes();
-
-      let fetchTimeout: NodeJS.Timeout;
-      const throttledFetch = () => {
-        clearTimeout(fetchTimeout);
-        fetchTimeout = setTimeout(fetchNotes, 1000);
-      };
-
-      const channel = supabase
-        .channel('crm_notes_sync')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'crm_activities', 
-          filter: `workspace_id=eq.${user.workspace_id}` 
-        }, (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setNotes(prev => prev.map(n => n.id === payload.new.id ? { ...n, ...payload.new } : n));
-          } else {
-            throttledFetch();
-          }
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user]);
-
-  const fetchNotes = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('crm_activities')
-      .select('*, crm_leads(company_name, contact_person)')
-      .eq('activity_type', 'note')
-      .order('created_at', { ascending: false });
-    setNotes(data || []);
-    setLoading(false);
-  };
+  const { activities: notes, loading } = useCRMData();
 
   if (loading) return null;
 

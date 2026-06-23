@@ -1,52 +1,9 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useCRMData } from "@/contexts/CRMDataContext";
 
 export default function CRMReports() {
-  const { user } = useAuth();
-  const [leads, setLeads] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user?.workspace_id) {
-      fetchLeads();
-
-      let fetchTimeout: NodeJS.Timeout;
-      const throttledFetch = () => {
-        clearTimeout(fetchTimeout);
-        fetchTimeout = setTimeout(fetchLeads, 1000);
-      };
-
-      const channel = supabase
-        .channel('crm_reports_sync')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'crm_leads', 
-          filter: `workspace_id=eq.${user.workspace_id}` 
-        }, (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setLeads(prev => prev.map(l => l.id === payload.new.id ? { ...l, ...payload.new } : l));
-          } else {
-            throttledFetch();
-          }
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user]);
-
-  const fetchLeads = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('crm_leads').select('*').eq('workspace_id', user?.workspace_id);
-    setLeads(data || []);
-    setLoading(false);
-  };
+  const { leads, loading } = useCRMData();
 
   const wonLeads = leads.filter(l => ['Won (Converted)', 'Completed'].includes(l.status));
   const lostLeads = leads.filter(l => l.status === 'Lost');

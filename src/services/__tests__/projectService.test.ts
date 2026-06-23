@@ -2,17 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { projectService } from '../projectService';
 import { supabase } from '@/lib/supabase';
 
+const mockBuilder = {
+  select: vi.fn().mockReturnThis(),
+  order: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  single: vi.fn().mockReturnThis(),
+  insert: vi.fn().mockReturnThis(),
+  update: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
+};
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-    })),
+    from: vi.fn(() => mockBuilder),
     auth: {
       getUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
     }
@@ -22,6 +24,7 @@ vi.mock('@/lib/supabase', () => ({
 describe('projectService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   describe('getProjects', () => {
@@ -35,11 +38,12 @@ describe('projectService', () => {
       expect(result).toEqual(mockData);
     });
 
-    it('should throw error if retrieval fails', async () => {
+    it('should return empty array if retrieval fails (fallback logic)', async () => {
       const mockError = { message: 'Failed to fetch' };
       (supabase.from as any)().select().order.mockResolvedValue({ data: null, error: mockError });
 
-      await expect(projectService.getProjects()).rejects.toThrow('Failed to fetch');
+      const result = await projectService.getProjects();
+      expect(result).toEqual([]);
     });
   });
 

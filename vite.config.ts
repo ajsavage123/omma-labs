@@ -44,6 +44,11 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    watch: {
+      ignored: ['**/playwright-report/**', '**/tests/**', '**/dist/**']
+    }
+  },
   build: {
     chunkSizeWarningLimit: 2000, // Increase warning limit to 2MB
     rollupOptions: {

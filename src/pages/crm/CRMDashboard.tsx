@@ -1,83 +1,10 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Loader2, TrendingUp, Clock, AlertCircle, Briefcase, IndianRupee, CheckCircle2 } from "lucide-react";
+import { useCRMData } from "@/contexts/CRMDataContext";
 
 export default function CRMDashboard() {
-  const { user } = useAuth();
-  const [leads, setLeads] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user?.workspace_id) {
-      const loadData = () => Promise.all([fetchLeads(), fetchTasks()]).finally(() => setLoading(false));
-      loadData();
-
-      let leadsTimeout: NodeJS.Timeout;
-      let tasksTimeout: NodeJS.Timeout;
-      
-      const throttledLeads = () => {
-        clearTimeout(leadsTimeout);
-        leadsTimeout = setTimeout(fetchLeads, 1000);
-      };
-
-      const throttledTasks = () => {
-        clearTimeout(tasksTimeout);
-        tasksTimeout = setTimeout(fetchTasks, 1000);
-      };
-
-      // Enable Realtime Subscription for Dashboard (Leads & Tasks)
-      const leadsChannel = supabase
-        .channel('dashboard_leads_sync')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'crm_leads', 
-          filter: `workspace_id=eq.${user.workspace_id}` 
-        }, (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setLeads(prev => prev.map(l => l.id === payload.new.id ? { ...l, ...payload.new } : l));
-          } else {
-            throttledLeads();
-          }
-        })
-        .subscribe();
-
-      const tasksChannel = supabase
-        .channel('dashboard_tasks_sync')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'crm_tasks', 
-          filter: `workspace_id=eq.${user.workspace_id}` 
-        }, (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setTasks(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
-          } else {
-            throttledTasks();
-          }
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(leadsChannel);
-        supabase.removeChannel(tasksChannel);
-      };
-    }
-  }, [user]);
-
-  const fetchLeads = async () => {
-    const { data } = await supabase.from('crm_leads').select('*').eq('workspace_id', user?.workspace_id);
-    setLeads(data || []);
-  };
-
-  const fetchTasks = async () => {
-    const { data } = await supabase.from('crm_tasks').select(`*, crm_leads(company_name, contact_person)`).eq('workspace_id', user?.workspace_id).order('due_date', { ascending: true });
-    setTasks(data || []);
-  };
+  const { leads, tasks, loading } = useCRMData();
 
   const activeLeads = leads.filter(l => !['Lost', 'Not Interested'].includes(l.status));
   const pipelineValue = activeLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);

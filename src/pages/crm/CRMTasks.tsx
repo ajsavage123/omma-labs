@@ -1,19 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, CheckCircle2, Phone, Mail, Trash2 } from "lucide-react";
+import { Plus, CheckCircle2, Phone, Mail, Trash2, ArrowRight, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/Toast";
-
+import { useCRMData } from "@/contexts/CRMDataContext";
 
 export default function CRMTasks() {
   const { user } = useAuth();
   const { toast, toasts, removeToast } = useToast();
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tasks, loading, refreshTasks } = useCRMData();
   const [activeTab, setActiveTab] = useState("today");
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
   const [checkedTasks, setCheckedTasks] = useState<string[]>([]);
@@ -29,65 +28,6 @@ export default function CRMTasks() {
     priority: 'Medium'
   });
 
-  useEffect(() => {
-    if (user?.workspace_id) {
-      fetchTasks();
-
-      let fetchTimeout: NodeJS.Timeout;
-      const throttledFetch = () => {
-        clearTimeout(fetchTimeout);
-        fetchTimeout = setTimeout(fetchTasks, 1000);
-      };
-
-      const channel = supabase
-        .channel('crm_tasks_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'crm_tasks',
-            filter: `workspace_id=eq.${user.workspace_id}`
-          },
-          (payload) => {
-            if (payload.eventType === 'UPDATE') {
-              setTasks(prev => prev.map(task => 
-                task.id === payload.new.id ? { ...task, ...payload.new } : task
-              ));
-            } else {
-              throttledFetch();
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          console.log("CRMTasks Realtime status:", status, err);
-        });
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user]);
-
-  const fetchTasks = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('crm_tasks')
-        .select(`*, crm_leads(company_name, contact_person)`)
-        .eq('workspace_id', user?.workspace_id)
-        .order('due_date', { ascending: true });
-      
-      if (error) throw error;
-      setTasks(data || []);
-    } catch (error) {
-      console.error("Fetch Tasks Error:", error);
-      toast.error("Failed to load tasks");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchLeads = async () => {
     const { data } = await supabase
       .from('crm_leads')
@@ -100,31 +40,7 @@ export default function CRMTasks() {
     e.preventDefault();
     if (!user?.workspace_id) return;
     
-    const tempId = Math.random().toString(36).substring(2, 9);
-    const selectedLead = leads.find(l => l.id === formData.lead_id);
-    const newTask = {
-      id: tempId,
-      workspace_id: user.workspace_id,
-      lead_id: formData.lead_id || null,
-      title: formData.title,
-      due_date: formData.due_date,
-      due_time: formData.due_time || null,
-      activity_type: formData.activity_type,
-      priority: formData.priority,
-      status: 'Pending',
-      assigned_to: user.id,
-      created_at: new Date().toISOString(),
-      crm_leads: selectedLead ? {
-        company_name: selectedLead.company_name,
-        contact_person: selectedLead.contact_person
-      } : null
-    };
-
-    // Optimistic UI update
-    setTasks(prev => [newTask, ...prev].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()));
-    setIsModalOpen(false);
     setSubmitting(true);
-
     try {
       const { error } = await supabase.from('crm_tasks').insert([{
         workspace_id: user.workspace_id,
@@ -148,11 +64,11 @@ export default function CRMTasks() {
         activity_type: 'Task',
         priority: 'Medium'
       });
-      fetchTasks();
+      setIsModalOpen(false);
+      refreshTasks();
     } catch (error) {
       toast.error("Failed to create task");
       console.error(error);
-      fetchTasks(); // Revert on error
     } finally {
       setSubmitting(false);
     }
@@ -162,40 +78,33 @@ export default function CRMTasks() {
     const isCompleted = checkedTasks.includes(id);
     const newStatus = isCompleted ? 'Pending' : 'Completed';
     
-    // Optimistic UI update for both checkbox AND the task status
     if (isCompleted) {
       setCheckedTasks(prev => prev.filter(t => t !== id));
     } else {
       setCheckedTasks(prev => [...prev, id]);
     }
 
-    setTasks(prev => prev.map(task => 
-      task.id === id ? { ...task, status: newStatus } : task
-    ));
-
     const { error } = await supabase.from('crm_tasks').update({ status: newStatus }).eq('id', id);
     
-    if (!error && !isCompleted) {
-      toast.success('Task marked as completed');
-    } else if (error) {
-      // Revert if failed
-      fetchTasks();
+    if (!error) {
+      if (!isCompleted) toast.success('Task marked as completed');
+      refreshTasks();
+    } else {
+      toast.error("Failed to update task");
     }
   };
 
   const deleteTask = async (id: string) => {
     if (!confirm("Delete this task permanently?")) return;
     
-    // Optimistic UI
-    setTasks(prev => prev.filter(t => t.id !== id));
-    
     try {
       const { error } = await supabase.from('crm_tasks').delete().eq('id', id);
       if (error) throw error;
       toast.success("Task deleted");
+      refreshTasks();
     } catch (error) {
       toast.error("Failed to delete task");
-      fetchTasks(); // Revert on error
+      console.error(error);
     }
   };
 
@@ -235,7 +144,11 @@ export default function CRMTasks() {
     { id: "completed", label: "Done", count: counts.completed },
   ];
 
-  if (loading) return null;
+  if (loading) return (
+    <div className="min-h-[50vh] flex items-center justify-center">
+      <Loader2 className="animate-spin text-primary" size={32} />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -313,12 +226,12 @@ export default function CRMTasks() {
                     <select
                       value={formData.activity_type}
                       onChange={e => setFormData({...formData, activity_type: e.target.value})}
-                      className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all appearance-none"
+                      className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all appearance-none cursor-pointer"
                     >
-                      <option value="Task">📋 Task</option>
-                      <option value="Call">📞 Call</option>
-                      <option value="Email">✉️ Email</option>
-                      <option value="Meeting">🤝 Meeting</option>
+                      <option value="Task" className="bg-background text-foreground">📋 Task</option>
+                      <option value="Call" className="bg-background text-foreground">📞 Call</option>
+                      <option value="Email" className="bg-background text-foreground">✉️ Email</option>
+                      <option value="Meeting" className="bg-background text-foreground">🤝 Meeting</option>
                     </select>
                   </div>
                   <div>
@@ -326,11 +239,11 @@ export default function CRMTasks() {
                     <select
                       value={formData.priority}
                       onChange={e => setFormData({...formData, priority: e.target.value})}
-                      className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all appearance-none"
+                      className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all appearance-none cursor-pointer"
                     >
-                      <option value="High">🔴 High</option>
-                      <option value="Medium">🟡 Medium</option>
-                      <option value="Low">🟢 Low</option>
+                      <option value="High" className="bg-background text-foreground">🔴 High</option>
+                      <option value="Medium" className="bg-background text-foreground">🟡 Medium</option>
+                      <option value="Low" className="bg-background text-foreground">🟢 Low</option>
                     </select>
                   </div>
                 </div>
@@ -340,12 +253,12 @@ export default function CRMTasks() {
                   <select
                     value={formData.lead_id}
                     onChange={e => setFormData({...formData, lead_id: e.target.value})}
-                    className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all appearance-none"
+                    className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all appearance-none cursor-pointer"
                   >
-                    <option value="">No lead linked</option>
+                    <option value="" className="bg-background text-foreground">No lead linked</option>
                     {leads.map(lead => (
-                      <option key={lead.id} value={lead.id}>
-                        {lead.contact_person} - {lead.company_name}
+                      <option key={lead.id} value={lead.id} className="bg-background text-foreground">
+                        {lead.company_name || lead.contact_person} {lead.contact_person && lead.contact_person !== lead.company_name ? `(${lead.contact_person})` : ''}
                       </option>
                     ))}
                   </select>
@@ -456,25 +369,35 @@ export default function CRMTasks() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1 font-semibold">
-                      {task.activity_type === "Call" ? <Phone size={12} /> : <Mail size={12} />}
-                      {task.activity_type || 'Task'}
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mt-2 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <div className="flex items-center gap-1 font-semibold">
+                        {task.activity_type === "Call" ? <Phone size={12} /> : <Mail size={12} />}
+                        {task.activity_type || 'Task'}
+                      </div>
+                      <span className="font-medium">
+                        {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'} 
+                        {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
+                      </span>
+                      {task.crm_leads && (
+                        <>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="font-semibold text-foreground">
+                            {task.crm_leads.company_name || task.crm_leads.contact_person}
+                          </span>
+                        </>
+                      )}
                     </div>
-                    <span className="font-medium">
-                      {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'} 
-                      {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
-                    </span>
+                    
+                    {/* View Lead highlighted link */}
                     {task.crm_leads && (
-                      <>
-                        <span className="hidden sm:inline">•</span>
-                        <Link 
-                          to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads.company_name)}`}
-                          className="font-semibold text-primary/80 hover:text-primary hover:underline transition-colors"
-                        >
-                          {task.crm_leads.contact_person} ({task.crm_leads.company_name})
-                        </Link>
-                      </>
+                      <Link 
+                        to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads.company_name || task.crm_leads.contact_person)}`}
+                        className="flex items-center gap-1 px-3 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0"
+                      >
+                        View Lead
+                        <ArrowRight size={10} />
+                      </Link>
                     )}
                   </div>
                 </div>
@@ -482,8 +405,6 @@ export default function CRMTasks() {
             </Card>
           );
         })}
-
-
 
         {filteredTasks.length === 0 && (
           <div className="text-center py-12">

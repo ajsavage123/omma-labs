@@ -17,6 +17,7 @@ const mockProject = {
   name: 'Innovation Hub',
   description: 'Test project',
   status: 'active',
+  project_type: 'internal',
   created_at: new Date().toISOString(),
   project_stages: [
     { id: '1', project_id: '1', stage_name: 'ideology', status: 'completed', started_at: '2025-01-01', completed_at: '2025-01-02' },
@@ -50,16 +51,16 @@ describe('ProjectCard', () => {
     expect(screen.getByText('Research')).toBeInTheDocument();
   });
 
-  it('calculates progress correctly (1/6 completed)', () => {
+  it('calculates progress correctly (1/5 completed)', () => {
     render(
       <BrowserRouter>
         <ProjectCard project={mockProject as any} />
       </BrowserRouter>
     );
 
-    // 1 completed stage out of 6 (totalStages is 6 in component)
-    // 1/6 = 16.6... -> 17%
-    expect(screen.getByText('17%')).toBeInTheDocument();
+    // 1 completed stage out of 5 (totalStages is 5 in component for internal projects)
+    // 1/5 = 20%
+    expect(screen.getByText('20%')).toBeInTheDocument();
   });
 
   it('navigates to project details on click', () => {
