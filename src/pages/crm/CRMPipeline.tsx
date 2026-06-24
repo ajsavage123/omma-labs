@@ -8,6 +8,7 @@ import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/Toast";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { notificationService } from "@/utils/notificationService";
 
 const STAGES = [
   { 
@@ -92,6 +93,7 @@ export default function CRMPipeline() {
   const { leads, loading, refreshLeads } = useCRMData();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [highlightedLeadId, setHighlightedLeadId] = useState<string | null>(null);
   
   // Note Logger state
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -108,6 +110,7 @@ export default function CRMPipeline() {
   const [taskFormData, setTaskFormData] = useState({
     title: '',
     task_type: 'call',
+    custom_task_type: '',
     scheduled_date: '',
     scheduled_time: '09:00',
     scheduled_ampm: 'AM',
@@ -185,6 +188,7 @@ export default function CRMPipeline() {
     setTaskFormData({
       title: `Follow up with ${lead.company_name || lead.contact_person}`,
       task_type: 'call',
+      custom_task_type: '',
       scheduled_date: now.toISOString().split('T')[0],
       scheduled_time: time12,
       scheduled_ampm: ampm,
@@ -268,11 +272,20 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
       
       const dueTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
 
+      let finalTaskType = taskFormData.task_type;
+      if (taskFormData.task_type === 'custom') {
+        finalTaskType = taskFormData.custom_task_type.trim() || 'Custom Action';
+      }
+
       const { error } = await supabase
         .from('crm_tasks')
         .insert([{
           title: taskFormData.title,
-          activity_type: taskFormData.task_type === 'call' ? 'Call' : taskFormData.task_type === 'email' ? 'Email' : taskFormData.task_type === 'meeting' ? 'Meeting' : 'Task',
+          activity_type: finalTaskType === 'call' ? 'Call' : 
+                         finalTaskType === 'email' ? 'Email' : 
+                         finalTaskType === 'meeting' ? 'Meeting' : 
+                         finalTaskType === 'quotation' ? 'Quotation' : 
+                         finalTaskType,
           lead_id: taskFormData.lead_id,
           due_date: taskFormData.scheduled_date,
           due_time: dueTime,
@@ -283,6 +296,12 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
         }]);
 
       if (error) throw error;
+      
+      if (taskFormData.lead_id) {
+        setHighlightedLeadId(taskFormData.lead_id);
+        setTimeout(() => setHighlightedLeadId(null), 5000);
+      }
+      notificationService.playSound('success');
       
       toast.success(`Action scheduled successfully!`);
       setIsTaskModalOpen(false);
@@ -595,8 +614,17 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                     const hasPhone = !!lead.phone;
                     const hasEmail = !!lead.email;
 
+                    const isHighlighted = highlightedLeadId === lead.id;
+
                     return (
-                      <Card key={lead.id} className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between`}>
+                      <Card 
+                        key={lead.id} 
+                        className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between ${
+                          isHighlighted 
+                            ? 'ring-4 ring-amber-500 border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.5)] scale-[1.02] bg-amber-500/5 z-20' 
+                            : ''
+                        }`}
+                      >
                         {/* Stage Navigation Arrows */}
                         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 lg:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                           <button 
@@ -769,6 +797,18 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                                   </button>
                                 </div>
                               ))}
+                          </div>
+                        )}
+
+                        {/* Display Logged Notes */}
+                        {lead.notes && (
+                          <div className="mt-2.5 p-2.5 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
+                            <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                              <Clipboard size={10} className="text-indigo-400" /> Recent Note
+                            </p>
+                            <div className="text-[10px] text-muted-foreground leading-relaxed max-h-[75px] overflow-y-auto custom-scrollbar whitespace-pre-wrap font-medium">
+                              {lead.notes.split('\n\n---\n\n')[0].trim()}
+                            </div>
                           </div>
                         )}
 
@@ -1089,8 +1129,22 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                       <option value="email" className="bg-background text-foreground">📧 Email</option>
                       <option value="meeting" className="bg-background text-foreground">🤝 Meeting</option>
                       <option value="quotation" className="bg-background text-foreground">📄 Send Quotation</option>
+                      <option value="custom" className="bg-background text-foreground">✍️ Custom...</option>
                     </select>
                   </div>
+                  {taskFormData.task_type === 'custom' && (
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Custom Action Name *</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={taskFormData.custom_task_type}
+                        onChange={(e) => setTaskFormData({...taskFormData, custom_task_type: e.target.value})}
+                        placeholder="e.g. Site Visit, Presentation, Code Review"
+                        className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold" 
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Schedule Date</label>
                     <input 

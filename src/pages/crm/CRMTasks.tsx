@@ -3,11 +3,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, CheckCircle2, Phone, Mail, Trash2, ArrowRight, Loader2 } from "lucide-react";
+import { Plus, CheckCircle2, Phone, Mail, Trash2, ArrowRight, Loader2, Calendar, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/Toast";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { notificationService } from "@/utils/notificationService";
 
 export default function CRMTasks() {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function CRMTasks() {
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
   const [checkedTasks, setCheckedTasks] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   const [leads, setLeads] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -25,6 +27,7 @@ export default function CRMTasks() {
     due_date: new Date().toISOString().split('T')[0],
     due_time: '',
     activity_type: 'Task',
+    custom_activity_type: '',
     priority: 'Medium'
   });
 
@@ -42,19 +45,35 @@ export default function CRMTasks() {
     
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('crm_tasks').insert([{
+      let finalActivityType = formData.activity_type;
+      if (formData.activity_type === 'custom') {
+        finalActivityType = formData.custom_activity_type.trim() || 'Custom Action';
+      }
+
+      const { data, error } = await supabase.from('crm_tasks').insert([{
         workspace_id: user.workspace_id,
         lead_id: formData.lead_id || null,
         title: formData.title,
         due_date: formData.due_date,
         due_time: formData.due_time || null,
-        activity_type: formData.activity_type,
+        activity_type: finalActivityType === 'Task' ? 'Task' : 
+                       finalActivityType === 'Call' ? 'Call' : 
+                       finalActivityType === 'Email' ? 'Email' : 
+                       finalActivityType === 'Meeting' ? 'Meeting' : 
+                       finalActivityType,
         priority: formData.priority,
         status: 'Pending',
         assigned_to: user.id
-      }]);
+      }]).select().single();
 
       if (error) throw error;
+      
+      if (data?.id) {
+        setHighlightedTaskId(data.id);
+        setTimeout(() => setHighlightedTaskId(null), 5000);
+      }
+      notificationService.playSound('success');
+
       toast.success("Task created");
       setFormData({
         title: '',
@@ -62,6 +81,7 @@ export default function CRMTasks() {
         due_date: new Date().toISOString().split('T')[0],
         due_time: '',
         activity_type: 'Task',
+        custom_activity_type: '',
         priority: 'Medium'
       });
       setIsModalOpen(false);
@@ -232,6 +252,7 @@ export default function CRMTasks() {
                       <option value="Call" className="bg-background text-foreground">📞 Call</option>
                       <option value="Email" className="bg-background text-foreground">✉️ Email</option>
                       <option value="Meeting" className="bg-background text-foreground">🤝 Meeting</option>
+                      <option value="custom" className="bg-background text-foreground">✍️ Custom...</option>
                     </select>
                   </div>
                   <div>
@@ -247,6 +268,20 @@ export default function CRMTasks() {
                     </select>
                   </div>
                 </div>
+
+                {formData.activity_type === 'custom' && (
+                  <div>
+                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Custom Action Name *</label>
+                    <input
+                      required
+                      type="text"
+                      value={formData.custom_activity_type}
+                      onChange={e => setFormData({...formData, custom_activity_type: e.target.value})}
+                      placeholder="e.g. Site Visit, Presentation, Code Review"
+                      className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Related Lead (Optional)</label>
@@ -334,8 +369,17 @@ export default function CRMTasks() {
               ? 'bg-green-500/15 text-green-500 border-green-500/20' 
               : 'bg-amber-500/15 text-amber-500 border-amber-500/20';
 
+          const isHighlighted = highlightedTaskId === task.id;
+
           return (
-            <Card key={task.id} className={`bg-card border-border p-4 sm:p-5 hover:bg-background/50 transition-colors ${isDone ? 'opacity-60' : ''}`}>
+            <Card 
+              key={task.id} 
+              className={`bg-card border-border p-4 sm:p-5 hover:bg-background/50 transition-all ${isDone ? 'opacity-60' : ''} ${
+                isHighlighted 
+                  ? 'ring-4 ring-indigo-500 border-indigo-400 shadow-[0_0_25px_rgba(99,102,241,0.4)] scale-[1.01] bg-indigo-500/5 z-20' 
+                  : ''
+              }`}
+            >
               <div className="flex items-start gap-3 sm:gap-4">
                 {/* Checkbox */}
                 <button
@@ -372,7 +416,15 @@ export default function CRMTasks() {
                   <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mt-2 text-xs text-muted-foreground">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <div className="flex items-center gap-1 font-semibold">
-                        {task.activity_type === "Call" ? <Phone size={12} /> : <Mail size={12} />}
+                        {task.activity_type === "Call" ? (
+                          <Phone size={12} />
+                        ) : task.activity_type === "Email" ? (
+                          <Mail size={12} />
+                        ) : task.activity_type === "Meeting" ? (
+                          <Calendar size={12} />
+                        ) : (
+                          <FileText size={12} />
+                        )}
                         {task.activity_type || 'Task'}
                       </div>
                       <span className="font-medium">

@@ -18,7 +18,7 @@ export const notificationService = {
     };
     
     const audio = new Audio(sounds[type]);
-    audio.volume = 0.5;
+    audio.volume = 1.0;
     audio.play().catch(e => console.log('Audio play failed:', e));
   },
 

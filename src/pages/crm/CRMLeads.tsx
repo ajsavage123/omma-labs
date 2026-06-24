@@ -215,7 +215,20 @@ export default function CRMLeads() {
   };
 
   const deleteAllLeads = async () => {
-    if (!leads.length) return toast.error("No leads to delete");
+    console.log("deleteAllLeads handler triggered. State:", { isAdmin, workspaceId: user?.workspace_id, leadsCount: leads?.length, submitting });
+
+    if (!isAdmin) {
+      console.warn("Delete aborted: User is not an admin.");
+      return toast.error("Only administrators can delete all leads");
+    }
+    if (!user?.workspace_id) {
+      console.warn("Delete aborted: Workspace context not found.");
+      return toast.error("Workspace context not found");
+    }
+    if (!leads.length) {
+      console.warn("Delete aborted: Leads list is empty.");
+      return toast.error("No leads to delete");
+    }
     
     const confirm1 = confirm("⚠ WARNING: This will permanently delete ALL leads in your workspace. Are you absolutely sure?");
     if (!confirm1) return;
@@ -228,7 +241,7 @@ export default function CRMLeads() {
       const { error } = await supabase
         .from('crm_leads')
         .delete()
-        .eq('workspace_id', user?.workspace_id);
+        .eq('workspace_id', user.workspace_id);
       
       if (error) throw error;
       
@@ -475,15 +488,17 @@ export default function CRMLeads() {
             <Upload size={14} className="sm:mr-2" />
             <span className="hidden sm:inline">Export</span>
           </Button>
-          <Button 
-            variant="outline"
-            onClick={deleteAllLeads}
-            disabled={submitting}
-            className="border-rose-500/20 hover:bg-rose-500/10 text-rose-500 transition-all px-2.5 sm:px-4 h-9"
-          >
-            <Trash2 size={14} className="sm:mr-2" />
-            <span className="hidden sm:inline">Delete All</span>
-          </Button>
+          {isAdmin && (
+            <Button 
+              variant="outline"
+              onClick={deleteAllLeads}
+              disabled={submitting}
+              className="border-rose-500/20 hover:bg-rose-500/10 text-rose-500 transition-all px-2.5 sm:px-4 h-9"
+            >
+              <Trash2 size={14} className="sm:mr-2" />
+              <span className="hidden sm:inline">Delete All</span>
+            </Button>
+          )}
         </div>
       </div>
 

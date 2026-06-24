@@ -90,11 +90,11 @@ export default function LoginPage() {
         <div className="w-full max-w-md lg:w-[450px]">
           <div className="bg-white/10 backdrop-blur-2xl p-10 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] border border-white/20 relative overflow-hidden">
             {/* Inner subtle glow */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-purple-500"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600"></div>
 
             <div className="text-center mb-10">
               <div className="flex justify-center mb-6">
-                <OomaLogo size={64} className="drop-shadow-[0_0_15px_rgba(99,102,241,0.4)]" />
+                <OomaLogo size={64} className="drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
                 {isSignUp ? 'Join Innovation Network' : 'Access Workspace'}

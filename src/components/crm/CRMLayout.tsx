@@ -115,10 +115,8 @@ export default function CRMLayout({ children }: LayoutProps) {
         {/* Logo Section - TIGHT & CLEAN */}
         <div className="px-5 py-6 flex items-center justify-between">
           <div className={`flex items-center gap-3 ${!sidebarOpen && !isMobile && "justify-center w-full"}`}>
-            {/* Original OomaLogo - the ¾ arc gradient mark */}
-            <div className="relative flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:shadow-[0_0_30px_rgba(99,102,241,0.35)] transition-all hover:scale-105">
-              <OomaLogo size={32} />
-            </div>
+            {/* Original OomaLogo - the ¾ arc mark */}
+            <OomaLogo size={32} className="hover:scale-105 transition-transform" />
             {(sidebarOpen || isMobile) && (
               <div className="flex flex-col">
                 <span className="text-md font-bold tracking-tight text-white uppercase">OOMA</span>
