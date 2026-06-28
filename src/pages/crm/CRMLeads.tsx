@@ -25,10 +25,16 @@ const STAGE_COLORS: Record<string, string> = {
 function formatUrl(url: string) {
   if (!url) return "";
   const trimmed = url.trim();
-  if (!/^https?:\/\//i.test(trimmed)) {
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  // Check if it looks like a URL (no spaces/commas, and contains a dot/slash)
+  const looksLikeUrl = !/[\s,]+/.test(trimmed) && (trimmed.includes('.') || trimmed.includes('/'));
+  if (looksLikeUrl) {
     return `https://${trimmed}`;
   }
-  return trimmed;
+  // Otherwise, treat as textual address and construct a search query URL
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
 }
 
 export default function CRMLeads() {
@@ -65,6 +71,7 @@ export default function CRMLeads() {
     phone: '',
     estimated_value: '',
     service_interest: '',
+    business_type: '',
     website: '',
     external_link: '',
     assigned_to: '',
@@ -102,6 +109,7 @@ export default function CRMLeads() {
       phone: '', 
       estimated_value: '', 
       service_interest: '',
+      business_type: '',
       website: '',
       external_link: '',
       assigned_to: user?.id || '',
@@ -124,6 +132,7 @@ export default function CRMLeads() {
       phone: lead.phone || '',
       estimated_value: lead.estimated_value === 0 ? '' : (lead.estimated_value || '').toString(),
       service_interest: lead.service_interest || '',
+      business_type: lead.business_type || '',
       website: lead.website || '',
       external_link: lead.external_link || '',
       assigned_to: lead.assigned_to || '',
@@ -163,6 +172,7 @@ export default function CRMLeads() {
         phone: formData.phone.trim() || null,
         estimated_value: estimatedValueNum,
         service_interest: formData.service_interest.trim() || null,
+        business_type: formData.business_type.trim() || null,
         website: formData.website.trim() || null,
         external_link: formData.external_link.trim() || null,
         assigned_to: formData.assigned_to || null,
@@ -298,9 +308,14 @@ export default function CRMLeads() {
       complete: async (results) => {
         try {
           const newLeads = results.data.map((row: any) => {
+            const matchedKeys: string[] = [];
             const getField = (keys: string[]) => {
               const key = Object.keys(row).find(k => keys.includes(k.toLowerCase().trim()));
-              return key ? row[key] : null;
+              if (key) {
+                matchedKeys.push(key.toLowerCase().trim());
+                return row[key];
+              }
+              return null;
             };
 
             // Smart mapping fallbacks:
@@ -311,8 +326,20 @@ export default function CRMLeads() {
             const value = parseFloat(getField(['value', 'estimated value', 'amount', 'revenue', 'estimated_value'])?.replace(/[^0-9.]/g, '') || '0');
             const budget = parseFloat(getField(['budget', 'estimated budget'])?.replace(/[^0-9.]/g, '') || '0');
             const status = getField(['status', 'stage', 'lead status']) || 'New Leads';
-            const website = getField(['website', 'url', 'link', 'website link']);
-            const location = getField(['location', 'address', 'google map link', 'map', 'google maps link', 'external_link']);
+            const website = getField(['website', 'url', 'link', 'website link', 'website url', 'website_url', 'web url', 'weblink']);
+            const businessType = getField(['business category', 'category', 'business type', 'business_type', 'industry', 'type']);
+
+            // Prioritise explicit map link headers to avoid matching text address headers
+            let location = getField([
+              'google map link', 'google maps link', 'google maps url', 'google map url', 
+              'maps url', 'map url', 'maps link', 'map link', 'external_link',
+              'google maps', 'google map'
+            ]);
+            // Fallback to general location/address headers if no explicit link header was found
+            if (!location) {
+              location = getField(['location', 'address', 'map', 'maps', 'location link', 'address link']);
+            }
+
             const service = getField(['service', 'service interest', 'interest', 'service_interest']);
             const source = getField(['source', 'lead source']) || 'CSV Import';
             const notes = getField(['notes', 'comment', 'description']);
@@ -331,26 +358,11 @@ export default function CRMLeads() {
             if (!name) name = 'Unknown Contact';
             if (!company) company = 'Unknown Company';
 
-            // Collect all other keys into custom_data
-            const knownKeys = [
-              'name', 'contact name', 'contact_person', 'person', 'contact person',
-              'company', 'company name', 'business', 'company_name',
-              'email', 'email address', 'email_address',
-              'phone', 'mobile', 'contact number', 'phone number',
-              'value', 'estimated value', 'amount', 'revenue', 'estimated_value',
-              'budget', 'estimated budget',
-              'status', 'stage', 'lead status',
-              'website', 'url', 'link', 'website link',
-              'location', 'address', 'google map link', 'map', 'google maps link', 'external_link',
-              'service', 'service interest', 'interest', 'service_interest',
-              'source', 'lead source',
-              'notes', 'comment', 'description',
-              'payment status', 'payment_status',
-              'amount paid', 'amount_paid'
-            ];
+            // Collect all other keys into custom_data (only keys that were not actually matched and mapped)
             const customData: any = {};
             Object.keys(row).forEach(k => {
-              if (!knownKeys.includes(k.toLowerCase().trim())) {
+              const cleanedK = k.toLowerCase().trim();
+              if (!matchedKeys.includes(cleanedK)) {
                 customData[k] = row[k];
               }
             });
@@ -365,6 +377,7 @@ export default function CRMLeads() {
               status: status,
               website: website || null,
               external_link: location || null,
+              business_type: businessType || null,
               service_interest: service || null, // Map service correctly or leave blank
               source: source,
               notes: notes || null,
@@ -572,9 +585,14 @@ export default function CRMLeads() {
                       <td className="pl-4 text-center">
                         {isExpanded ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
                       </td>
-                      <td className="px-4 lg:px-6 py-4 min-w-[180px]">
-                        <div className="font-semibold text-foreground text-sm tracking-tight leading-snug">
+                       <td className="px-4 lg:px-6 py-4 min-w-[280px] break-words">
+                        <div className="font-semibold text-foreground text-sm tracking-tight leading-snug flex flex-wrap items-center gap-1.5">
                           {lead.company_name || lead.contact_person}
+                          {lead.business_type && (
+                            <span className="px-1.5 py-0.5 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 text-[8px] font-black rounded-lg uppercase tracking-wider">
+                              {lead.business_type}
+                            </span>
+                          )}
                         </div>
                         {lead.contact_person && lead.contact_person !== lead.company_name && (
                           <div className="text-xs text-muted-foreground mt-0.5 font-bold uppercase tracking-wider">
@@ -605,14 +623,14 @@ export default function CRMLeads() {
                              <a href={formatUrl(lead.website)} target="_blank" rel="noopener noreferrer" 
                                 className="p-2 bg-indigo-600/10 border border-indigo-500/30 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-90 group/link"
                                 title="Visit Website">
-                                <Globe size={14} className="group-hover/link:rotate-12 transition-transform" />
+                                <Globe size={18} className="group-hover/link:rotate-12 transition-transform" />
                              </a>
                            )}
                            {lead.external_link && (
                              <a href={formatUrl(lead.external_link)} target="_blank" rel="noopener noreferrer" 
                                 className="p-2 bg-rose-600/10 border border-rose-500/30 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-90 group/link"
                                 title="Google Maps">
-                                <MapPin size={14} className="group-hover/link:-translate-y-0.5 transition-transform" />
+                                <MapPin size={18} className="group-hover/link:-translate-y-0.5 transition-transform" />
                              </a>
                            )}
                            {!lead.website && !lead.external_link && <span className="text-muted-foreground/30">—</span>}
@@ -696,6 +714,30 @@ export default function CRMLeads() {
                               <div className="flex justify-between py-1.5 border-b border-border/50">
                                 <span className="text-muted-foreground font-medium">Tags:</span>
                                 <span className="font-bold">{lead.tags || '—'}</span>
+                              </div>
+                              <div className="flex justify-between py-1.5 border-b border-border/50">
+                                <span className="text-muted-foreground font-medium">Business Category:</span>
+                                <span className="font-bold">{lead.business_type || '—'}</span>
+                              </div>
+                              <div className="flex justify-between py-1.5 border-b border-border/50">
+                                <span className="text-muted-foreground font-medium">Website:</span>
+                                <span className="font-bold">
+                                  {lead.website ? (
+                                    <a href={formatUrl(lead.website)} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                                      <Globe size={12} /> {lead.website}
+                                    </a>
+                                  ) : '—'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between py-1.5 border-b border-border/50">
+                                <span className="text-muted-foreground font-medium">Maps Link/Address:</span>
+                                <span className="font-bold max-w-[140px] truncate block" title={lead.external_link || ''}>
+                                  {lead.external_link ? (
+                                    <a href={formatUrl(lead.external_link)} target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline flex items-center gap-1">
+                                      <MapPin size={12} /> View Map
+                                    </a>
+                                  ) : '—'}
+                                </span>
                               </div>
                             </div>
 
@@ -831,6 +873,20 @@ export default function CRMLeads() {
                 </div>
               </div>
 
+              {/* Business Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Business Category / Type</label>
+                  <input 
+                    type="text" 
+                    value={formData.business_type}
+                    onChange={(e) => setFormData({...formData, business_type: e.target.value})}
+                    placeholder="e.g. Gym, Salon, Restaurant, Electrician"
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                  />
+                </div>
+              </div>
+
               {/* Website & Google Maps */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -844,12 +900,12 @@ export default function CRMLeads() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Google Maps Link</label>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Google Maps Link / Address</label>
                   <input 
                     type="text" 
                     value={formData.external_link}
                     onChange={(e) => setFormData({...formData, external_link: e.target.value})}
-                    placeholder="https://maps.google.com/..."
+                    placeholder="https://maps.google.com/... or 123 Main St"
                     className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                   />
                 </div>

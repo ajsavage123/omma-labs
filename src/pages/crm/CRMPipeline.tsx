@@ -8,7 +8,6 @@ import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/Toast";
 import { useCRMData } from "@/contexts/CRMDataContext";
-import { notificationService } from "@/utils/notificationService";
 
 const STAGES = [
   { 
@@ -80,10 +79,16 @@ const STAGES = [
 function formatUrl(url: string) {
   if (!url) return "";
   const trimmed = url.trim();
-  if (!/^https?:\/\//i.test(trimmed)) {
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  // Check if it looks like a URL (no spaces/commas, and contains a dot/slash)
+  const looksLikeUrl = !/[\s,]+/.test(trimmed) && (trimmed.includes('.') || trimmed.includes('/'));
+  if (looksLikeUrl) {
     return `https://${trimmed}`;
   }
-  return trimmed;
+  // Otherwise, treat as textual address and construct a search query URL
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
 }
 
 export default function CRMPipeline() {
@@ -93,7 +98,28 @@ export default function CRMPipeline() {
   const { leads, loading, refreshLeads } = useCRMData();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [highlightedLeadId, setHighlightedLeadId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 15000); // refresh every 15s to update card highlighting
+    return () => clearInterval(timer);
+  }, []);
+
+  const isLeadTaskDue = (lead: any) => {
+    if (!lead.crm_tasks || lead.crm_tasks.length === 0) return false;
+    return lead.crm_tasks.some((task: any) => {
+      if (task.status !== 'Pending') return false;
+      let dueDate = new Date(task.due_date);
+      if (task.due_time) {
+        const [hours, minutes] = task.due_time.split(':');
+        dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      }
+      const diffMs = dueDate.getTime() - currentTime.getTime();
+      return diffMs <= 30000 && diffMs >= -120000;
+    });
+  };
   
   // Note Logger state
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -140,6 +166,7 @@ export default function CRMPipeline() {
     phone: '',
     estimated_value: '',
     service_interest: '',
+    business_type: '',
     website: '',
     external_link: '',
     assigned_to: ''
@@ -297,12 +324,6 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
 
       if (error) throw error;
       
-      if (taskFormData.lead_id) {
-        setHighlightedLeadId(taskFormData.lead_id);
-        setTimeout(() => setHighlightedLeadId(null), 5000);
-      }
-      notificationService.playSound('success');
-      
       toast.success(`Action scheduled successfully!`);
       setIsTaskModalOpen(false);
       refreshLeads();
@@ -337,6 +358,7 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
       phone: '', 
       estimated_value: '', 
       service_interest: '',
+      business_type: '',
       website: '',
       external_link: '',
       assigned_to: user?.id || ''
@@ -354,6 +376,7 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
       phone: lead.phone || '',
       estimated_value: lead.estimated_value === 0 ? '' : (lead.estimated_value || '').toString(),
       service_interest: lead.service_interest || '',
+      business_type: lead.business_type || '',
       website: lead.website || '',
       external_link: lead.external_link || '',
       assigned_to: lead.assigned_to || ''
@@ -385,6 +408,7 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
         phone: formData.phone.trim() || null,
         estimated_value: numericValue,
         service_interest: formData.service_interest.trim() || null,
+        business_type: formData.business_type.trim() || null,
         website: formData.website.trim() || null,
         external_link: formData.external_link.trim() || null,
         workspace_id: user?.workspace_id,
@@ -614,7 +638,7 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                     const hasPhone = !!lead.phone;
                     const hasEmail = !!lead.email;
 
-                    const isHighlighted = highlightedLeadId === lead.id;
+                    const isHighlighted = isLeadTaskDue(lead);
 
                     return (
                       <Card 
@@ -647,12 +671,12 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1 pr-2">
                             {/* Primary Heading is Company Name */}
-                            <h4 className="font-bold text-foreground text-base tracking-tight leading-snug mb-0.5 truncate max-w-[200px]" title={lead.company_name || lead.contact_person}>
+                            <h4 className="font-bold text-foreground text-base tracking-tight leading-snug mb-0.5 break-words" title={lead.company_name || lead.contact_person}>
                               {lead.company_name || lead.contact_person}
                             </h4>
                             {/* Secondary sub-heading is Contact Name */}
                             {lead.contact_person && lead.contact_person !== lead.company_name && (
-                              <p className="text-[10px] text-muted-foreground font-black tracking-wider uppercase whitespace-nowrap truncate max-w-[200px]">
+                              <p className="text-[10px] text-muted-foreground font-black tracking-wider uppercase break-words">
                                 {lead.contact_person}
                               </p>
                             )}
@@ -689,18 +713,23 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                                {lead.service_interest}
                              </div>
                            )}
+                           {lead.business_type && (
+                              <div className="px-2.5 py-1 bg-indigo-600/10 border border-indigo-500/25 text-indigo-400 text-[9px] font-black rounded-lg uppercase tracking-wider whitespace-nowrap">
+                                {lead.business_type}
+                              </div>
+                           )}
                            {lead.website && (
                               <a href={formatUrl(lead.website)} target="_blank" rel="noopener noreferrer" 
                                  className="p-1.5 bg-indigo-600/10 border border-indigo-500/30 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm hover:shadow-indigo-500/15 active:scale-90"
                                  title="Visit Website">
-                                 <Globe size={12} />
+                                 <Globe size={16} />
                               </a>
                            )}
                            {lead.external_link && (
                               <a href={formatUrl(lead.external_link)} target="_blank" rel="noopener noreferrer" 
                                  className="p-1.5 bg-rose-600/10 border border-rose-500/30 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all shadow-sm hover:shadow-rose-500/15 active:scale-90"
                                  title="Google Maps">
-                                 <MapPin size={12} />
+                                 <MapPin size={16} />
                               </a>
                            )}
                         </div>
@@ -939,26 +968,38 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Google Maps Link</label>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Google Maps Link / Address</label>
                   <input 
                     type="text" 
                     value={formData.external_link}
                     onChange={(e) => setFormData({...formData, external_link: e.target.value})}
-                    placeholder="https://maps.google.com/..."
+                    placeholder="https://maps.google.com/... or 123 Main St"
                     className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Service Interest</label>
-                <input 
-                  type="text" 
-                  value={formData.service_interest}
-                  onChange={(e) => setFormData({...formData, service_interest: e.target.value})}
-                  placeholder="e.g. Web Development, SEO"
-                  className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Service Interest</label>
+                  <input 
+                    type="text" 
+                    value={formData.service_interest}
+                    onChange={(e) => setFormData({...formData, service_interest: e.target.value})}
+                    placeholder="e.g. Web Development, SEO"
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Business Category / Type</label>
+                  <input 
+                    type="text" 
+                    value={formData.business_type}
+                    onChange={(e) => setFormData({...formData, business_type: e.target.value})}
+                    placeholder="e.g. Gym, Salon, Restaurant, Electrician"
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">

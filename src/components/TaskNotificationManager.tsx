@@ -52,11 +52,15 @@ export default function TaskNotificationManager() {
     const title = `Task Due: ${task.title}`;
     const body = `${task.crm_leads?.company_name ? `Client: ${task.crm_leads.company_name}\n` : ''}${task.description || 'No description'}`;
 
+    // Play due alert sound in-app
+    notificationService.playSound('alert');
+
     // Browser Pop-up
     notificationService.showNotification(title, {
       body,
       tag: task.id, // Prevent duplicate popups for the same task
-      requireInteraction: true
+      requireInteraction: true,
+      silent: true // prevent browser duplicate sound
     });
 
     // In-app Toast

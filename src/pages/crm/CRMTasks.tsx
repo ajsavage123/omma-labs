@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
@@ -8,7 +8,6 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/Toast";
 import { useCRMData } from "@/contexts/CRMDataContext";
-import { notificationService } from "@/utils/notificationService";
 
 export default function CRMTasks() {
   const { user } = useAuth();
@@ -18,7 +17,26 @@ export default function CRMTasks() {
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
   const [checkedTasks, setCheckedTasks] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 15000); // refresh every 15s to update highlighting
+    return () => clearInterval(timer);
+  }, []);
+
+  const isTaskDue = (task: any) => {
+    if (task.status !== 'Pending') return false;
+    let dueDate = new Date(task.due_date);
+    if (task.due_time) {
+      const [hours, minutes] = task.due_time.split(':');
+      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    }
+    const diffMs = dueDate.getTime() - currentTime.getTime();
+    return diffMs <= 30000 && diffMs >= -120000;
+  };
+
   const [leads, setLeads] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -50,7 +68,7 @@ export default function CRMTasks() {
         finalActivityType = formData.custom_activity_type.trim() || 'Custom Action';
       }
 
-      const { data, error } = await supabase.from('crm_tasks').insert([{
+      const { error } = await supabase.from('crm_tasks').insert([{
         workspace_id: user.workspace_id,
         lead_id: formData.lead_id || null,
         title: formData.title,
@@ -64,16 +82,10 @@ export default function CRMTasks() {
         priority: formData.priority,
         status: 'Pending',
         assigned_to: user.id
-      }]).select().single();
+      }]);
 
       if (error) throw error;
       
-      if (data?.id) {
-        setHighlightedTaskId(data.id);
-        setTimeout(() => setHighlightedTaskId(null), 5000);
-      }
-      notificationService.playSound('success');
-
       toast.success("Task created");
       setFormData({
         title: '',
@@ -369,7 +381,7 @@ export default function CRMTasks() {
               ? 'bg-green-500/15 text-green-500 border-green-500/20' 
               : 'bg-amber-500/15 text-amber-500 border-amber-500/20';
 
-          const isHighlighted = highlightedTaskId === task.id;
+          const isHighlighted = isTaskDue(task);
 
           return (
             <Card 
