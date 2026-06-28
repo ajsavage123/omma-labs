@@ -1,4 +1,3 @@
-import { useId } from 'react';
 import type { FC } from 'react';
 
 interface OomaLogoProps {
