@@ -346,7 +346,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
     }
   };
 
-  const openNotes = () => window.open(project.drive_link, '_blank');
+  const openDocs = () => window.open(project.drive_link, '_blank');
 
   return (
     <div className={`bg-[#0c0c0e] rounded-[24px] border-2 flex flex-col h-full transition-all group overflow-hidden relative ${
@@ -383,11 +383,13 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
             </button>
           )}
           <button
-            onClick={openNotes}
+            onClick={openDocs}
             className="flex items-center gap-1.5 px-3 py-2 md:px-5 md:py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-xl active:scale-95 transition-all shadow-lg border border-blue-400/30"
           >
-            <ExternalLink className="h-3 w-3 md:h-4 md:w-4" />
-            Notes
+            <svg viewBox="0 0 24 24" className="h-3 w-3 md:h-4 md:w-4 fill-white" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 14H7v-2h10v2zm0-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Docs
           </button>
         </div>
       </div>

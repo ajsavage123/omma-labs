@@ -12,6 +12,7 @@ import { useCRMData } from "@/contexts/CRMDataContext";
 const STAGE_COLORS: Record<string, string> = {
   'New Leads': 'bg-blue-500',
   'Contacted': 'bg-cyan-500',
+  'Not Interested': 'bg-rose-500',
   'Interested': 'bg-amber-500',
   'Proposal Sent': 'bg-purple-500',
   'Negotiation': 'bg-cyan-500',

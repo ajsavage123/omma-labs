@@ -178,7 +178,7 @@ export default function CRMLayout({ children }: LayoutProps) {
             {(sidebarOpen || isMobile) && (
               <div className="flex flex-col">
                 <span className="text-md font-bold tracking-tight text-white uppercase">OOMA</span>
-                <span className="text-[9px] font-extrabold text-cyan-400 tracking-[0.2em] uppercase mt-0.5">CRM ENGINE</span>
+                <span className="text-[9px] font-extrabold text-purple-400 tracking-[0.2em] uppercase mt-0.5">CRM ENGINE</span>
               </div>
             )}
           </div>

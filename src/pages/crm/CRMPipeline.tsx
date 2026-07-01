@@ -29,6 +29,15 @@ const STAGES = [
     aliases: ['contacted', 'CONTACTED']
   },
   { 
+    name: "Not Interested", 
+    key: 'Not Interested', 
+    color: 'from-rose-500 to-rose-700',
+    borderColor: 'border-rose-500/20',
+    textColor: 'text-rose-500',
+    description: "Prospect contacted but not interested.",
+    aliases: ['Not Interested', 'not_interested', 'NOT_INTERESTED', 'Lost', 'lost', 'LOST', 'Rejected']
+  },
+  { 
     name: "Interested", 
     key: 'Interested', 
     color: 'from-amber-500 to-amber-700',
@@ -63,15 +72,6 @@ const STAGES = [
     textColor: 'text-emerald-500',
     description: "Success! Deal closed or payment received.",
     aliases: ['Won', 'WON', 'Converted', 'CONVERTED']
-  },
-  { 
-    name: "Lost", 
-    key: 'Lost', 
-    color: 'from-rose-500 to-rose-700',
-    borderColor: 'border-rose-500/20',
-    textColor: 'text-rose-500',
-    description: "Opportunity did not convert.",
-    aliases: ['lost', 'LOST', 'Rejected']
   },
 ];
 
@@ -270,11 +270,11 @@ export default function CRMPipeline() {
         whatsapp: '💬'
       };
       
-      const formattedNote = `### ${typeIcons[noteFormData.interaction_type] || '📝'} ${noteFormData.interaction_type.toUpperCase()} Interaction Log
-- **Discussion Points**: ${noteFormData.discussion_points.trim() || '—'}
-- **Client Sentiment**: ${noteFormData.sentiment}
-- **Agreed Next Steps**: ${noteFormData.next_steps.trim() || '—'}
-${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormData.additional_notes.trim()}` : ''}`;
+      const formattedNote = `${typeIcons[noteFormData.interaction_type] || '📝'} ${noteFormData.interaction_type.toUpperCase()} INTERACTION LOG
+• Discussion Points: ${noteFormData.discussion_points.trim() || '—'}
+• Client Sentiment: ${noteFormData.sentiment}
+• Agreed Next Steps: ${noteFormData.next_steps.trim() || '—'}
+${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData.additional_notes.trim()}` : ''}`;
 
       // Insert record into crm_activities
       const { error } = await supabase.from('crm_activities').insert([{
@@ -364,6 +364,59 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
       refreshLeads();
     } catch (error) {
       toast.error("Failed to delete action");
+      console.error(error);
+    }
+  };
+
+  const deleteRecentNote = async (lead: any) => {
+    if (!confirm("Are you sure you want to delete the most recent note for this lead?")) return;
+    try {
+      const { data: recentNotes, error: fetchErr } = await supabase
+        .from('crm_activities')
+        .select('id, description')
+        .eq('lead_id', lead.id)
+        .eq('activity_type', 'note')
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (fetchErr) throw fetchErr;
+      
+      if (!recentNotes || recentNotes.length === 0) {
+        const { error: leadErr } = await supabase
+          .from('crm_leads')
+          .update({ notes: null })
+          .eq('id', lead.id);
+        if (leadErr) throw leadErr;
+        toast.success("Note cleared");
+        refreshLeads();
+        return;
+      }
+      
+      const targetNote = recentNotes[0];
+      
+      const { error: deleteErr } = await supabase
+        .from('crm_activities')
+        .delete()
+        .eq('id', targetNote.id);
+        
+      if (deleteErr) throw deleteErr;
+      
+      if (lead.notes) {
+        const parts = lead.notes.split('\n\n---\n\n');
+        const updatedParts = parts.filter((part: string) => part.trim() !== targetNote.description.trim());
+        const updatedNotes = updatedParts.join('\n\n---\n\n') || null;
+        
+        const { error: leadErr } = await supabase
+          .from('crm_leads')
+          .update({ notes: updatedNotes })
+          .eq('id', lead.id);
+        if (leadErr) throw leadErr;
+      }
+      
+      toast.success("Recent note deleted");
+      refreshLeads();
+    } catch (error) {
+      toast.error("Failed to delete recent note");
       console.error(error);
     }
   };
@@ -845,17 +898,26 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                           </div>
                         )}
 
-                        {/* Display Logged Notes */}
-                        {lead.notes && (
-                          <div className="mt-2.5 p-2.5 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
-                            <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                              <Clipboard size={10} className="text-indigo-400" /> Recent Note
-                            </p>
-                            <div className="text-[10px] text-muted-foreground leading-relaxed max-h-[75px] overflow-y-auto custom-scrollbar whitespace-pre-wrap font-medium">
-                              {lead.notes.split('\n\n---\n\n')[0].trim()}
-                            </div>
-                          </div>
-                        )}
+                         {/* Display Logged Notes */}
+                         {lead.notes && (
+                           <div className="mt-2.5 p-2.5 bg-indigo-500/5 border border-indigo-500/10 rounded-xl group/note relative">
+                             <div className="flex items-center justify-between mb-1">
+                               <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                                 <Clipboard size={10} className="text-indigo-400" /> Recent Note
+                               </p>
+                               <button 
+                                 onClick={(e) => { e.stopPropagation(); deleteRecentNote(lead); }}
+                                 className="p-0.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded opacity-0 group-hover/note:opacity-100 transition-opacity"
+                                 title="Delete Note"
+                               >
+                                 <Trash2 size={10} />
+                               </button>
+                             </div>
+                             <div className="text-[10px] text-muted-foreground leading-relaxed max-h-[75px] overflow-y-auto custom-scrollbar whitespace-pre-wrap font-medium">
+                               {lead.notes.split('\n\n---\n\n')[0].trim()}
+                             </div>
+                           </div>
+                         )}
 
                         {/* Structured Note logger & Scheduler actions */}
                         <div className="grid grid-cols-2 gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
