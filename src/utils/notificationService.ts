@@ -11,6 +11,9 @@ export const notificationService = {
   },
 
   playSound(type: 'notification' | 'success' | 'alert' = 'notification') {
+    const isMuted = localStorage.getItem('crm_notifications_muted') === 'true';
+    if (isMuted) return;
+
     const sounds = {
       notification: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
       success: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3',

@@ -8,6 +8,7 @@ export default function TaskNotificationManager() {
   const { tasks } = useCRMData();
   const { toasts, toast, removeToast } = useToast();
   const notifiedIds = useRef<Set<string>>(new Set());
+  const lastSoundTimes = useRef<Map<string, number>>(new Map());
 
   // Filter tasks to show only pending ones
   const pendingTasks = tasks.filter(t => t.status === 'Pending');
@@ -24,10 +25,9 @@ export default function TaskNotificationManager() {
 
   const checkDueTasks = () => {
     const now = new Date();
+    let playSoundAlert = false;
     
     pendingTasksRef.current.forEach(task => {
-      if (notifiedIds.current.has(task.id)) return;
-
       let dueDate = new Date(task.due_date);
       
       // If there is a specific due_time (e.g. "14:30:00"), update the dueDate object
@@ -38,11 +38,25 @@ export default function TaskNotificationManager() {
       
       const diffMs = dueDate.getTime() - now.getTime();
       
-      // Trigger if due time is within 30 seconds from now or was in the last 2 minutes
-      if (diffMs <= 30000 && diffMs >= -120000) {
-        triggerNotification(task);
+      // Trigger if due time is within 30 seconds from now or was in the last 10 minutes (600,000ms)
+      if (diffMs <= 30000 && diffMs >= -600000) {
+        // 1. Show browser notification and in-app toast once
+        if (!notifiedIds.current.has(task.id)) {
+          triggerNotification(task);
+        }
+
+        // 2. Play sound alert reminder every 60 seconds if task is still pending
+        const lastSoundTime = lastSoundTimes.current.get(task.id) || 0;
+        if (now.getTime() - lastSoundTime >= 60000) {
+          playSoundAlert = true;
+          lastSoundTimes.current.set(task.id, now.getTime());
+        }
       }
     });
+
+    if (playSoundAlert) {
+      notificationService.playSound('alert');
+    }
   };
 
   const triggerNotification = (task: any) => {
@@ -51,9 +65,6 @@ export default function TaskNotificationManager() {
 
     const title = `Task Due: ${task.title}`;
     const body = `${task.crm_leads?.company_name ? `Client: ${task.crm_leads.company_name}\n` : ''}${task.description || 'No description'}`;
-
-    // Play due alert sound in-app
-    notificationService.playSound('alert');
 
     // Browser Pop-up
     notificationService.showNotification(title, {

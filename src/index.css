@@ -138,3 +138,61 @@
 .requirement-card {
   @apply bg-[#221845] border border-[rgba(124,58,237,0.25)] rounded-2xl p-6 shadow-2xl transition-all hover:shadow-[0_0_30px_rgba(124,58,237,0.1)];
 }
+
+/* CRM Pipeline Blinking Urgency Highlights */
+@keyframes blink-red {
+  0%, 100% {
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 1);
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
+  }
+}
+
+@keyframes blink-orange {
+  0%, 100% {
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    border-color: rgba(245, 158, 11, 1);
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.7);
+  }
+}
+
+@keyframes blink-blue {
+  0%, 100% {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    border-color: rgba(59, 130, 246, 1);
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
+  }
+}
+
+.blink-ring-red {
+  animation: blink-red 2s infinite ease-in-out;
+  border-width: 2px !important;
+  background-color: rgba(239, 68, 68, 0.03) !important;
+  transform: scale(1.02);
+  z-index: 20;
+}
+
+.blink-ring-orange {
+  animation: blink-orange 2s infinite ease-in-out;
+  border-width: 2px !important;
+  background-color: rgba(245, 158, 11, 0.03) !important;
+  transform: scale(1.02);
+  z-index: 20;
+}
+
+.blink-ring-blue {
+  animation: blink-blue 2s infinite ease-in-out;
+  border-width: 2px !important;
+  background-color: rgba(59, 130, 246, 0.03) !important;
+  transform: scale(1.02);
+  z-index: 20;
+}

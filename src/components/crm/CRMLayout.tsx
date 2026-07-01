@@ -15,11 +15,15 @@ import {
   Search,
   Bell,
   Home,
-  CheckCircle2
+  CheckCircle2,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { notificationService } from "@/utils/notificationService";
 import { OomaLogo } from "@/components/OomaLogo";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface LayoutProps {
   children: ReactNode;
@@ -54,13 +58,67 @@ export default function CRMLayout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { tasks: globalTasks } = useCRMData();
+  const { tasks: globalTasks, refreshTasks } = useCRMData();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('crm_notifications_muted') === 'true');
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newVal = !isMuted;
+    setIsMuted(newVal);
+    localStorage.setItem('crm_notifications_muted', String(newVal));
+    if (newVal) {
+      toast.success("Notification sounds muted");
+    } else {
+      toast.success("Notification sounds unmuted");
+    }
+  };
 
   // Filter tasks to show only pending ones in the notification layout dropdown
   const tasks = globalTasks
     .filter((t: any) => t.status === 'Pending')
     .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
+  const handleMarkCompleted = async (e: React.MouseEvent, taskId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('crm_tasks')
+        .update({ status: 'Completed' })
+        .eq('id', taskId);
+      
+      if (error) throw error;
+      
+      toast.success("Task completed");
+      refreshTasks();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to complete task");
+    }
+  };
+
+  const handleMarkAllCompleted = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (tasks.length === 0) return;
+    try {
+      const taskIds = tasks.map((t: any) => t.id);
+      const { error } = await supabase
+        .from('crm_tasks')
+        .update({ status: 'Completed' })
+        .in('id', taskIds);
+      
+      if (error) throw error;
+      
+      toast.success("All tasks marked as completed");
+      refreshTasks();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to complete all tasks");
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -225,7 +283,24 @@ export default function CRMLayout({ children }: LayoutProps) {
                 <div className="absolute top-full right-0 mt-3 w-80 sm:w-96 bg-card border border-border shadow-2xl rounded-2xl overflow-hidden z-50 flex flex-col max-h-[85vh]">
                   <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between sticky top-0">
                     <h3 className="font-black text-sm text-foreground uppercase tracking-wider">Notifications</h3>
-                    <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">{tasks.length} Pending</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={toggleMute}
+                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors animate-fade-in"
+                        title={isMuted ? "Unmute sounds" : "Mute sounds"}
+                      >
+                        {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                      </button>
+                      {tasks.length > 0 && (
+                        <button
+                          onClick={handleMarkAllCompleted}
+                          className="text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                      <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">{tasks.length} Pending</span>
+                    </div>
                   </div>
                   
                   <div className="overflow-y-auto custom-scrollbar flex-1">
@@ -250,7 +325,16 @@ export default function CRMLayout({ children }: LayoutProps) {
                               <Bell size={14} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-foreground truncate">{task.title}</p>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-sm font-bold text-foreground truncate">{task.title}</p>
+                                <button
+                                  onClick={(e) => handleMarkCompleted(e, task.id)}
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-all duration-200"
+                                  title="Mark as completed"
+                                >
+                                  <CheckCircle2 size={16} />
+                                </button>
+                              </div>
                               {task.crm_leads && (
                                 <p className="text-xs text-muted-foreground truncate font-medium mt-0.5">{task.crm_leads.company_name}</p>
                               )}

@@ -95,8 +95,11 @@ export default function CRMLeads() {
       .select('id, full_name, username, designation')
       .eq('workspace_id', user.workspace_id);
     
-    // Set all workspace users so that any user in the workspace is selectable and filterable
-    setWorkspaceUsers(data || []);
+    // Filter to only include users from the Business Strategy & Marketing Team
+    const filteredUsers = (data || []).filter(u => 
+      u.designation?.includes('Business Strategy & Marketing Team')
+    );
+    setWorkspaceUsers(filteredUsers);
   };
 
   const openAddModal = () => {

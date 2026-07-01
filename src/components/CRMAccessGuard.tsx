@@ -12,17 +12,17 @@ export function CRMAccessGuard({ children }: CRMAccessGuardProps) {
   const [status, setStatus] = useState<'loading' | 'none' | 'pending' | 'approved' | 'rejected'>('loading');
   const [requesting, setRequesting] = useState(false);
 
-  const isDev = user?.designation === 'Developer & Engineering Team';
+  const needsAccessRequest = !(user?.role === 'admin' || user?.designation?.includes('Business Strategy & Marketing Team'));
 
   useEffect(() => {
     if (!user) return;
-    if (!isDev) {
+    if (!needsAccessRequest) {
       setStatus('approved');
       return;
     }
 
     fetchStatus();
-  }, [user, isDev]);
+  }, [user, needsAccessRequest]);
 
   const fetchStatus = async () => {
     if (!user?.id || !user?.workspace_id) return;

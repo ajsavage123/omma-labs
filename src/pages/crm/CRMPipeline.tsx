@@ -107,18 +107,35 @@ export default function CRMPipeline() {
     return () => clearInterval(timer);
   }, []);
 
-  const isLeadTaskDue = (lead: any) => {
-    if (!lead.crm_tasks || lead.crm_tasks.length === 0) return false;
-    return lead.crm_tasks.some((task: any) => {
-      if (task.status !== 'Pending') return false;
+  const getLeadHighlightClass = (lead: any) => {
+    if (!lead.crm_tasks || lead.crm_tasks.length === 0) return '';
+    
+    let urgency: 'red' | 'orange' | 'blue' | null = null;
+    
+    lead.crm_tasks.forEach((task: any) => {
+      if (task.status !== 'Pending') return;
+      
       let dueDate = new Date(task.due_date);
       if (task.due_time) {
         const [hours, minutes] = task.due_time.split(':');
         dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       }
+      
       const diffMs = dueDate.getTime() - currentTime.getTime();
-      return diffMs <= 30000 && diffMs >= -120000;
+      
+      if (diffMs < 0) {
+        urgency = 'red'; // Overdue
+      } else if (diffMs <= 5 * 60 * 1000) {
+        if (urgency !== 'red') urgency = 'orange'; // Due in <= 5 mins
+      } else if (diffMs <= 10 * 60 * 1000) {
+        if (urgency !== 'red' && urgency !== 'orange') urgency = 'blue'; // Due in 5 to 10 mins
+      }
     });
+    
+    if (urgency === 'red') return 'blink-ring-red';
+    if (urgency === 'orange') return 'blink-ring-orange';
+    if (urgency === 'blue') return 'blink-ring-blue';
+    return '';
   };
   
   // Note Logger state
@@ -185,8 +202,11 @@ export default function CRMPipeline() {
       .select('id, full_name, username, designation')
       .eq('workspace_id', user.workspace_id);
     
-    // Set all workspace users so they are completely selectable and filterable
-    setWorkspaceUsers(data || []);
+    // Filter to only include users from the Business Strategy & Marketing Team
+    const filteredUsers = (data || []).filter(u => 
+      u.designation?.includes('Business Strategy & Marketing Team')
+    );
+    setWorkspaceUsers(filteredUsers);
   };
 
   const togglePin = async (leadId: string, currentStatus: boolean) => {
@@ -638,16 +658,12 @@ ${noteFormData.additional_notes.trim() ? `- **Additional Details**: ${noteFormDa
                     const hasPhone = !!lead.phone;
                     const hasEmail = !!lead.email;
 
-                    const isHighlighted = isLeadTaskDue(lead);
+                    const highlightClass = getLeadHighlightClass(lead);
 
                     return (
                       <Card 
                         key={lead.id} 
-                        className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between ${
-                          isHighlighted 
-                            ? 'ring-4 ring-amber-500 border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.5)] scale-[1.02] bg-amber-500/5 z-20' 
-                            : ''
-                        }`}
+                        className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between ${highlightClass}`}
                       >
                         {/* Stage Navigation Arrows */}
                         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 lg:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">

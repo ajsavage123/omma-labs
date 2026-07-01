@@ -212,21 +212,21 @@ export default function DashboardPage() {
           Docs Library
         </Link>
         {(() => {
-          const isDev = user?.designation === 'Developer & Engineering Team';
+          const needsAccessRequest = !(user?.role === 'admin' || user?.designation?.includes('Business Strategy & Marketing Team'));
           const [accessStatus, setAccessStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
           
           useEffect(() => {
-            if (isDev && user?.id && user?.workspace_id) {
+            if (needsAccessRequest && user?.id && user?.workspace_id) {
               import('@/services/crmAccessService').then(({ crmAccessService }) => {
                 crmAccessService.getAccessStatus(user.id, user.workspace_id).then(status => {
                   setAccessStatus(status as any);
                 });
               });
             }
-          }, [isDev, user?.id, user?.workspace_id]);
+          }, [needsAccessRequest, user?.id, user?.workspace_id]);
 
           const handleCRMClick = async (e: React.MouseEvent) => {
-            if (isDev && accessStatus !== 'approved') {
+            if (needsAccessRequest && accessStatus !== 'approved') {
               e.preventDefault();
               if (accessStatus === 'none') {
                 if (window.confirm("You don't have access to the CRM Pipeline. Would you like to request access from the admin?")) {
@@ -254,17 +254,17 @@ export default function DashboardPage() {
               to="/crm" 
               onClick={handleCRMClick} 
               className={`flex items-center px-4 py-3 text-[13px] font-bold rounded-xl transition-colors ${
-                isDev && accessStatus !== 'approved' 
+                needsAccessRequest && accessStatus !== 'approved' 
                   ? 'text-gray-500 bg-white/[0.01] cursor-pointer' 
                   : 'text-gray-400 hover:bg-white/[0.02] hover:text-white'
               }`}
             >
-              <CircleDollarSign className={`mr-3 h-4 w-4 ${isDev && accessStatus !== 'approved' ? 'text-gray-600' : 'text-emerald-400'}`} />
+              <CircleDollarSign className={`mr-3 h-4 w-4 ${needsAccessRequest && accessStatus !== 'approved' ? 'text-gray-600' : 'text-emerald-400'}`} />
               <div className="flex flex-col">
                 <span>CRM Pipeline</span>
-                {isDev && accessStatus === 'pending' && <span className="text-[8px] text-amber-500 uppercase">Request Pending</span>}
-                {isDev && accessStatus === 'rejected' && <span className="text-[8px] text-red-500 uppercase">Access Denied</span>}
-                {isDev && accessStatus === 'none' && <span className="text-[8px] text-indigo-400 uppercase">Locked • Click to Request</span>}
+                {needsAccessRequest && accessStatus === 'pending' && <span className="text-[8px] text-amber-500 uppercase">Request Pending</span>}
+                {needsAccessRequest && accessStatus === 'rejected' && <span className="text-[8px] text-red-500 uppercase">Access Denied</span>}
+                {needsAccessRequest && accessStatus === 'none' && <span className="text-[8px] text-indigo-400 uppercase">Locked • Click to Request</span>}
               </div>
             </Link>
           );
