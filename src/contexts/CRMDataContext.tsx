@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 
@@ -40,41 +40,59 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
 
   const workspaceId = user?.workspace_id;
 
-  const fetchLeads = async () => {
+  const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
-    const { data } = await supabase
-      .from('crm_leads')
-      .select('*, assigned_user:assigned_to(full_name, username), crm_tasks(id, title, due_date, due_time, status, priority)')
-      .eq('workspace_id', workspaceId);
+    try {
+      const { data, error } = await supabase
+        .from('crm_leads')
+        .select('*, assigned_user:assigned_to(full_name, username), crm_tasks(id, title, due_date, due_time, status, priority)')
+        .eq('workspace_id', workspaceId);
+      
+      if (error) throw error;
 
-    const sortedData = (data || []).sort((a, b) => {
-      if (a.is_pinned && !b.is_pinned) return -1;
-      if (!a.is_pinned && b.is_pinned) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-    setLeads(sortedData);
-  };
+      const sortedData = (data || []).sort((a, b) => {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      setLeads(sortedData);
+    } catch (err) {
+      console.error("Error fetching leads:", err);
+    }
+  }, [workspaceId]);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     if (!workspaceId) return;
-    const { data } = await supabase
-      .from('crm_tasks')
-      .select('*, crm_leads(company_name, contact_person)')
-      .eq('workspace_id', workspaceId)
-      .order('due_date', { ascending: true });
-    setTasks(data || []);
-  };
+    try {
+      const { data, error } = await supabase
+        .from('crm_tasks')
+        .select('*, crm_leads(company_name, contact_person)')
+        .eq('workspace_id', workspaceId)
+        .order('due_date', { ascending: true });
+      
+      if (error) throw error;
+      setTasks(data || []);
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+    }
+  }, [workspaceId]);
 
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
     if (!workspaceId) return;
-    const { data } = await supabase
-      .from('crm_activities')
-      .select('*, crm_leads!inner(company_name, contact_person, workspace_id)')
-      .eq('crm_leads.workspace_id', workspaceId)
-      .eq('activity_type', 'note')
-      .order('created_at', { ascending: false });
-    setActivities(data || []);
-  };
+    try {
+      const { data, error } = await supabase
+        .from('crm_activities')
+        .select('*, crm_leads!inner(company_name, contact_person, workspace_id)')
+        .eq('crm_leads.workspace_id', workspaceId)
+        .eq('activity_type', 'note')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setActivities(data || []);
+    } catch (err) {
+      console.error("Error fetching activities:", err);
+    }
+  }, [workspaceId]);
 
   const refreshLeads = async () => {
     await fetchLeads();
@@ -199,7 +217,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(fetchTasksTimeout);
       clearTimeout(fetchActivitiesTimeout);
     };
-  }, [workspaceId]); // Only trigger when workspaceId changes! Prevents focus refresh bug.
+  }, [workspaceId, fetchLeads, fetchTasks, fetchActivities]); // Dependencies stabilized
 
   return (
     <CRMDataContext.Provider value={{ leads, tasks, activities, loading, refreshLeads, refreshTasks, refreshActivities }}>

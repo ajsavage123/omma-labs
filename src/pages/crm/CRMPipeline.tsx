@@ -5,9 +5,12 @@ import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search } from "lucide-react";
-import { useToast } from "@/hooks/useToast";
-import { ToastContainer } from "@/components/Toast";
-import { useCRMData } from "@/contexts/CRMDataContext";
+
+import { useWorkspaceUsers } from '@/hooks/useWorkspaceUsers';
+import { useToast } from '@/hooks/useToast';
+import { ToastContainer } from '@/components/Toast';
+import { useCRMData } from '@/contexts/CRMDataContext';
+import { formatUrl } from '../../utils/formatUrl';
 
 const STAGES = [
   { 
@@ -75,21 +78,6 @@ const STAGES = [
   },
 ];
 
-// Helper to ensure urls are formatted correctly
-function formatUrl(url: string) {
-  if (!url) return "";
-  const trimmed = url.trim();
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-  // Check if it looks like a URL (no spaces/commas, and contains a dot/slash)
-  const looksLikeUrl = !/[\s,]+/.test(trimmed) && (trimmed.includes('.') || trimmed.includes('/'));
-  if (looksLikeUrl) {
-    return `https://${trimmed}`;
-  }
-  // Otherwise, treat as textual address and construct a search query URL
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
-}
 
 export default function CRMPipeline() {
   const { user } = useAuth();
@@ -101,11 +89,16 @@ export default function CRMPipeline() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
+    const hasPendingTasks = leads.some(lead => 
+      lead.crm_tasks?.some((t: any) => t.status === 'Pending')
+    );
+    if (!hasPendingTasks) return;
+
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 15000); // refresh every 15s to update card highlighting
     return () => clearInterval(timer);
-  }, []);
+  }, [leads]);
 
   const getLeadHighlightClass = (lead: any) => {
     if (!lead.crm_tasks || lead.crm_tasks.length === 0) return '';
@@ -166,7 +159,13 @@ export default function CRMPipeline() {
   const [showInfoFor, setShowInfoFor] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
-  const [workspaceUsers, setWorkspaceUsers] = useState<any[]>([]);
+  const { users } = useWorkspaceUsers();
+  
+  // Filter to only include users from the Business Strategy & Marketing Team
+  const workspaceUsers = users.filter(u => 
+    u.designation?.includes('Business Strategy & Marketing Team')
+  );
+
   const [filterSalesperson, setFilterSalesperson] = useState<string>("All");
 
   // Role check: admin/owner sees all, Business & Marketing sees only their own leads
@@ -189,25 +188,7 @@ export default function CRMPipeline() {
     assigned_to: ''
   });
 
-  useEffect(() => {
-    if (user?.workspace_id) {
-      fetchWorkspaceUsers();
-    }
-  }, [user]);
 
-  const fetchWorkspaceUsers = async () => {
-    if (!user?.workspace_id) return;
-    const { data } = await supabase
-      .from('users')
-      .select('id, full_name, username, designation')
-      .eq('workspace_id', user.workspace_id);
-    
-    // Filter to only include users from the Business Strategy & Marketing Team
-    const filteredUsers = (data || []).filter(u => 
-      u.designation?.includes('Business Strategy & Marketing Team')
-    );
-    setWorkspaceUsers(filteredUsers);
-  };
 
   const togglePin = async (leadId: string, currentStatus: boolean) => {
     try {

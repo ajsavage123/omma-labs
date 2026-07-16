@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspaceUsers } from "@/hooks/useWorkspaceUsers";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPi
 import Papa from "papaparse";
 import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { formatUrl } from "../../utils/formatUrl";
 
 const STAGE_COLORS: Record<string, string> = {
   'New Leads': 'bg-blue-500',
@@ -22,21 +24,7 @@ const STAGE_COLORS: Record<string, string> = {
   'Lost': 'bg-red-500',
 };
 
-// URL formatting helper to ensure clicking works properly
-function formatUrl(url: string) {
-  if (!url) return "";
-  const trimmed = url.trim();
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-  // Check if it looks like a URL (no spaces/commas, and contains a dot/slash)
-  const looksLikeUrl = !/[\s,]+/.test(trimmed) && (trimmed.includes('.') || trimmed.includes('/'));
-  if (looksLikeUrl) {
-    return `https://${trimmed}`;
-  }
-  // Otherwise, treat as textual address and construct a search query URL
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
-}
+
 
 export default function CRMLeads() {
   const { user } = useAuth();
@@ -49,7 +37,13 @@ export default function CRMLeads() {
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [workspaceUsers, setWorkspaceUsers] = useState<any[]>([]);
+  const { users } = useWorkspaceUsers();
+  
+  // Filter to only include users from the Business Strategy & Marketing Team
+  const workspaceUsers = users.filter(u => 
+    u.designation?.includes('Business Strategy & Marketing Team')
+  );
+  
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   
   // Smart Filters State
@@ -83,25 +77,6 @@ export default function CRMLeads() {
     notes: ''
   });
 
-  useEffect(() => {
-    if (user?.workspace_id) {
-      fetchWorkspaceUsers();
-    }
-  }, [user?.workspace_id]);
-
-  const fetchWorkspaceUsers = async () => {
-    if (!user?.workspace_id) return;
-    const { data } = await supabase
-      .from('users')
-      .select('id, full_name, username, designation')
-      .eq('workspace_id', user.workspace_id);
-    
-    // Filter to only include users from the Business Strategy & Marketing Team
-    const filteredUsers = (data || []).filter(u => 
-      u.designation?.includes('Business Strategy & Marketing Team')
-    );
-    setWorkspaceUsers(filteredUsers);
-  };
 
   const openAddModal = () => {
     setIsEditMode(false);
@@ -244,7 +219,7 @@ export default function CRMLeads() {
       return toast.error("No leads to delete");
     }
     
-    const confirm1 = confirm("⚠ WARNING: This will permanently delete ALL leads in your workspace. Are you absolutely sure?");
+    const confirm1 = confirm("⚠ WARNING: This will permanently delete ALL leads in your workspace. This includes all their related tasks and activities (due to cascade). Are you absolutely sure?");
     if (!confirm1) return;
     
     const confirm2 = confirm("FINAL CONFIRMATION: This action CANNOT be undone. Delete all data?");
@@ -392,8 +367,13 @@ export default function CRMLeads() {
             };
           });
 
-          const { error } = await supabase.from('crm_leads').insert(newLeads);
-          if (error) throw error;
+          // Batch insert to prevent exceeding Supabase free tier payload limits
+          const batchSize = 500;
+          for (let i = 0; i < newLeads.length; i += batchSize) {
+            const batch = newLeads.slice(i, i + batchSize);
+            const { error } = await supabase.from('crm_leads').insert(batch);
+            if (error) throw error;
+          }
           
           toast.success(`Successfully imported ${newLeads.length} leads`);
           refreshLeads();

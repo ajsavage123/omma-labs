@@ -17,25 +17,6 @@ CREATE TABLE IF NOT EXISTS public.crm_leads (
   notes text,
   custom_data jsonb DEFAULT '{}'::jsonb,
   status text DEFAULT 'New Lead'::text NOT NULL,
--- CRM Module Schema
--- To be executed in the Supabase SQL Editor
-
-CREATE TABLE IF NOT EXISTS public.crm_leads (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-  company_name text NOT NULL,
-  contact_person text NOT NULL,
-  email text,
-  phone text,
-  estimated_value integer DEFAULT 0,
-  confidence integer DEFAULT 25,
-  service_interest text,
-  business_type text,
-  website text,
-  external_link text,
-  notes text,
-  custom_data jsonb DEFAULT '{}'::jsonb,
-  status text DEFAULT 'New Lead'::text NOT NULL,
   follow_up_date timestamp with time zone,
   workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
   assigned_to uuid REFERENCES public.users(id) ON DELETE SET NULL
@@ -44,6 +25,10 @@ CREATE TABLE IF NOT EXISTS public.crm_leads (
 -- Add tracking fields if the table already exists via migration safety
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='is_pinned') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN is_pinned boolean DEFAULT false;
+  END IF;
+
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='confidence') THEN
     ALTER TABLE public.crm_leads ADD COLUMN confidence integer DEFAULT 25;
   END IF;

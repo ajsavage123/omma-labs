@@ -20,11 +20,14 @@ export default function CRMTasks() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
+    const hasPendingTasks = tasks.some(t => t.status === 'Pending');
+    if (!hasPendingTasks) return;
+
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 15000); // refresh every 15s to update highlighting
     return () => clearInterval(timer);
-  }, []);
+  }, [tasks]);
 
   const isTaskDue = (task: any) => {
     if (task.status !== 'Pending') return false;
@@ -50,6 +53,7 @@ export default function CRMTasks() {
   });
 
   const fetchLeads = async () => {
+    if (!user?.workspace_id) return;
     const { data } = await supabase
       .from('crm_leads')
       .select('id, company_name, contact_person')

@@ -41,11 +41,25 @@ export default function CRMDashboard() {
     </div>
   );
 
+  const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const sixtyDaysAgo = new Date(); sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+  // Pipeline Value trend (Last 30 days vs Previous 30 days)
+  const recentPipeline = activeLeads.filter(l => new Date(l.created_at) >= thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
+  const oldPipeline = activeLeads.filter(l => new Date(l.created_at) >= sixtyDaysAgo && new Date(l.created_at) < thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
+  const pipelineTrend = oldPipeline === 0 ? (recentPipeline > 0 ? '+100%' : '0%') : `${recentPipeline >= oldPipeline ? '+' : ''}${Math.round(((recentPipeline - oldPipeline) / oldPipeline) * 100)}%`;
+
+  // Closed Won trend
+  const closedWonLeads = leads.filter(l => ['Won (Converted)', 'Completed'].includes(l.status));
+  const recentClosed = closedWonLeads.filter(l => new Date(l.created_at) >= thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
+  const oldClosed = closedWonLeads.filter(l => new Date(l.created_at) >= sixtyDaysAgo && new Date(l.created_at) < thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
+  const closedTrend = oldClosed === 0 ? (recentClosed > 0 ? '+100%' : '0%') : `${recentClosed >= oldClosed ? '+' : ''}${Math.round(((recentClosed - oldClosed) / oldClosed) * 100)}%`;
+
   const stats = [
-    { label: "Pipeline Value", value: `₹${pipelineValue.toLocaleString()}`, icon: IndianRupee, trend: "+12%", color: "text-blue-500" },
-    { label: "Closed Won", value: `₹${closedWonValue.toLocaleString()}`, icon: CheckCircle2, trend: "+5%", color: "text-green-500" },
-    { label: "Due Today", value: tasksDueToday.length, icon: Clock, trend: "Normal", color: "text-amber-500" },
-    { label: "Overdue", value: overdueTasks.length, icon: AlertCircle, trend: "-2%", color: "text-red-500" },
+    { label: "Pipeline Value", value: `₹${pipelineValue.toLocaleString()}`, icon: IndianRupee, trend: pipelineTrend, color: "text-blue-500" },
+    { label: "Closed Won", value: `₹${closedWonValue.toLocaleString()}`, icon: CheckCircle2, trend: closedTrend, color: "text-green-500" },
+    { label: "Due Today", value: tasksDueToday.length, icon: Clock, trend: tasksDueToday.length > 0 ? "Action Req" : "Clear", color: "text-amber-500" },
+    { label: "Overdue", value: overdueTasks.length, icon: AlertCircle, trend: overdueTasks.length > 0 ? "Urgent" : "Good", color: "text-red-500" },
   ];
 
   return (
