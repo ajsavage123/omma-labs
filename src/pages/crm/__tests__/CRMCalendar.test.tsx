@@ -79,7 +79,6 @@ describe('CRMCalendar', () => {
 
   it('shows tasks for selected date', () => {
     const today = new Date();
-    const todayStr = today.toDateString();
     
     mockUseCRMData.mockReturnValue({
       tasks: [
