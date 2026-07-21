@@ -17,6 +17,7 @@ import LiveOfficePage from './pages/LiveOfficePage';
 import CRMApp from './pages/crm/CRMApp';
 import { CRMAccessGuard } from './components/CRMAccessGuard';
 import { InstallPWA } from '@/components/InstallPWA';
+import { UpdatePrompt } from '@/components/UpdatePrompt';
 import ChatWidget from '@/components/ChatWidget';
 import { notificationService } from '@/utils/notificationService';
 import { useEffect } from 'react';
@@ -85,6 +86,7 @@ function App() {
           <ChatWidget />
           <TaskNotificationManager />
           <InstallPWA />
+          <UpdatePrompt />
         </CRMDataProvider>
       </BrowserRouter>
     </AuthProvider>

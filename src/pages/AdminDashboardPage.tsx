@@ -25,10 +25,19 @@ import { OomaLogo } from '@/components/OomaLogo';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 const DEPARTMENTS = [
-  'Innovation & Research Team',
-  'Developer & Engineering Team',
-  'Business Strategy & Marketing Team'
+  'Marketing & Business',
+  'Innovation Lab',
+  'Engineering Group'
 ];
+
+const getNormalizedDepartment = (rawDesignation?: string) => {
+  if (!rawDesignation) return 'Unassigned';
+  const lower = rawDesignation.toLowerCase();
+  if (lower.includes('marketing') || lower.includes('business')) return 'Marketing & Business';
+  if (lower.includes('innovation')) return 'Innovation Lab';
+  if (lower.includes('engineer') || lower.includes('developer') || lower.includes('tech')) return 'Engineering Group';
+  return rawDesignation.trim();
+};
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
@@ -49,7 +58,7 @@ export default function AdminDashboardPage() {
   const [generating, setGenerating] = useState(false);
   const [newInviteData, setNewInviteData] = useState({
     role: 'partner' as const,
-    designations: ['Innovation & Research Team']
+    designations: ['Marketing & Business']
   });
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editMemberData, setEditMemberData] = useState({
@@ -163,10 +172,14 @@ export default function AdminDashboardPage() {
       return;
     }
     try {
-      await adminService.updateUserProfile(memberId, { 
-        designation: editMemberData.designations.join(', '), 
-        role: editMemberData.role 
-      });
+      await adminService.updateUserProfile(
+        memberId, 
+        { 
+          designation: editMemberData.designations.join(', '), 
+          role: editMemberData.role 
+        },
+        user?.workspace_id
+      );
       setEditingMember(null);
       await fetchData();
     } catch (error) {
@@ -182,7 +195,7 @@ export default function AdminDashboardPage() {
     }
     if (!window.confirm("Are you sure you want to remove this user from the workspace?")) return;
     try {
-      await adminService.deleteUser(memberId);
+      await adminService.deleteUser(memberId, user?.workspace_id);
       await fetchData();
     } catch (err) {
       console.error("Failed to delete user", err);
@@ -306,6 +319,11 @@ export default function AdminDashboardPage() {
         : [...prev.designations, dept]
     }));
   };
+
+  const displayCategories = [...DEPARTMENTS];
+  if (members.some(m => getNormalizedDepartment(m.designation) === 'Unassigned')) {
+    displayCategories.push('Unassigned');
+  }
 
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#0a0f1c] z-50">
@@ -684,29 +702,29 @@ export default function AdminDashboardPage() {
                 
                 <div className="p-8 space-y-12 h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar pr-4">
                   
-                  {DEPARTMENTS.map(deptCategory => (
+                  {displayCategories.map(deptCategory => (
                     <div key={deptCategory} className="space-y-4">
                       <div className="flex items-center gap-3 border-b border-white/10 pb-3">
                         <div className={`h-8 w-8 rounded-xl flex items-center justify-center border 
                           ${deptCategory.includes('Innovation') ? 'bg-indigo-500/10 border-indigo-500/20' : 
-                            deptCategory.includes('Developer') ? 'bg-emerald-500/10 border-emerald-500/20' : 
-                            deptCategory.includes('Business') ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/10'}
+                            deptCategory.includes('Engineering') ? 'bg-blue-500/10 border-blue-500/20' : 
+                            deptCategory.includes('Marketing') ? 'bg-purple-500/10 border-purple-500/20' : 'bg-white/5 border-white/10'}
                         `}>
                           <span className={`h-2.5 w-2.5 rounded-full 
                             ${deptCategory.includes('Innovation') ? 'bg-indigo-500' : 
-                              deptCategory.includes('Developer') ? 'bg-emerald-500' : 
-                              deptCategory.includes('Business') ? 'bg-amber-500' : 'bg-gray-500'}
+                              deptCategory.includes('Engineering') ? 'bg-blue-500' : 
+                              deptCategory.includes('Marketing') ? 'bg-purple-500' : 'bg-gray-500'}
                           `}></span>
                         </div>
-                        <h4 className="text-sm font-black text-white uppercase tracking-widest">{deptCategory.replace(' Team', '')}</h4>
+                        <h4 className="text-sm font-black text-white uppercase tracking-widest">{deptCategory}</h4>
                         <span className="ml-auto text-[10px] font-black text-gray-500 bg-black/40 px-2 py-1 rounded-md border border-white/5">
-                          {members.filter(m => m.designation.includes(deptCategory)).length} Members
+                          {members.filter(m => getNormalizedDepartment(m.designation) === deptCategory).length} Members
                         </span>
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        {members.filter(m => m.designation.includes(deptCategory)).length > 0 ? (
-                          members.filter(m => m.designation.includes(deptCategory)).map(member => (
+                        {members.filter(m => getNormalizedDepartment(m.designation) === deptCategory).length > 0 ? (
+                          members.filter(m => getNormalizedDepartment(m.designation) === deptCategory).map(member => (
                             <div key={member.id} className="relative group h-full">
                               {editingMember === member.id ? (
                                 <div className="bg-[#0c0c0e] rounded-2xl border border-indigo-500/50 p-5 shadow-[0_0_15px_rgba(99,102,241,0.2)] h-full flex flex-col justify-center">
@@ -723,7 +741,7 @@ export default function AdminDashboardPage() {
                                               onChange={() => toggleDeptForEdit(dept)}
                                               className="rounded border-white/20 bg-black text-indigo-500 focus:ring-0 h-3 w-3"
                                             />
-                                            <span className="text-[10px] font-bold text-gray-400 group-hover/dept:text-white">{dept.replace(' Team', '')}</span>
+                                            <span className="text-[10px] font-bold text-gray-400 group-hover/dept:text-white">{dept}</span>
                                           </label>
                                         ))}
                                       </div>
@@ -750,8 +768,8 @@ export default function AdminDashboardPage() {
                                         <div className="relative">
                                           <div className={`h-12 w-12 rounded-xl flex items-center justify-center text-white font-black text-lg border border-white/5 shadow-inner transition-transform duration-500 group-hover:rotate-3 
                                             ${deptCategory.includes('Innovation') ? 'bg-indigo-500/20' : 
-                                              deptCategory.includes('Developer') ? 'bg-emerald-500/20' : 
-                                              deptCategory.includes('Business') ? 'bg-amber-500/20' : 'bg-white/5'}
+                                              deptCategory.includes('Engineering') ? 'bg-blue-500/20' : 
+                                              deptCategory.includes('Marketing') ? 'bg-purple-500/20' : 'bg-white/5'}
                                           `}>
                                             {member.username.substring(0, 2).toUpperCase()}
                                           </div>
@@ -761,7 +779,7 @@ export default function AdminDashboardPage() {
                                           <h4 className="font-black text-white text-base tracking-tight">{member.username}</h4>
                                           <div className="flex flex-wrap gap-1 mt-0.5">
                                             {member.designation.split(', ').map((d, idx) => (
-                                              <span key={idx} className="text-[7px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">{d.replace(' Team', '')}</span>
+                                              <span key={idx} className="text-[7px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">{getNormalizedDepartment(d)}</span>
                                             ))}
                                           </div>
                                         </div>
@@ -864,7 +882,7 @@ export default function AdminDashboardPage() {
                           </div>
                           <div className="flex flex-wrap gap-1">
                              {invite.designation.split(', ').map((d, i) => (
-                               <span key={i} className="text-[7px] text-gray-400 font-bold uppercase tracking-widest bg-white/5 px-1.5 py-0.5 rounded border border-white/5">{d.replace(' Team', '')}</span>
+                               <span key={i} className="text-[7px] text-gray-400 font-bold uppercase tracking-widest bg-white/5 px-1.5 py-0.5 rounded border border-white/5">{getNormalizedDepartment(d)}</span>
                              ))}
                           </div>
                         </div>

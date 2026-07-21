@@ -74,7 +74,7 @@ export default function ChatWidget() {
       .subscribe();
 
     // 2. Presence Subscription
-    const presenceChannel = supabase.channel(`chat_presence_${user.workspace_id}`, {
+    const presenceChannel = supabase.channel(`presence_${user.workspace_id}`, {
       config: {
         presence: {
           key: user.id,

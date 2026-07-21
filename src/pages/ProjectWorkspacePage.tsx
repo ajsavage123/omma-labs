@@ -158,7 +158,18 @@ export default function ProjectWorkspacePage() {
               {/* Rooms are rendered in the exact workflow sequence order - NOT by DB order */}
               {/* Rooms are rendered in the exact workflow sequence order */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-                {/* 1. Innovation Lab */}
+                {/* 1. Business & Strategy */}
+                {requiredTeams.includes('Business Strategy & Marketing Team') && (
+                  <TeamCard
+                    name="Business Studio"
+                    icon={<Users className="h-7 w-7 md:h-8 md:w-8 text-emerald-400" />}
+                    description="Client Discovery, Strategy, Sales & Marketing."
+                    isHighlighted={highlightedTeam === 'Business Strategy & Marketing Team'}
+                    onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
+                    colorClass="emerald"
+                  />
+                )}
+                {/* 2. Innovation Lab */}
                 {requiredTeams.includes('Innovation & Research Team') && (
                   <TeamCard
                     name="Innovation Lab"
@@ -169,7 +180,7 @@ export default function ProjectWorkspacePage() {
                     colorClass="cyan"
                   />
                 )}
-                {/* 2. Engineering Group */}
+                {/* 3. Engineering Group */}
                 {requiredTeams.includes('Developer & Engineering Team') && (
                   <TeamCard
                     name="Engineering Group"
@@ -178,17 +189,6 @@ export default function ProjectWorkspacePage() {
                     isHighlighted={highlightedTeam === 'Developer & Engineering Team'}
                     onClick={() => setSelectedTeam('Developer & Engineering Team')}
                     colorClass="indigo"
-                  />
-                )}
-                {/* 3. Business & Strategy */}
-                {requiredTeams.includes('Business Strategy & Marketing Team') && (
-                  <TeamCard
-                    name="Business Studio"
-                    icon={<Users className="h-7 w-7 md:h-8 md:w-8 text-emerald-400" />}
-                    description="Client Discovery, Strategy, Sales & Marketing."
-                    isHighlighted={highlightedTeam === 'Business Strategy & Marketing Team'}
-                    onClick={() => setSelectedTeam('Business Strategy & Marketing Team')}
-                    colorClass="emerald"
                   />
                 )}
               </div>

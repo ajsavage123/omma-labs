@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { adminService } from '@/services/adminService';
 import { useAuth } from '@/hooks/useAuth';
 
 export function useWorkspaceUsers() {
@@ -15,12 +15,7 @@ export function useWorkspaceUsers() {
         return;
       }
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, full_name, username, designation')
-          .eq('workspace_id', user.workspace_id);
-        
-        if (error) throw error;
+        const data = await adminService.getTeamMembers(user.workspace_id);
         setUsers(data || []);
       } catch (err) {
         console.error("Error fetching workspace users:", err);

@@ -154,7 +154,7 @@ export const adminService = {
     if (error) throw error;
   },
 
-  async updateUserProfile(userId: string, data: { designation?: string; role?: string; bio?: string; skills?: string }) {
+  async updateUserProfile(userId: string, data: { full_name?: string; designation?: string; role?: string; bio?: string; skills?: string }, workspaceId?: string) {
     const { error } = await supabase
       .from('users')
       .update(data)
@@ -162,21 +162,26 @@ export const adminService = {
 
     if (error) throw error;
     
-    // Clear cache to ensure fresh data on next fetch
-    // Since we don't always have workspace_id here, we can clear all member caches or fetch it
-    const { data: userData } = await supabase.from('users').select('workspace_id').eq('id', userId).single();
-    if (userData?.workspace_id) {
-      queryCache.invalidate(`members_${userData.workspace_id}`);
+    if (workspaceId) {
+      queryCache.invalidate(`members_${workspaceId}`);
+    } else {
+      queryCache.clear();
     }
   },
 
-  async deleteUser(userId: string) {
+  async deleteUser(userId: string, workspaceId?: string) {
     const { error } = await supabase
       .from('users')
       .delete()
       .eq('id', userId);
 
     if (error) throw error;
+
+    if (workspaceId) {
+      queryCache.invalidate(`members_${workspaceId}`);
+    } else {
+      queryCache.clear();
+    }
   },
 
   async deleteTimelineLog(logId: string) {
