@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
 import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book, Activity, CircleDollarSign } from 'lucide-react';
+import { Plus, LayoutDashboard, LogOut, Settings, Search, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book, Activity, CircleDollarSign, Calculator } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected' | 'internal' | 'client';
@@ -274,6 +274,10 @@ export default function DashboardPage() {
             <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
               <Plus className="mr-3 h-4 w-4 text-amber-500" />
               Client Contacts
+            </Link>
+            <Link to="/admin/calculator" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold font-purple-400 text-purple-400 hover:bg-purple-500/10 rounded-xl transition-colors">
+              <Calculator className="mr-3 h-4 w-4 text-purple-400" />
+              Commission Calculator
             </Link>
             <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
               <Settings className="mr-3 h-4 w-4" />

@@ -375,6 +375,12 @@ export default function AdminDashboardPage() {
           >
             Access
           </button>
+          <button 
+            onClick={() => navigate('/admin/calculator')}
+            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 flex items-center gap-1"
+          >
+            Calculator
+          </button>
         </div>
         
         {/* Mobile Spacer if tabs hidden */}
@@ -382,7 +388,7 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Mobile Tab Switcher - only on small screens */}
-      <div className="sm:hidden fixed top-16 left-0 right-0 z-40 bg-[#0c0c0e]/90 backdrop-blur-md border-b border-white/5 p-2 flex gap-2">
+      <div className="sm:hidden fixed top-16 left-0 right-0 z-40 bg-[#0c0c0e]/90 backdrop-blur-md border-b border-white/5 p-2 flex gap-2 overflow-x-auto">
         <button 
           onClick={() => setActiveTab('dashboard')}
           className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'dashboard' ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white/5 text-gray-500'}`}
@@ -400,6 +406,12 @@ export default function AdminDashboardPage() {
           className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'access' ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white/5 text-gray-500'}`}
         >
           Access
+        </button>
+        <button 
+          onClick={() => navigate('/admin/calculator')}
+          className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-purple-500/20 text-purple-300 border border-purple-500/30"
+        >
+          Calculator
         </button>
       </div>
 

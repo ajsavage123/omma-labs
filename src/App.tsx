@@ -49,6 +49,8 @@ function OnboardingRoute() {
 
 import { CRMDataProvider } from '@/contexts/CRMDataContext';
 
+import CommissionCalculatorPage from '@/pages/CommissionCalculatorPage';
+
 function App() {
   useEffect(() => {
     notificationService.requestPermission();
@@ -79,6 +81,7 @@ function App() {
               } />
               <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/calculator" element={<CommissionCalculatorPage />} />
                 <Route path="/contacts" element={<ClientContactsPage />} />
               </Route>
             </Route>
