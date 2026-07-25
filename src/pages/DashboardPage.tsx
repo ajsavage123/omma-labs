@@ -164,7 +164,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#050505] z-50">
       <div className="text-center">
-        <OomaLogo className="text-[#6366f1] animate-pulse" size={48} />
+        <OomaLogo className="animate-pulse" size={48} />
         <p className="text-gray-600 font-bold tracking-widest text-[10px] uppercase mt-4">Initializing Ooma...</p>
       </div>
     </div>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-6 flex items-center justify-between border-b border-white/5 md:border-none">
         <div className="flex items-center gap-3">
-          <OomaLogo className="text-[#6366f1]" size={32} />
+          <OomaLogo size={32} />
           <div>
             <h1 className="text-md font-bold tracking-tight text-white">Ooma Workspace</h1>
             <p className="text-[8px] uppercase tracking-[0.2em] font-extrabold text-[#6366f1]">Ooma Workflow</p>
@@ -212,7 +212,11 @@ export default function DashboardPage() {
           Docs Library
         </Link>
         {(() => {
-          const needsAccessRequest = !(user?.role === 'admin' || user?.designation?.includes('Business Strategy & Marketing Team'));
+          const needsAccessRequest = !(
+            user?.role === 'admin' || 
+            user?.designation?.includes('Business Strategy & Marketing Team') ||
+            user?.designation?.includes('Marketing & Business')
+          );
           const [accessStatus, setAccessStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
           
           useEffect(() => {

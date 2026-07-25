@@ -3,15 +3,17 @@ import { notificationService } from '@/utils/notificationService';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/Toast';
 import { useCRMData } from '@/contexts/CRMDataContext';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function TaskNotificationManager() {
+  const { user } = useAuth();
   const { tasks } = useCRMData();
   const { toasts, toast, removeToast } = useToast();
   const notifiedIds = useRef<Set<string>>(new Set());
   const lastSoundTimes = useRef<Map<string, number>>(new Map());
 
-  // Filter tasks to show only pending ones
-  const pendingTasks = tasks.filter(t => t.status === 'Pending');
+  // Filter tasks to show only pending ones assigned to or created by the current user
+  const pendingTasks = tasks.filter(t => t.status === 'Pending' && (t.assigned_to === user?.id || t.created_by === user?.id));
   const pendingTasksRef = useRef<any[]>([]);
   pendingTasksRef.current = pendingTasks;
 
@@ -71,7 +73,8 @@ export default function TaskNotificationManager() {
       body,
       tag: task.id, // Prevent duplicate popups for the same task
       requireInteraction: true,
-      silent: true // prevent browser duplicate sound
+      silent: true, // prevent browser duplicate sound
+      data: { url: '/crm/tasks' }
     });
 
     // In-app Toast

@@ -4,13 +4,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar } from "lucide-react";
 
 import { useWorkspaceUsers } from '@/hooks/useWorkspaceUsers';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/Toast';
 import { useCRMData } from '@/contexts/CRMDataContext';
 import { formatUrl } from '../../utils/formatUrl';
+import { googleCalendarService } from '@/services/googleCalendarService';
+import { notificationService } from '@/utils/notificationService';
 
 const STAGES = [
   { 
@@ -161,18 +163,50 @@ export default function CRMPipeline() {
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const { users } = useWorkspaceUsers();
   
-  // Filter to only include users from the Business Strategy & Marketing Team
-  const workspaceUsers = users.filter(u => 
-    u.designation?.includes('Business Strategy & Marketing Team')
-  );
+  // Include ALL workspace users in owner dropdown; put current user first
+  const workspaceUsers = (() => {
+    const list = users.filter(u => u.id !== user?.id);
+    const currentUserObj = users.find(u => u.id === user?.id);
+    if (currentUserObj) {
+      return [currentUserObj, ...list];
+    }
+    return list;
+  })();
 
   const [filterSalesperson, setFilterSalesperson] = useState<string>("All");
+
+  const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
+  const [syncToGoogle, setSyncToGoogle] = useState(false);
+  const [syncAccount, setSyncAccount] = useState("");
+  const [attendeesInput, setAttendeesInput] = useState("");
+
+  useEffect(() => {
+    const accounts = googleCalendarService.getLinkedAccounts();
+    setLinkedAccounts(accounts);
+    if (accounts.length > 0) {
+      setSyncAccount(accounts[0].email);
+    }
+  }, [isTaskModalOpen]);
+
+  useEffect(() => {
+    if (taskFormData.lead_id) {
+      const selectedLead = leads.find(l => l.id === taskFormData.lead_id);
+      if (selectedLead?.email) {
+        setAttendeesInput(selectedLead.email);
+      } else {
+        setAttendeesInput("");
+      }
+    } else {
+      setAttendeesInput("");
+    }
+  }, [taskFormData.lead_id, leads]);
 
   // Role check: admin/owner sees all, Business & Marketing sees only their own leads
   const isAdmin = user?.role === 'admin' || user?.role === 'partner';
   const isBusinessMarketing = (user?.designation || '').toLowerCase().includes('business') || 
                                (user?.designation || '').toLowerCase().includes('marketing');
   const isSalesperson = !isAdmin && isBusinessMarketing;
+  const [glowingLeadId, setGlowingLeadId] = useState<string | null>(null);
 
   // Lead Form State
   const [formData, setFormData] = useState({
@@ -305,7 +339,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         finalTaskType = taskFormData.custom_task_type.trim() || 'Custom Action';
       }
 
-      const { error } = await supabase
+      const { data: insertedData, error } = await supabase
         .from('crm_tasks')
         .insert([{
           title: taskFormData.title,
@@ -321,11 +355,36 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           assigned_to: user?.id,
           priority: 'Medium',
           status: 'Pending'
-        }]);
+        }])
+        .select('*, crm_leads(company_name, contact_person, email, phone)')
+        .single();
 
       if (error) throw error;
       
+      if (syncToGoogle && syncAccount && insertedData) {
+        try {
+          const listAttendees = attendeesInput ? attendeesInput.split(',').map(em => em.trim()) : [];
+          await googleCalendarService.syncTask(insertedData, syncAccount, listAttendees);
+          toast.success("Task synced with Google Calendar");
+        } catch (e: any) {
+          console.error("Google Calendar sync failed:", e);
+          toast.error(`Calendar sync failed: ${e.message}`);
+        }
+      }
+
       toast.success(`Action scheduled successfully!`);
+      if (taskFormData.lead_id) {
+        setGlowingLeadId(taskFormData.lead_id);
+        notificationService.playSound('success');
+        notificationService.showNotification("Action Scheduled 🚀", {
+          body: `Follow-up scheduled for lead: "${insertedData?.crm_leads?.company_name || insertedData?.crm_leads?.contact_person || 'Lead'}"`,
+          tag: insertedData?.id || taskFormData.lead_id,
+          silent: true,
+          data: { url: '/crm/tasks' }
+        });
+        setTimeout(() => setGlowingLeadId(null), 4000);
+      }
+      setSyncToGoogle(false);
       setIsTaskModalOpen(false);
       refreshLeads();
     } catch (error) {
@@ -339,6 +398,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   const deleteTask = async (taskId: string) => {
     if (!confirm("Delete this scheduled action?")) return;
     try {
+      // Delete from Google Calendar first
+      await googleCalendarService.deleteTaskEvent(taskId);
+
       const { error } = await supabase.from('crm_tasks').delete().eq('id', taskId);
       if (error) throw error;
       toast.success("Action deleted");
@@ -697,7 +759,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     return (
                       <Card 
                         key={lead.id} 
-                        className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between ${highlightClass}`}
+                        className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between ${highlightClass} ${
+                          glowingLeadId === lead.id
+                            ? 'ring-4 ring-indigo-500 border-indigo-400 shadow-[0_0_35px_rgba(99,102,241,0.8)] scale-[1.02] bg-indigo-500/10 z-30 animate-pulse'
+                            : ''
+                        }`}
                       >
                         {/* Stage Navigation Arrows */}
                         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 lg:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
@@ -856,24 +922,50 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                               .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
                               .slice(0, 1)
                               .map((task: any) => (
-                                <div key={task.id} className="flex items-center justify-between gap-1.5">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <Clock size={11} className="text-amber-500 shrink-0" />
-                                    <div className="min-w-0">
-                                      <p className="text-[10px] font-bold text-foreground truncate">{task.title}</p>
-                                      <p className="text-[8px] text-muted-foreground font-semibold uppercase">
-                                        {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                        {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
-                                      </p>
+                                <div key={task.id} className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-1.5">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <Clock size={11} className="text-amber-500 shrink-0" />
+                                      <div className="min-w-0">
+                                        <p className="text-[10px] font-bold text-foreground truncate">{task.title}</p>
+                                        <p className="text-[8px] text-muted-foreground font-semibold uppercase">
+                                          {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                          {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
+                                        </p>
+                                      </div>
                                     </div>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                      className="p-1 hover:bg-red-500/10 rounded text-muted-foreground hover:text-red-500 shrink-0"
+                                      title="Delete Action"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
                                   </div>
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                                    className="p-1 hover:bg-red-500/10 rounded text-muted-foreground hover:text-red-500 shrink-0"
-                                    title="Delete Action"
-                                  >
-                                    <Trash2 size={11} />
-                                  </button>
+                                  <div className="flex items-center gap-2 pt-1 border-t border-border/10" onClick={(e) => e.stopPropagation()}>
+                                    <a 
+                                      href={googleCalendarService.generateGoogleCalendarLink(task)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white rounded text-[8px] font-black uppercase tracking-wider transition-all"
+                                      title="Add to Google Calendar directly (No API keys required)"
+                                    >
+                                      <Calendar size={8} /> Add
+                                    </a>
+                                    <a 
+                                      href={googleCalendarService.generateGmailComposeLink(
+                                        task,
+                                        lead.email || '',
+                                        googleCalendarService.generateGoogleCalendarLink(task)
+                                      )}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded text-[8px] font-black uppercase tracking-wider transition-all"
+                                      title="Compose prefilled Gmail invitation to send"
+                                    >
+                                      <Mail size={8} /> Invite
+                                    </a>
+                                  </div>
                                 </div>
                               ))}
                           </div>
@@ -1299,6 +1391,55 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold resize-none" 
                   />
                 </div>
+
+                {/* Google Calendar Sync Selector */}
+                {linkedAccounts.length > 0 && (
+                  <div className="p-4 bg-background border border-input rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-black text-foreground cursor-pointer flex items-center gap-2 uppercase tracking-wider">
+                        <input
+                          type="checkbox"
+                          checked={syncToGoogle}
+                          onChange={e => setSyncToGoogle(e.target.checked)}
+                          className="rounded border-input text-primary focus:ring-primary h-4 w-4"
+                        />
+                        Sync to Google Calendar
+                      </label>
+                    </div>
+
+                    {syncToGoogle && (
+                      <div className="space-y-3 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Select Google Account</label>
+                          <select
+                            value={syncAccount}
+                            onChange={e => setSyncAccount(e.target.value)}
+                            className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold cursor-pointer"
+                          >
+                            {linkedAccounts.map(account => (
+                              <option key={account.email} value={account.email} className="bg-background text-foreground">
+                                {account.name} ({account.email})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Attendees (comma-separated emails)</label>
+                          <input
+                            type="text"
+                            value={attendeesInput}
+                            onChange={e => setAttendeesInput(e.target.value)}
+                            placeholder="salesperson@company.com, admin@company.com"
+                            className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold"
+                          />
+                          <p className="text-[9px] text-muted-foreground mt-1 px-1 font-semibold leading-relaxed">
+                            Invite other users or the lead. Google will send calendar invitations automatically.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">

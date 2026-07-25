@@ -8,16 +8,34 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/Toast";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { googleCalendarService } from "@/services/googleCalendarService";
+import { notificationService } from "@/utils/notificationService";
 
 export default function CRMTasks() {
   const { user } = useAuth();
   const { toast, toasts, removeToast } = useToast();
   const { tasks, loading, refreshTasks } = useCRMData();
+  const [leads, setLeads] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("today");
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
   const [checkedTasks, setCheckedTasks] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [glowingTaskId, setGlowingTaskId] = useState<string | null>(null);
+
+  const fetchLeads = async () => {
+    if (!user?.workspace_id) return;
+    const { data } = await supabase
+      .from('crm_leads')
+      .select('id, company_name, contact_person, email')
+      .eq('workspace_id', user?.workspace_id);
+    setLeads(data || []);
+  };
+
+  const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
+  const [syncToGoogle, setSyncToGoogle] = useState(false);
+  const [syncAccount, setSyncAccount] = useState("");
+  const [attendeesInput, setAttendeesInput] = useState("");
 
   useEffect(() => {
     const hasPendingTasks = tasks.some(t => t.status === 'Pending');
@@ -40,7 +58,6 @@ export default function CRMTasks() {
     return diffMs <= 30000 && diffMs >= -120000;
   };
 
-  const [leads, setLeads] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -52,14 +69,26 @@ export default function CRMTasks() {
     priority: 'Medium'
   });
 
-  const fetchLeads = async () => {
-    if (!user?.workspace_id) return;
-    const { data } = await supabase
-      .from('crm_leads')
-      .select('id, company_name, contact_person')
-      .eq('workspace_id', user?.workspace_id);
-    setLeads(data || []);
-  };
+  useEffect(() => {
+    const accounts = googleCalendarService.getLinkedAccounts();
+    setLinkedAccounts(accounts);
+    if (accounts.length > 0) {
+      setSyncAccount(accounts[0].email);
+    }
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    if (formData.lead_id) {
+      const selectedLead = leads.find(l => l.id === formData.lead_id);
+      if (selectedLead?.email) {
+        setAttendeesInput(selectedLead.email);
+      } else {
+        setAttendeesInput("");
+      }
+    } else {
+      setAttendeesInput("");
+    }
+  }, [formData.lead_id, leads]);
 
   const createTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,25 +101,51 @@ export default function CRMTasks() {
         finalActivityType = formData.custom_activity_type.trim() || 'Custom Action';
       }
 
-      const { error } = await supabase.from('crm_tasks').insert([{
-        workspace_id: user.workspace_id,
-        lead_id: formData.lead_id || null,
-        title: formData.title,
-        due_date: formData.due_date,
-        due_time: formData.due_time || null,
-        activity_type: finalActivityType === 'Task' ? 'Task' : 
-                       finalActivityType === 'Call' ? 'Call' : 
-                       finalActivityType === 'Email' ? 'Email' : 
-                       finalActivityType === 'Meeting' ? 'Meeting' : 
-                       finalActivityType,
-        priority: formData.priority,
-        status: 'Pending',
-        assigned_to: user.id
-      }]);
+      const { data: insertedData, error } = await supabase
+        .from('crm_tasks')
+        .insert([{
+          workspace_id: user.workspace_id,
+          lead_id: formData.lead_id || null,
+          title: formData.title,
+          due_date: formData.due_date,
+          due_time: formData.due_time || null,
+          activity_type: finalActivityType === 'Task' ? 'Task' : 
+                         finalActivityType === 'Call' ? 'Call' : 
+                         finalActivityType === 'Email' ? 'Email' : 
+                         finalActivityType === 'Meeting' ? 'Meeting' : 
+                         finalActivityType,
+          priority: formData.priority,
+          status: 'Pending',
+          assigned_to: user.id
+        }])
+        .select('*, crm_leads(company_name, contact_person, email, phone)')
+        .single();
 
       if (error) throw error;
       
+      if (syncToGoogle && syncAccount && insertedData) {
+        try {
+          const listAttendees = attendeesInput ? attendeesInput.split(',').map(em => em.trim()) : [];
+          await googleCalendarService.syncTask(insertedData, syncAccount, listAttendees);
+          toast.success("Task synced with Google Calendar");
+        } catch (e: any) {
+          console.error("Google Calendar sync failed:", e);
+          toast.error(`Sync failed: ${e.message}`);
+        }
+      }
+
       toast.success("Task created");
+      if (insertedData?.id) {
+        setGlowingTaskId(insertedData.id);
+        notificationService.playSound('success');
+        notificationService.showNotification("Task Scheduled 📅", {
+          body: `Follow-up set for: "${insertedData.title}" (${insertedData.due_date})`,
+          tag: insertedData.id,
+          silent: true,
+          data: { url: '/crm/tasks' }
+        });
+        setTimeout(() => setGlowingTaskId(null), 4000);
+      }
       setFormData({
         title: '',
         lead_id: '',
@@ -100,6 +155,7 @@ export default function CRMTasks() {
         custom_activity_type: '',
         priority: 'Medium'
       });
+      setSyncToGoogle(false);
       setIsModalOpen(false);
       refreshTasks();
     } catch (error) {
@@ -120,10 +176,28 @@ export default function CRMTasks() {
       setCheckedTasks(prev => [...prev, id]);
     }
 
-    const { error } = await supabase.from('crm_tasks').update({ status: newStatus }).eq('id', id);
+    const { error, data: updatedData } = await supabase
+      .from('crm_tasks')
+      .update({ status: newStatus })
+      .eq('id', id)
+      .select('*, crm_leads(company_name, contact_person, email, phone)')
+      .single();
     
     if (!error) {
       if (!isCompleted) toast.success('Task marked as completed');
+
+      // Update Google Calendar event if synced previously
+      const accounts = googleCalendarService.getLinkedAccounts();
+      for (const account of accounts) {
+        if (Date.now() < account.expiresAt) {
+          try {
+            await googleCalendarService.syncTask(updatedData, account.email);
+          } catch (e) {
+            console.warn(`Failed to update task toggle in Google Calendar for account ${account.email}`, e);
+          }
+        }
+      }
+
       refreshTasks();
     } else {
       toast.error("Failed to update task");
@@ -134,6 +208,9 @@ export default function CRMTasks() {
     if (!confirm("Delete this task permanently?")) return;
     
     try {
+      // Delete from Google Calendar first
+      await googleCalendarService.deleteTaskEvent(id);
+
       const { error } = await supabase.from('crm_tasks').delete().eq('id', id);
       if (error) throw error;
       toast.success("Task deleted");
@@ -315,6 +392,55 @@ export default function CRMTasks() {
                   </select>
                 </div>
 
+                {/* Google Calendar Sync Selector */}
+                {linkedAccounts.length > 0 && (
+                  <div className="p-4 bg-background border-2 border-border rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-black text-foreground cursor-pointer flex items-center gap-2 uppercase tracking-wider">
+                        <input
+                          type="checkbox"
+                          checked={syncToGoogle}
+                          onChange={e => setSyncToGoogle(e.target.checked)}
+                          className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                        />
+                        Sync to Google Calendar
+                      </label>
+                    </div>
+
+                    {syncToGoogle && (
+                      <div className="space-y-3 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Select Google Account</label>
+                          <select
+                            value={syncAccount}
+                            onChange={e => setSyncAccount(e.target.value)}
+                            className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all cursor-pointer"
+                          >
+                            {linkedAccounts.map(account => (
+                              <option key={account.email} value={account.email} className="bg-background text-foreground">
+                                {account.name} ({account.email})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Attendees (comma-separated emails)</label>
+                          <input
+                            type="text"
+                            value={attendeesInput}
+                            onChange={e => setAttendeesInput(e.target.value)}
+                            placeholder="salesperson@company.com, admin@company.com"
+                            className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all"
+                          />
+                          <p className="text-[9px] text-muted-foreground mt-1 px-1">
+                            Invite other users or the lead. Google will email them invitations automatically.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <Button
                     type="button"
@@ -391,7 +517,9 @@ export default function CRMTasks() {
             <Card 
               key={task.id} 
               className={`bg-card border-border p-4 sm:p-5 hover:bg-background/50 transition-all ${isDone ? 'opacity-60' : ''} ${
-                isHighlighted 
+                glowingTaskId === task.id
+                  ? 'ring-4 ring-emerald-500 border-emerald-400 shadow-[0_0_35px_rgba(16,185,129,0.8)] scale-[1.02] bg-emerald-500/10 z-30 animate-pulse'
+                  : isHighlighted 
                   ? 'ring-4 ring-indigo-500 border-indigo-400 shadow-[0_0_25px_rgba(99,102,241,0.4)] scale-[1.01] bg-indigo-500/5 z-20' 
                   : ''
               }`}
@@ -457,16 +585,44 @@ export default function CRMTasks() {
                       )}
                     </div>
                     
-                    {/* View Lead highlighted link */}
-                    {task.crm_leads && (
-                      <Link 
-                        to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads.company_name || task.crm_leads.contact_person)}`}
-                        className="flex items-center gap-1 px-3 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0"
+                    {/* Action Links */}
+                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                      {task.crm_leads && (
+                        <Link 
+                          to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads.company_name || task.crm_leads.contact_person)}`}
+                          className="flex items-center gap-1 px-3 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0"
+                        >
+                          View Lead
+                          <ArrowRight size={10} />
+                        </Link>
+                      )}
+                      
+                      <a 
+                        href={googleCalendarService.generateGoogleCalendarLink(task)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1 bg-primary/15 border border-primary/30 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0"
+                        title="Add to Google Calendar directly (No API keys required)"
                       >
-                        View Lead
-                        <ArrowRight size={10} />
-                      </Link>
-                    )}
+                        <Calendar size={10} />
+                        Add to Cal
+                      </a>
+
+                      <a 
+                        href={googleCalendarService.generateGmailComposeLink(
+                          task,
+                          task.crm_leads?.email || '',
+                          googleCalendarService.generateGoogleCalendarLink(task)
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0"
+                        title="Compose a prefilled Gmail invitation to send"
+                      >
+                        <Mail size={10} />
+                        Gmail Invite
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>

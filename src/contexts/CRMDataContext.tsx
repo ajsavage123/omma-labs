@@ -39,6 +39,8 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   }, [activities]);
 
   const workspaceId = user?.workspace_id;
+  const userId = user?.id;
+  const isAdmin = user?.role === 'admin' || user?.role === 'partner';
 
   const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
@@ -62,20 +64,26 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   }, [workspaceId]);
 
   const fetchTasks = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!workspaceId || !userId) return;
     try {
-      const { data, error } = await supabase
+      // Admins see all workspace tasks; regular users see only their own assigned tasks
+      let query = supabase
         .from('crm_tasks')
         .select('*, crm_leads(company_name, contact_person)')
         .eq('workspace_id', workspaceId)
         .order('due_date', { ascending: true });
-      
+
+      if (!isAdmin) {
+        query = query.eq('assigned_to', userId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setTasks(data || []);
     } catch (err) {
       console.error("Error fetching tasks:", err);
     }
-  }, [workspaceId]);
+  }, [workspaceId, userId, isAdmin]);
 
   const fetchActivities = useCallback(async () => {
     if (!workspaceId) return;
@@ -123,62 +131,33 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     let fetchLeadsTimeout: NodeJS.Timeout;
     const throttledFetchLeads = () => {
       clearTimeout(fetchLeadsTimeout);
-      fetchLeadsTimeout = setTimeout(fetchLeads, 1000);
+      fetchLeadsTimeout = setTimeout(fetchLeads, 1500);
     };
 
     let fetchTasksTimeout: NodeJS.Timeout;
     const throttledFetchTasks = () => {
       clearTimeout(fetchTasksTimeout);
-      fetchTasksTimeout = setTimeout(fetchTasks, 1000);
+      fetchTasksTimeout = setTimeout(fetchTasks, 1500);
     };
 
     let fetchActivitiesTimeout: NodeJS.Timeout;
     const throttledFetchActivities = () => {
       clearTimeout(fetchActivitiesTimeout);
-      fetchActivitiesTimeout = setTimeout(fetchActivities, 1000);
+      fetchActivitiesTimeout = setTimeout(fetchActivities, 1500);
     };
 
-    // Single active subscription channel for leads
-    const leadsChannel = supabase
-      .channel('crm_leads_global_sync')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'crm_leads',
-          filter: `workspace_id=eq.${workspaceId}`
-        },
-        (payload) => {
-          const { eventType, new: newRecord } = payload;
-          if (eventType === 'UPDATE') {
-            setLeads(current =>
-              current.map(lead => (lead.id === newRecord.id ? { ...lead, ...newRecord } : lead))
-            );
-          } else {
-            throttledFetchLeads();
-          }
-        }
-      )
-      .subscribe();
+    let activeWorkspaceChannel: any = null;
 
-    // Single active subscription channel for tasks
-    const tasksChannel = supabase
-      .channel('crm_tasks_global_sync')
+    // Task Realtime channel stays ALWAYS active 24/7 so follow-ups & assignments NEVER miss a beat
+    const taskChannel = supabase
+      .channel(`crm_tasks_priority_sync_${workspaceId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'crm_tasks',
-          filter: `workspace_id=eq.${workspaceId}`
-        },
+        { event: '*', schema: 'public', table: 'crm_tasks', filter: `workspace_id=eq.${workspaceId}` },
         (payload) => {
           const { eventType, new: newRecord } = payload;
           if (eventType === 'UPDATE') {
-            setTasks(current =>
-              current.map(task => (task.id === newRecord.id ? { ...task, ...newRecord } : task))
-            );
+            setTasks(current => current.map(t => (t.id === newRecord.id ? { ...t, ...newRecord } : t)));
           } else {
             throttledFetchTasks();
           }
@@ -186,33 +165,65 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       )
       .subscribe();
 
-    // Single active subscription channel for activities
-    const activitiesChannel = supabase
-      .channel('crm_activities_global_sync')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'crm_activities'
-        },
-        (payload) => {
-          const { eventType, new: newRecord } = payload;
-          if (eventType === 'UPDATE') {
-            setActivities(current =>
-              current.map(act => (act.id === newRecord.id ? { ...act, ...newRecord } : act))
-            );
-          } else {
-            throttledFetchActivities();
+    const setupHeavySubscriptions = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (activeWorkspaceChannel) return;
+
+      activeWorkspaceChannel = supabase
+        .channel(`crm_workspace_heavy_sync_${workspaceId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'crm_leads', filter: `workspace_id=eq.${workspaceId}` },
+          (payload) => {
+            const { eventType, new: newRecord } = payload;
+            if (eventType === 'UPDATE') {
+              setLeads(current => current.map(l => (l.id === newRecord.id ? { ...l, ...newRecord } : l)));
+            } else {
+              throttledFetchLeads();
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'crm_activities' },
+          (payload) => {
+            const { eventType, new: newRecord } = payload;
+            if (eventType === 'UPDATE') {
+              setActivities(current => current.map(a => (a.id === newRecord.id ? { ...a, ...newRecord } : a)));
+            } else {
+              throttledFetchActivities();
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    const cleanupHeavySubscriptions = () => {
+      if (activeWorkspaceChannel) {
+        supabase.removeChannel(activeWorkspaceChannel);
+        activeWorkspaceChannel = null;
+      }
+    };
+
+    setupHeavySubscriptions();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        cleanupHeavySubscriptions();
+      } else {
+        setupHeavySubscriptions();
+        fetchLeads();
+        fetchTasks();
+        fetchActivities();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      supabase.removeChannel(leadsChannel);
-      supabase.removeChannel(tasksChannel);
-      supabase.removeChannel(activitiesChannel);
+      supabase.removeChannel(taskChannel);
+      cleanupHeavySubscriptions();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearTimeout(fetchLeadsTimeout);
       clearTimeout(fetchTasksTimeout);
       clearTimeout(fetchActivitiesTimeout);

@@ -64,6 +64,27 @@ describe('CRMAccessGuard', () => {
     expect(crmAccessService.getAccessStatus).not.toHaveBeenCalled();
   });
 
+  it('allows access automatically for Marketing & Business members', () => {
+    (useAuth as any).mockReturnValue({
+      user: {
+        id: '2-1',
+        role: 'partner',
+        designation: 'Marketing & Business',
+        workspace_id: 'ws-1',
+      },
+    });
+
+    render(
+      <CRMAccessGuard>
+        <div data-testid="crm-content">CRM Dashboard Content</div>
+      </CRMAccessGuard>
+    );
+
+    expect(screen.getByTestId('crm-content')).toBeInTheDocument();
+    expect(screen.queryByText('Access Restricted')).not.toBeInTheDocument();
+    expect(crmAccessService.getAccessStatus).not.toHaveBeenCalled();
+  });
+
   it('restricts access for Developer & Engineering Team by default and queries status', async () => {
     (useAuth as any).mockReturnValue({
       user: {

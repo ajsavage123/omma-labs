@@ -17,11 +17,13 @@ import {
   Home,
   CheckCircle2,
   Volume2,
-  VolumeX
+  VolumeX,
+  Server
 } from "lucide-react";
 import { notificationService } from "@/utils/notificationService";
 import { OomaLogo } from "@/components/OomaLogo";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -50,10 +52,13 @@ const navItems = [
   { label: "Notes", href: "/crm/notes", icon: FileText },
   { label: "Projects", href: "/crm/projects", icon: Briefcase },
   { label: "Reports", href: "/crm/reports", icon: BarChart3 },
+  { label: "Quota & Health", href: "/crm/quota", icon: Server, adminOnly: true },
   { label: "Settings", href: "/crm/settings", icon: Settings },
 ];
 
 export default function CRMLayout({ children }: LayoutProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'partner';
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
@@ -192,7 +197,9 @@ export default function CRMLayout({ children }: LayoutProps) {
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1.5 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => {
+          {navItems
+            .filter(item => !item.adminOnly || isAdmin)
+            .map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.href || (item.href === "/crm" && location.pathname === "/crm/");
             return (

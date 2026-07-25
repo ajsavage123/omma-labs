@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { adminService } from '@/services/adminService';
 import { projectService } from '@/services/projectService';
 import { useAuth } from '@/hooks/useAuth';
+import SupabaseQuotaHealth from '@/components/admin/SupabaseQuotaHealth';
 import type { Project, ProjectStage, User, Invitation } from '@/types';
 import {
   BarChart3,
@@ -43,7 +44,7 @@ export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'team' | 'access'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'team' | 'access' | 'quota'>('dashboard');
   
   const [stats, setStats] = useState<any>(null);
   const [projects, setProjects] = useState<(Project & { project_stages: ProjectStage[] })[]>([]);
@@ -376,6 +377,12 @@ export default function AdminDashboardPage() {
             Access
           </button>
           <button 
+            onClick={() => setActiveTab('quota')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'quota' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+          >
+            Quota & Health
+          </button>
+          <button 
             onClick={() => navigate('/admin/calculator')}
             className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 flex items-center gap-1"
           >
@@ -408,6 +415,12 @@ export default function AdminDashboardPage() {
           Access
         </button>
         <button 
+          onClick={() => setActiveTab('quota')}
+          className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'quota' ? 'bg-emerald-500 text-white shadow-lg' : 'bg-white/5 text-gray-500'}`}
+        >
+          Quota & Health
+        </button>
+        <button 
           onClick={() => navigate('/admin/calculator')}
           className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-purple-500/20 text-purple-300 border border-purple-500/30"
         >
@@ -416,7 +429,9 @@ export default function AdminDashboardPage() {
       </div>
 
       <main className="flex-1 overflow-y-auto pt-28 sm:pt-20 px-4 sm:px-8 py-8 max-w-7xl mx-auto w-full relative z-10">
-        {activeTab === 'dashboard' ? (
+        {activeTab === 'quota' ? (
+          <SupabaseQuotaHealth />
+        ) : activeTab === 'dashboard' ? (
           <>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-10">

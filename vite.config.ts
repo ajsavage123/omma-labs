@@ -8,7 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['ooma-icon.png', 'ooma-icon.svg'],
+      includeAssets: ['ooma-icon.png', 'ooma-icon.svg', 'sw-notifications.js'],
+      workbox: {
+        importScripts: ['/sw-notifications.js']
+      },
 
       manifest: {
         name: 'Ooma Labs Workspace',

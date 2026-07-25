@@ -1,5 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Building, Shield } from 'lucide-react';
+import SupabaseQuotaHealth from '@/components/admin/SupabaseQuotaHealth';
 
 export default function CRMSettings() {
   const { user, supabaseUser } = useAuth();
@@ -56,6 +57,9 @@ export default function CRMSettings() {
           </div>
         ))}
       </div>
+
+      {/* Supabase Quota & Workspace Health Monitor (Admin Only) */}
+      <SupabaseQuotaHealth />
     </div>
   );
 }

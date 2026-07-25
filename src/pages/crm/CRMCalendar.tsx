@@ -1,15 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Link2, LogOut, HelpCircle, Loader2, RefreshCw } from "lucide-react";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { googleCalendarService, type LinkedAccount } from "@/services/googleCalendarService";
+import { useToast } from "@/hooks/useToast";
+import { ToastContainer } from "@/components/Toast";
 
 const daysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 const firstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
 export default function CRMCalendar() {
   const { tasks, loading } = useCRMData();
+  const { toast, toasts, removeToast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
+
+  // Google Calendar Integration states
+  const [clientId, setClientId] = useState(googleCalendarService.getClientId());
+  const [editingClientId, setEditingClientId] = useState(!googleCalendarService.getClientId());
+  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>([]);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [connectingAccount, setConnectingAccount] = useState(false);
+
+  useEffect(() => {
+    setLinkedAccounts(googleCalendarService.getLinkedAccounts());
+  }, []);
 
   const monthName = currentDate.toLocaleDateString("en-US", {
     month: "long",
@@ -56,10 +72,71 @@ export default function CRMCalendar() {
     return d.getDate() === selectedDate && d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
   });
 
+  const saveClientId = () => {
+    if (!clientId.trim()) {
+      toast.error("Please enter a valid Client ID");
+      return;
+    }
+    googleCalendarService.setClientId(clientId.trim());
+    setEditingClientId(false);
+    toast.success("Google Client ID saved");
+  };
+
+  const connectAccount = async () => {
+    const savedId = googleCalendarService.getClientId();
+    if (!savedId) {
+      toast.error("Please configure your Google Client ID first.");
+      return;
+    }
+
+    setConnectingAccount(true);
+    await googleCalendarService.addAccount(
+      savedId,
+      (newAcc) => {
+        setLinkedAccounts(googleCalendarService.getLinkedAccounts());
+        toast.success(`Google Account connected: ${newAcc.email}`);
+        setConnectingAccount(false);
+      },
+      (err) => {
+        console.error(err);
+        toast.error("Failed to connect Google Account. Verify your Client ID and configuration.");
+        setConnectingAccount(false);
+      }
+    );
+  };
+
+  const disconnectAccount = (email: string) => {
+    googleCalendarService.disconnectAccount(email);
+    setLinkedAccounts(googleCalendarService.getLinkedAccounts());
+    toast.success(`Disconnected account: ${email}`);
+  };
+
+  const syncAllTasks = async (accountEmail: string) => {
+    setSyncingAll(true);
+    try {
+      toast.success("Synchronizing tasks...");
+      let successCount = 0;
+      for (const task of tasks) {
+        try {
+          await googleCalendarService.syncTask(task, accountEmail);
+          successCount++;
+        } catch (e) {
+          console.error(`Failed to sync task: ${task.title}`, e);
+        }
+      }
+      toast.success(`Synced ${successCount} tasks successfully`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed bulk sync");
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
   if (loading) return null;
 
   return (
     <div className="space-y-4 lg:space-y-6">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       <div>
         <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Calendar</h1>
         <p className="text-sm text-muted-foreground font-medium">View your tasks and follow-ups</p>
@@ -130,28 +207,187 @@ export default function CRMCalendar() {
           </div>
         </Card>
 
-        {/* Tasks for Selected Date */}
-        <Card className="bg-card border-border p-6 rounded-2xl shadow-xl h-fit">
-          <h3 className="font-semibold text-foreground mb-4">
-            {new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-          </h3>
+        <div className="space-y-6">
+          {/* Tasks for Selected Date */}
+          <Card className="bg-card border-border p-6 rounded-2xl shadow-xl h-fit">
+            <h3 className="font-semibold text-foreground mb-4">
+              {new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </h3>
 
-          <div className="space-y-3">
-            {selectedDateTasks.length > 0 ? (
-              selectedDateTasks.map((task, idx) => (
-                <div key={idx} className="flex gap-3 p-3 bg-background rounded-lg">
-                  <div className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0 mt-2" />
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground text-sm">{task.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">For: {task.crm_leads?.contact_person} ({task.crm_leads?.company_name})</p>
+            <div className="space-y-3">
+              {selectedDateTasks.length > 0 ? (
+                selectedDateTasks.map((task, idx) => (
+                  <div key={idx} className="flex flex-col p-3 bg-background rounded-lg gap-2">
+                    <div className="flex gap-3 items-start">
+                      <div className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0 mt-2" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground text-sm">{task.title}</p>
+                        {task.crm_leads && (
+                          <p className="text-xs text-muted-foreground mt-1">For: {task.crm_leads.contact_person} ({task.crm_leads.company_name})</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1 border-t border-border/10 flex-wrap justify-end">
+                      <a 
+                        href={googleCalendarService.generateGoogleCalendarLink(task)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white rounded text-[9px] font-black uppercase tracking-wider transition-all shadow-sm"
+                        title="Add to Google Calendar directly (No API keys required)"
+                      >
+                        Add to Cal
+                      </a>
+                      <a 
+                        href={googleCalendarService.generateGmailComposeLink(
+                          task,
+                          task.crm_leads?.email || '',
+                          googleCalendarService.generateGoogleCalendarLink(task)
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded text-[9px] font-black uppercase tracking-wider transition-all shadow-sm"
+                        title="Compose prefilled Gmail invitation to send"
+                      >
+                        Gmail Invite
+                      </a>
+                    </div>
                   </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">No tasks on this date</p>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No tasks on this date</p>
+              )}
+            </div>
+          </Card>
+
+          {/* Google Calendar Configuration */}
+          <Card className="bg-card border-border p-6 rounded-2xl shadow-xl h-fit space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="text-primary h-5 w-5" />
+                <h3 className="font-bold text-foreground text-sm tracking-tight">Google Calendar Sync</h3>
+              </div>
+              <button 
+                onClick={() => setShowInstructions(!showInstructions)} 
+                className="text-muted-foreground hover:text-foreground p-1 transition-colors"
+                title="Google Setup Guide"
+              >
+                <HelpCircle size={18} />
+              </button>
+            </div>
+
+            {/* Instruction Panel */}
+            {showInstructions && (
+              <div className="p-3.5 bg-background border border-border rounded-xl text-xs space-y-2 leading-relaxed text-muted-foreground">
+                <p className="font-bold text-foreground">How to generate a Client ID:</p>
+                <ol className="list-decimal list-inside space-y-1.5">
+                  <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" className="text-primary hover:underline font-semibold">Google Cloud Console</a>.</li>
+                  <li>Create a Project and enable the **Google Calendar API**.</li>
+                  <li>Create credentials under **OAuth Client ID** (select **Web Application**).</li>
+                  <li>Add <code className="bg-muted px-1.5 py-0.5 rounded font-mono">http://localhost:5173</code> to **Authorized JavaScript Origins**.</li>
+                  <li>Paste the generated Client ID in the field below.</li>
+                </ol>
+              </div>
             )}
-          </div>
-        </Card>
+
+            {/* Client ID Configuration Form */}
+            {editingClientId ? (
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Google OAuth Client ID</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={clientId}
+                    onChange={e => setClientId(e.target.value)}
+                    placeholder="Enter Client ID from Google Console"
+                    className="flex-1 bg-background border border-border rounded-xl px-3 py-2 text-xs outline-none focus:border-primary"
+                  />
+                  <button onClick={saveClientId} className="px-3 bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-bold rounded-xl transition-colors">
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center bg-background border border-border p-3 rounded-xl">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold text-muted-foreground block uppercase">OAuth Client ID</span>
+                  <span className="text-xs text-foreground font-mono truncate block">{googleCalendarService.getClientId()}</span>
+                </div>
+                <button 
+                  onClick={() => setEditingClientId(true)} 
+                  className="px-2.5 py-1 bg-muted hover:bg-muted/80 text-[10px] font-bold text-foreground rounded-lg transition-colors border"
+                >
+                  Edit
+                </button>
+              </div>
+            )}
+
+            {/* Account List and Auth Actions */}
+            {!editingClientId && (
+              <div className="space-y-4 pt-2">
+                <button
+                  onClick={connectAccount}
+                  disabled={connectingAccount}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold rounded-xl transition-colors shadow shadow-primary/10 disabled:opacity-50"
+                >
+                  {connectingAccount ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Link2 size={16} />
+                  )}
+                  Link Google Account
+                </button>
+
+                {linkedAccounts.length > 0 ? (
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Connected Accounts</label>
+                    <div className="space-y-2">
+                      {linkedAccounts.map((account, idx) => {
+                        const isExpired = Date.now() > account.expiresAt;
+                        return (
+                          <div key={idx} className="bg-background border border-border p-3 rounded-xl space-y-2">
+                            <div className="flex justify-between items-center gap-2">
+                              <div className="min-w-0 flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isExpired ? 'bg-destructive animate-pulse' : 'bg-emerald-500'}`} />
+                                <div className="truncate">
+                                  <span className="text-xs font-bold text-foreground block truncate">{account.name}</span>
+                                  <span className="text-[10px] text-muted-foreground block truncate">{account.email}</span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => disconnectAccount(account.email)}
+                                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-muted rounded-lg transition-colors"
+                                title="Disconnect account"
+                              >
+                                <LogOut size={14} />
+                              </button>
+                            </div>
+                            
+                            {!isExpired && (
+                              <button
+                                onClick={() => syncAllTasks(account.email)}
+                                disabled={syncingAll}
+                                className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-muted hover:bg-muted/80 text-[10px] font-bold text-foreground rounded-lg transition-colors border"
+                              >
+                                {syncingAll ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <RefreshCw size={12} />
+                                )}
+                                Sync All CRM Tasks
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground text-center py-2">No Google Accounts linked yet</p>
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
     </div>
   );

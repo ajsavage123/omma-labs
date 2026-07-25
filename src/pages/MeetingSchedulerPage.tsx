@@ -107,7 +107,7 @@ export default function MeetingSchedulerPage() {
       <aside className="hidden md:flex w-[260px] flex-shrink-0 flex-col bg-[#0c0c0e] border-r border-white/5 h-full">
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <OomaLogo className="text-[#6366f1]" size={32} />
+            <OomaLogo size={32} />
             <div>
               <h1 className="text-md font-bold tracking-tight text-white">Ooma Workspace</h1>
               <p className="text-[8px] uppercase tracking-[0.2em] font-extrabold text-[#6366f1]">Ooma Workflow</p>

@@ -39,10 +39,16 @@ export default function CRMLeads() {
   const [importing, setImporting] = useState(false);
   const { users } = useWorkspaceUsers();
   
-  // Filter to only include users from the Business Strategy & Marketing Team
-  const workspaceUsers = users.filter(u => 
-    u.designation?.includes('Business Strategy & Marketing Team')
-  );
+  // Include all workspace users in the owner dropdown.
+  // Always ensure the current user (admin) appears even if not in the team list.
+  const workspaceUsers = (() => {
+    const list = users.filter(u => u.id !== user?.id); // all except current user
+    const currentUserObj = users.find(u => u.id === user?.id);
+    if (currentUserObj) {
+      return [currentUserObj, ...list]; // current user first
+    }
+    return list;
+  })();
   
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   
