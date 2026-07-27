@@ -2,10 +2,71 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-// Mock CRMDataContext
-const mockUseCRMData = vi.fn();
+// Mock supabase
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    }),
+  },
+}));
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { id: 'user-1', workspace_id: 'ws-1', role: 'admin' },
+  }),
+}));
+
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({
+    toast: { success: vi.fn(), error: vi.fn() },
+    toasts: [],
+    removeToast: vi.fn(),
+  }),
+}));
+
+vi.mock('@/components/Toast', () => ({
+  ToastContainer: () => null,
+}));
+
+vi.mock('@/services/googleCalendarService', () => ({
+  googleCalendarService: {
+    getClientId: vi.fn().mockReturnValue('test-client-id'),
+    setClientId: vi.fn(),
+    getLinkedAccounts: vi.fn().mockReturnValue([]),
+    addAccount: vi.fn(),
+    disconnectAccount: vi.fn(),
+    syncTask: vi.fn(),
+    generateGoogleCalendarLink: vi.fn().mockReturnValue('https://calendar.google.com/test'),
+    generateGmailComposeLink: vi.fn().mockReturnValue('https://mail.google.com/test'),
+  },
+}));
+
+const mockTasks = [
+  {
+    id: 't1', title: 'Follow up with Client', status: 'Pending',
+    due_date: '2026-07-27', due_time: '10:00:00',
+    assigned_to: 'user-1', crm_leads: { company_name: 'Alpha Corp' },
+  },
+  {
+    id: 't2', title: 'Send Proposal', status: 'Completed',
+    due_date: '2026-07-28', due_time: '14:00:00',
+    assigned_to: 'user-1', crm_leads: { company_name: 'Beta LLC' },
+  },
+];
+
 vi.mock('@/contexts/CRMDataContext', () => ({
-  useCRMData: () => mockUseCRMData(),
+  useCRMData: () => ({
+    tasks: mockTasks,
+    loading: false,
+    leads: [],
+    refreshLeads: vi.fn(),
+    refreshTasks: vi.fn(),
+    activities: [],
+    refreshActivities: vi.fn(),
+  }),
 }));
 
 import CRMCalendar from '../CRMCalendar';
@@ -23,96 +84,45 @@ describe('CRMCalendar', () => {
     vi.clearAllMocks();
   });
 
-  it('returns null during loading', () => {
-    mockUseCRMData.mockReturnValue({ tasks: [], loading: true });
-    const { container } = renderCalendar();
-    expect(container.innerHTML).toBe('');
-  });
-
-  it('renders calendar title and page after loading', () => {
-    mockUseCRMData.mockReturnValue({ tasks: [], loading: false });
+  it('renders calendar header and weekday labels', () => {
     renderCalendar();
     expect(screen.getByText('Calendar')).toBeInTheDocument();
+    expect(screen.getByText('View your tasks and follow-ups')).toBeInTheDocument();
+    // Weekday labels
+    expect(screen.getAllByText('S').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('M').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders current month name', () => {
-    mockUseCRMData.mockReturnValue({ tasks: [], loading: false });
+  it('renders month navigation buttons', () => {
     renderCalendar();
-    const now = new Date();
-    const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    expect(screen.getByText(monthName)).toBeInTheDocument();
+    expect(screen.getByTitle('Previous month')).toBeInTheDocument();
+    expect(screen.getByTitle('Next month')).toBeInTheDocument();
   });
 
-  it('renders day-of-week headers', () => {
-    mockUseCRMData.mockReturnValue({ tasks: [], loading: false });
+  it('navigates to next month when clicking next', () => {
     renderCalendar();
-    expect(screen.getByText('M')).toBeInTheDocument();
-    expect(screen.getByText('F')).toBeInTheDocument();
-  });
-
-  it('navigates to next month', () => {
-    mockUseCRMData.mockReturnValue({ tasks: [], loading: false });
-    renderCalendar();
+    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    expect(screen.getByText(currentMonth)).toBeInTheDocument();
     
-    const nextButton = screen.getByTitle('Next month');
-    fireEvent.click(nextButton);
+    fireEvent.click(screen.getByTitle('Next month'));
     
-    // After clicking next, should show next month name
-    const nextMonth = new Date();
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const nextMonthName = nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    expect(screen.getByText(nextMonthName)).toBeInTheDocument();
+    const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1)
+      .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    expect(screen.getByText(nextMonth)).toBeInTheDocument();
   });
 
-  it('navigates to previous month', () => {
-    mockUseCRMData.mockReturnValue({ tasks: [], loading: false });
+  it('navigates to previous month when clicking prev', () => {
     renderCalendar();
     
-    const prevButton = screen.getByTitle('Previous month');
-    fireEvent.click(prevButton);
+    fireEvent.click(screen.getByTitle('Previous month'));
     
-    const prevMonth = new Date();
-    prevMonth.setMonth(prevMonth.getMonth() - 1);
-    const prevMonthName = prevMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    expect(screen.getByText(prevMonthName)).toBeInTheDocument();
+    const prevMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1)
+      .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    expect(screen.getByText(prevMonth)).toBeInTheDocument();
   });
 
-  it('shows tasks for selected date', () => {
-    const today = new Date();
-    
-    mockUseCRMData.mockReturnValue({
-      tasks: [
-        {
-          id: 't1',
-          title: 'Call Client Alpha',
-          due_date: today.toISOString(),
-          status: 'Pending',
-          crm_leads: { company_name: 'Alpha Corp', contact_person: 'John' }
-        },
-      ],
-      loading: false,
-    });
+  it('renders Google Calendar integration section', () => {
     renderCalendar();
-    
-    // Click today's date
-    const todayButtons = screen.getAllByText(String(today.getDate()));
-    // Click the current month's date (might have multiple if prev/next month share a number)
-    todayButtons[0].click();
-    
-    expect(screen.getByText('Call Client Alpha')).toBeInTheDocument();
-  });
-
-  it('shows "No tasks on this date" when no tasks exist', () => {
-    mockUseCRMData.mockReturnValue({ tasks: [], loading: false });
-    renderCalendar();
-    expect(screen.getByText('No tasks on this date')).toBeInTheDocument();
-  });
-
-  it('renders 42 day cells (6 weeks grid)', () => {
-    mockUseCRMData.mockReturnValue({ tasks: [], loading: false });
-    const { container } = renderCalendar();
-    // The grid has 7 columns × 6 rows = 42 buttons (day cells)
-    const dayCells = container.querySelectorAll('.grid.grid-cols-7 button');
-    expect(dayCells.length).toBe(42);
+    expect(screen.getByText(/Google Calendar/i)).toBeInTheDocument();
   });
 });

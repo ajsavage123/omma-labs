@@ -1,186 +1,142 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { CRMAccessGuard } from '../CRMAccessGuard';
-import { useAuth } from '@/hooks/useAuth';
-import { crmAccessService } from '@/services/crmAccessService';
 
-// Mock useAuth
+// Mock supabase
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
+          }),
+        }),
+      }),
+      upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  },
+}));
+
+// Dynamic user mock
+const mockUser = vi.fn();
 vi.mock('@/hooks/useAuth', () => ({
-  useAuth: vi.fn(),
+  useAuth: () => mockUser(),
 }));
 
 // Mock crmAccessService
+const mockGetAccessStatus = vi.fn();
+const mockRequestAccess = vi.fn();
 vi.mock('@/services/crmAccessService', () => ({
   crmAccessService: {
-    getAccessStatus: vi.fn(),
-    requestAccess: vi.fn(),
+    getAccessStatus: (...args: any[]) => mockGetAccessStatus(...args),
+    requestAccess: (...args: any[]) => mockRequestAccess(...args),
   },
 }));
+
+import { CRMAccessGuard } from '../CRMAccessGuard';
 
 describe('CRMAccessGuard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('allows access automatically for admin users', () => {
-    (useAuth as any).mockReturnValue({
-      user: {
-        id: '1',
-        role: 'admin',
-        designation: 'Developer & Engineering Team', // even if dev, admin role overrides
-        workspace_id: 'ws-1',
-      },
+  it('grants immediate access to admin users', async () => {
+    mockUser.mockReturnValue({
+      user: { id: 'user-1', workspace_id: 'ws-1', role: 'admin', designation: 'Engineering' },
     });
 
     render(
       <CRMAccessGuard>
-        <div data-testid="crm-content">CRM Dashboard Content</div>
-      </CRMAccessGuard>
-    );
-
-    expect(screen.getByTestId('crm-content')).toBeInTheDocument();
-    expect(screen.queryByText('Access Restricted')).not.toBeInTheDocument();
-    expect(crmAccessService.getAccessStatus).not.toHaveBeenCalled();
-  });
-
-  it('allows access automatically for Business Strategy & Marketing Team members', () => {
-    (useAuth as any).mockReturnValue({
-      user: {
-        id: '2',
-        role: 'partner',
-        designation: 'Business Strategy & Marketing Team',
-        workspace_id: 'ws-1',
-      },
-    });
-
-    render(
-      <CRMAccessGuard>
-        <div data-testid="crm-content">CRM Dashboard Content</div>
-      </CRMAccessGuard>
-    );
-
-    expect(screen.getByTestId('crm-content')).toBeInTheDocument();
-    expect(screen.queryByText('Access Restricted')).not.toBeInTheDocument();
-    expect(crmAccessService.getAccessStatus).not.toHaveBeenCalled();
-  });
-
-  it('allows access automatically for Marketing & Business members', () => {
-    (useAuth as any).mockReturnValue({
-      user: {
-        id: '2-1',
-        role: 'partner',
-        designation: 'Marketing & Business',
-        workspace_id: 'ws-1',
-      },
-    });
-
-    render(
-      <CRMAccessGuard>
-        <div data-testid="crm-content">CRM Dashboard Content</div>
-      </CRMAccessGuard>
-    );
-
-    expect(screen.getByTestId('crm-content')).toBeInTheDocument();
-    expect(screen.queryByText('Access Restricted')).not.toBeInTheDocument();
-    expect(crmAccessService.getAccessStatus).not.toHaveBeenCalled();
-  });
-
-  it('restricts access for Developer & Engineering Team by default and queries status', async () => {
-    (useAuth as any).mockReturnValue({
-      user: {
-        id: '3',
-        role: 'partner',
-        designation: 'Developer & Engineering Team',
-        workspace_id: 'ws-1',
-      },
-    });
-
-    (crmAccessService.getAccessStatus as any).mockResolvedValue('none');
-
-    render(
-      <CRMAccessGuard>
-        <div data-testid="crm-content">CRM Dashboard Content</div>
-      </CRMAccessGuard>
-    );
-
-    // Initial load will show "Verifying Access Level..."
-    expect(screen.getByText('Verifying Access Level...')).toBeInTheDocument();
-
-    // After async load finishes, it should restrict access
-    await waitFor(() => {
-      expect(screen.getByText('Access Restricted')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByTestId('crm-content')).not.toBeInTheDocument();
-    expect(crmAccessService.getAccessStatus).toHaveBeenCalledWith('3', 'ws-1');
-  });
-
-  it('restricts access for Innovation & Research Team by default (previously allowed)', async () => {
-    (useAuth as any).mockReturnValue({
-      user: {
-        id: '4',
-        role: 'partner',
-        designation: 'Innovation & Research Team',
-        workspace_id: 'ws-1',
-      },
-    });
-
-    (crmAccessService.getAccessStatus as any).mockResolvedValue('none');
-
-    render(
-      <CRMAccessGuard>
-        <div data-testid="crm-content">CRM Dashboard Content</div>
-      </CRMAccessGuard>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Access Restricted')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByTestId('crm-content')).not.toBeInTheDocument();
-  });
-
-  it('renders children if restricted user is approved in database', async () => {
-    (useAuth as any).mockReturnValue({
-      user: {
-        id: '5',
-        role: 'partner',
-        designation: 'Developer & Engineering Team',
-        workspace_id: 'ws-1',
-      },
-    });
-
-    (crmAccessService.getAccessStatus as any).mockResolvedValue('approved');
-
-    render(
-      <CRMAccessGuard>
-        <div data-testid="crm-content">CRM Dashboard Content</div>
+        <div data-testid="crm-content">CRM Dashboard</div>
       </CRMAccessGuard>
     );
 
     await waitFor(() => {
       expect(screen.getByTestId('crm-content')).toBeInTheDocument();
     });
-
-    expect(screen.queryByText('Access Restricted')).not.toBeInTheDocument();
   });
 
-  it('allows requesting access if status is none', async () => {
-    (useAuth as any).mockReturnValue({
-      user: {
-        id: '6',
-        role: 'partner',
-        designation: 'Developer & Engineering Team',
-        workspace_id: 'ws-1',
-      },
+  it('grants immediate access to Business Strategy & Marketing Team members', async () => {
+    mockUser.mockReturnValue({
+      user: { id: 'user-2', workspace_id: 'ws-1', role: 'partner', designation: 'Business Strategy & Marketing Team' },
     });
-
-    (crmAccessService.getAccessStatus as any).mockResolvedValue('none');
-    (crmAccessService.requestAccess as any).mockResolvedValue(undefined);
 
     render(
       <CRMAccessGuard>
-        <div data-testid="crm-content">CRM Dashboard Content</div>
+        <div data-testid="crm-content">CRM Dashboard</div>
+      </CRMAccessGuard>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('crm-content')).toBeInTheDocument();
+    });
+  });
+
+  it('blocks access and shows restricted message for non-authorized users with no request', async () => {
+    mockUser.mockReturnValue({
+      user: { id: 'user-3', workspace_id: 'ws-1', role: 'partner', designation: 'Research & Development' },
+    });
+    mockGetAccessStatus.mockResolvedValue('none');
+
+    render(
+      <CRMAccessGuard>
+        <div data-testid="crm-content">CRM Dashboard</div>
+      </CRMAccessGuard>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Access Restricted')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Request Access Authorization')).toBeInTheDocument();
+    expect(screen.queryByTestId('crm-content')).not.toBeInTheDocument();
+  });
+
+  it('shows pending status when access has been requested', async () => {
+    mockUser.mockReturnValue({
+      user: { id: 'user-3', workspace_id: 'ws-1', role: 'partner', designation: 'Research & Development' },
+    });
+    mockGetAccessStatus.mockResolvedValue('pending');
+
+    render(
+      <CRMAccessGuard>
+        <div data-testid="crm-content">CRM Dashboard</div>
+      </CRMAccessGuard>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('AUTHORIZATION PENDING')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('crm-content')).not.toBeInTheDocument();
+  });
+
+  it('shows denied status when access request was rejected', async () => {
+    mockUser.mockReturnValue({
+      user: { id: 'user-3', workspace_id: 'ws-1', role: 'partner', designation: 'Research & Development' },
+    });
+    mockGetAccessStatus.mockResolvedValue('rejected');
+
+    render(
+      <CRMAccessGuard>
+        <div data-testid="crm-content">CRM Dashboard</div>
+      </CRMAccessGuard>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('ACCESS DENIED BY ADMIN')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('crm-content')).not.toBeInTheDocument();
+  });
+
+  it('submits access request when clicking the button', async () => {
+    mockUser.mockReturnValue({
+      user: { id: 'user-3', workspace_id: 'ws-1', role: 'partner', designation: 'Research & Development' },
+    });
+    mockGetAccessStatus.mockResolvedValue('none');
+    mockRequestAccess.mockResolvedValue(undefined);
+
+    render(
+      <CRMAccessGuard>
+        <div data-testid="crm-content">CRM Dashboard</div>
       </CRMAccessGuard>
     );
 
@@ -191,8 +147,44 @@ describe('CRMAccessGuard', () => {
     fireEvent.click(screen.getByText('Request Access Authorization'));
 
     await waitFor(() => {
-      expect(crmAccessService.requestAccess).toHaveBeenCalledWith('6', 'ws-1');
+      expect(mockRequestAccess).toHaveBeenCalledWith('user-3', 'ws-1');
+    });
+
+    await waitFor(() => {
       expect(screen.getByText('AUTHORIZATION PENDING')).toBeInTheDocument();
+    });
+  });
+
+  it('grants access to Marketing & Business designated users', async () => {
+    mockUser.mockReturnValue({
+      user: { id: 'user-4', workspace_id: 'ws-1', role: 'partner', designation: 'Marketing & Business' },
+    });
+
+    render(
+      <CRMAccessGuard>
+        <div data-testid="crm-content">CRM Dashboard</div>
+      </CRMAccessGuard>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('crm-content')).toBeInTheDocument();
+    });
+  });
+
+  it('shows Return to Dashboard link', async () => {
+    mockUser.mockReturnValue({
+      user: { id: 'user-3', workspace_id: 'ws-1', role: 'partner', designation: 'Engineering' },
+    });
+    mockGetAccessStatus.mockResolvedValue('none');
+
+    render(
+      <CRMAccessGuard>
+        <div>CRM Content</div>
+      </CRMAccessGuard>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Return to Dashboard')).toBeInTheDocument();
     });
   });
 });

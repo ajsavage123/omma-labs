@@ -40,7 +40,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
 
   const workspaceId = user?.workspace_id;
   const userId = user?.id;
-  const isAdmin = user?.role === 'admin' || user?.role === 'partner';
+  const isAdmin = user?.role === 'admin';
 
   const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
@@ -70,12 +70,13 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       let query = supabase
         .from('crm_tasks')
         .select('*, crm_leads(company_name, contact_person)')
-        .eq('workspace_id', workspaceId)
-        .order('due_date', { ascending: true });
+        .eq('workspace_id', workspaceId);
 
       if (!isAdmin) {
         query = query.eq('assigned_to', userId);
       }
+
+      query = query.order('due_date', { ascending: true });
 
       const { data, error } = await query;
       if (error) throw error;

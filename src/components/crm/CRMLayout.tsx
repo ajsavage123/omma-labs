@@ -52,13 +52,12 @@ const navItems = [
   { label: "Notes", href: "/crm/notes", icon: FileText },
   { label: "Projects", href: "/crm/projects", icon: Briefcase },
   { label: "Reports", href: "/crm/reports", icon: BarChart3 },
-  { label: "Quota & Health", href: "/crm/quota", icon: Server, adminOnly: true },
   { label: "Settings", href: "/crm/settings", icon: Settings },
 ];
 
 export default function CRMLayout({ children }: LayoutProps) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'partner';
+  const isAdmin = user?.role === 'admin';
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);

@@ -39,10 +39,21 @@ export default function CRMLeads() {
   const [importing, setImporting] = useState(false);
   const { users } = useWorkspaceUsers();
   
-  // Include all workspace users in the owner dropdown.
+  // Include only CRM-authorized workspace users (admin or Business/Marketing designation) in the owner dropdown.
   // Always ensure the current user (admin) appears even if not in the team list.
   const workspaceUsers = (() => {
-    const list = users.filter(u => u.id !== user?.id); // all except current user
+    const filteredList = users.filter(u => {
+      // Exclude placeholder system admin accounts unless it is the logged-in user
+      const isSystemAdminPlaceholder = ['admin', 'oomadmin'].includes(u.username?.toLowerCase()) && u.id !== user?.id;
+      if (isSystemAdminPlaceholder) return false;
+
+      const isUserAdmin = u.role === 'admin';
+      const isUserBusinessMarketing = (u.designation || '').toLowerCase().includes('business') ||
+                                      (u.designation || '').toLowerCase().includes('marketing');
+      return isUserAdmin || isUserBusinessMarketing;
+    });
+
+    const list = filteredList.filter(u => u.id !== user?.id); // all except current user
     const currentUserObj = users.find(u => u.id === user?.id);
     if (currentUserObj) {
       return [currentUserObj, ...list]; // current user first
@@ -59,7 +70,7 @@ export default function CRMLeads() {
   const [filterSalesperson, setFilterSalesperson] = useState("All");
 
   // Role check
-  const isAdmin = user?.role === 'admin' || user?.role === 'partner';
+  const isAdmin = user?.role === 'admin';
   const isBusinessMarketing = (user?.designation || '').toLowerCase().includes('business') ||
                                (user?.designation || '').toLowerCase().includes('marketing');
   const isSalesperson = !isAdmin && isBusinessMarketing;
@@ -343,6 +354,20 @@ export default function CRMLeads() {
             if (!name) name = 'Unknown Contact';
             if (!company) company = 'Unknown Company';
 
+            // Resolve assigned owner/salesperson from CSV or default to currently logged-in user
+            const csvOwner = getField(['owner', 'salesperson', 'assigned to', 'assigned_to', 'assignee', 'agent', 'staff', 'creator']);
+            let assignedUserId = user?.id || null;
+            if (csvOwner) {
+              const cleanOwner = csvOwner.toString().trim().toLowerCase();
+              const matchedUser = users.find(u => 
+                (u.username || '').toLowerCase() === cleanOwner || 
+                (u.full_name || '').toLowerCase() === cleanOwner
+              );
+              if (matchedUser) {
+                assignedUserId = matchedUser.id;
+              }
+            }
+
             // Collect all other keys into custom_data (only keys that were not actually matched and mapped)
             const customData: any = {};
             Object.keys(row).forEach(k => {
@@ -369,7 +394,8 @@ export default function CRMLeads() {
               payment_status: paymentStatus,
               amount_paid: amountPaid,
               custom_data: customData,
-              workspace_id: user?.workspace_id
+              workspace_id: user?.workspace_id,
+              assigned_to: assignedUserId
             };
           });
 
@@ -407,6 +433,7 @@ export default function CRMLeads() {
 
     const matchesStatus = filterStatus === "All" || l.status === filterStatus;
     const matchesValue = !filterMinValue || (l.estimated_value || 0) >= parseInt(filterMinValue);
+    
     const matchesSalesperson = filterSalesperson === "All" || l.assigned_to === filterSalesperson;
     
     let matchesDate = true;

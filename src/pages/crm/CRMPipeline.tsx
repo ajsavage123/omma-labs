@@ -163,12 +163,24 @@ export default function CRMPipeline() {
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const { users } = useWorkspaceUsers();
   
-  // Include ALL workspace users in owner dropdown; put current user first
+  // Include only CRM-authorized workspace users (admin or Business/Marketing designation) in the owner dropdown.
+  // Always ensure the current user (admin) appears even if not in the team list.
   const workspaceUsers = (() => {
-    const list = users.filter(u => u.id !== user?.id);
+    const filteredList = users.filter(u => {
+      // Exclude placeholder system admin accounts unless it is the logged-in user
+      const isSystemAdminPlaceholder = ['admin', 'oomadmin'].includes(u.username?.toLowerCase()) && u.id !== user?.id;
+      if (isSystemAdminPlaceholder) return false;
+
+      const isUserAdmin = u.role === 'admin';
+      const isUserBusinessMarketing = (u.designation || '').toLowerCase().includes('business') ||
+                                      (u.designation || '').toLowerCase().includes('marketing');
+      return isUserAdmin || isUserBusinessMarketing;
+    });
+
+    const list = filteredList.filter(u => u.id !== user?.id); // all except current user
     const currentUserObj = users.find(u => u.id === user?.id);
     if (currentUserObj) {
-      return [currentUserObj, ...list];
+      return [currentUserObj, ...list]; // current user first
     }
     return list;
   })();
@@ -202,7 +214,7 @@ export default function CRMPipeline() {
   }, [taskFormData.lead_id, leads]);
 
   // Role check: admin/owner sees all, Business & Marketing sees only their own leads
-  const isAdmin = user?.role === 'admin' || user?.role === 'partner';
+  const isAdmin = user?.role === 'admin';
   const isBusinessMarketing = (user?.designation || '').toLowerCase().includes('business') || 
                                (user?.designation || '').toLowerCase().includes('marketing');
   const isSalesperson = !isAdmin && isBusinessMarketing;

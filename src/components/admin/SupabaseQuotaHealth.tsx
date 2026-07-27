@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 
 export default function SupabaseQuotaHealth() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'partner';
+  const isAdmin = user?.role === 'admin';
   
   const [data, setData] = useState<QuotaHealthData | null>(null);
   const [loading, setLoading] = useState(true);
