@@ -17,8 +17,7 @@ import {
   Home,
   CheckCircle2,
   Volume2,
-  VolumeX,
-  Server
+  VolumeX
 } from "lucide-react";
 import { notificationService } from "@/utils/notificationService";
 import { OomaLogo } from "@/components/OomaLogo";
@@ -43,7 +42,14 @@ interface CRMTask {
   [key: string]: any;
 }
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: any;
+  adminOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   { label: "Dashboard", href: "/crm", icon: LayoutDashboard },
   { label: "Leads", href: "/crm/leads", icon: Users },
   { label: "Pipeline", href: "/crm/pipeline", icon: TrendingUp },
