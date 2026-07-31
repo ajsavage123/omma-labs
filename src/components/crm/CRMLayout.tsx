@@ -25,6 +25,7 @@ import { useCRMData } from "@/contexts/CRMDataContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { getTaskDueDate } from "@/utils/dateUtils";
 
 interface LayoutProps {
   children: ReactNode;
@@ -71,6 +72,38 @@ export default function CRMLayout({ children }: LayoutProps) {
   const { tasks: globalTasks, refreshTasks } = useCRMData();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('crm_notifications_muted') === 'true');
+  const [bellRinging, setBellRinging] = useState(false);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Filter tasks to show ONLY PENDING tasks that are currently DUE or OVERDUE (scheduled time has arrived)
+  const tasks = globalTasks
+    .filter((t: any) => {
+      if (t.status !== 'Pending') return false;
+      const dueDate = getTaskDueDate(t.due_date, t.due_time);
+      if (!dueDate) return false;
+      return dueDate.getTime() <= now.getTime();
+    })
+    .sort((a: any, b: any) => {
+      const dateA = getTaskDueDate(a.due_date, a.due_time)?.getTime() || 0;
+      const dateB = getTaskDueDate(b.due_date, b.due_time)?.getTime() || 0;
+      return dateB - dateA;
+    });
+
+  useEffect(() => {
+    const handleTaskDue = () => {
+      setBellRinging(true);
+      const timer = setTimeout(() => setBellRinging(false), 800);
+      return () => clearTimeout(timer);
+    };
+
+    window.addEventListener('crm-task-due', handleTaskDue);
+    return () => window.removeEventListener('crm-task-due', handleTaskDue);
+  }, []);
 
   const toggleMute = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -84,11 +117,6 @@ export default function CRMLayout({ children }: LayoutProps) {
       toast.success("Notification sounds unmuted");
     }
   };
-
-  // Filter tasks to show only pending ones in the notification layout dropdown
-  const tasks = globalTasks
-    .filter((t: any) => t.status === 'Pending')
-    .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
   const handleMarkCompleted = async (e: React.MouseEvent, taskId: string) => {
     e.preventDefault();
@@ -280,25 +308,25 @@ export default function CRMLayout({ children }: LayoutProps) {
             <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className={`p-2.5 rounded-xl transition-colors relative ${notificationsOpen ? 'bg-primary/10 text-primary' : 'hover:bg-background text-muted-foreground'}`}
+                className={`p-2.5 rounded-xl transition-all duration-300 relative bell-btn ${notificationsOpen ? 'bg-primary/20 text-primary scale-105 shadow-inner' : 'hover:bg-background text-muted-foreground'}`}
+                aria-label="Notifications"
               >
-                <Bell size={20} />
+                <Bell size={20} className={`bell-icon transition-transform ${bellRinging ? 'bell-ringing text-primary' : tasks.length > 0 ? 'bell-oscillating text-primary' : ''}`} />
                 {tasks.length > 0 && !notificationsOpen && (
-                  <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border-2 border-card"></span>
+                  <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center bg-red-500 text-white font-black text-[9px] w-5 h-5 rounded-full border-2 border-card shadow-md animate-pulse">
+                    {tasks.length}
                   </span>
                 )}
               </button>
 
               {notificationsOpen && (
-                <div className="absolute top-full right-0 mt-3 w-80 sm:w-96 bg-card border border-border shadow-2xl rounded-2xl overflow-hidden z-50 flex flex-col max-h-[85vh]">
+                <div className="absolute top-full right-0 mt-3 w-80 sm:w-96 bg-card/95 backdrop-blur-md border border-border/80 shadow-[0_10px_50px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-50 flex flex-col max-h-[85vh] transition-all duration-300 animate-in">
                   <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between sticky top-0">
                     <h3 className="font-black text-sm text-foreground uppercase tracking-wider">Notifications</h3>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={toggleMute}
-                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors animate-fade-in"
+                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
                         title={isMuted ? "Unmute sounds" : "Mute sounds"}
                       >
                         {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
@@ -322,7 +350,7 @@ export default function CRMLayout({ children }: LayoutProps) {
                         <p className="text-sm font-medium text-muted-foreground">You're all caught up!</p>
                       </div>
                     ) : (
-                      <div className="divide-y divide-border/50">
+                      <div className="divide-y divide-border/30">
                         {tasks
                           .sort((a: CRMTask, b: CRMTask) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
                           .slice(0, 5)
@@ -331,14 +359,14 @@ export default function CRMLayout({ children }: LayoutProps) {
                             key={task.id} 
                             to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads?.company_name || '')}`}
                             onClick={() => setNotificationsOpen(false)}
-                            className="p-4 hover:bg-muted/50 transition-colors flex items-start gap-3 group"
+                            className="p-4 hover:bg-primary/5 dark:hover:bg-primary/10 transition-all flex items-start gap-3 group border-l-2 border-transparent hover:border-primary"
                           >
-                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-all duration-200">
                               <Bell size={14} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm font-bold text-foreground truncate">{task.title}</p>
+                                <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">{task.title}</p>
                                 <button
                                   onClick={(e) => handleMarkCompleted(e, task.id)}
                                   className="p-1.5 rounded-lg text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-all duration-200"

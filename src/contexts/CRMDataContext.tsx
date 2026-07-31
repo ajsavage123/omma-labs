@@ -69,7 +69,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       // Admins see all workspace tasks; regular users see only their own assigned tasks
       let query = supabase
         .from('crm_tasks')
-        .select('*, crm_leads(company_name, contact_person)')
+        .select('*, crm_leads(company_name, contact_person, email, phone)')
         .eq('workspace_id', workspaceId);
 
       if (!isAdmin) {
@@ -155,13 +155,9 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'crm_tasks', filter: `workspace_id=eq.${workspaceId}` },
-        (payload) => {
-          const { eventType, new: newRecord } = payload;
-          if (eventType === 'UPDATE') {
-            setTasks(current => current.map(t => (t.id === newRecord.id ? { ...t, ...newRecord } : t)));
-          } else {
-            throttledFetchTasks();
-          }
+        () => {
+          throttledFetchTasks();
+          throttledFetchLeads();
         }
       )
       .subscribe();

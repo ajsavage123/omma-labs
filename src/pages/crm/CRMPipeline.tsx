@@ -12,7 +12,7 @@ import { ToastContainer } from '@/components/Toast';
 import { useCRMData } from '@/contexts/CRMDataContext';
 import { formatUrl } from '../../utils/formatUrl';
 import { googleCalendarService } from '@/services/googleCalendarService';
-import { notificationService } from '@/utils/notificationService';
+import { getTaskDueDate } from '@/utils/dateUtils';
 
 const STAGES = [
   { 
@@ -30,7 +30,7 @@ const STAGES = [
     color: 'from-cyan-500 to-cyan-700',
     borderColor: 'border-cyan-500/20',
     textColor: 'text-cyan-500',
-    description: "Initial reach-out performed via email or call.",
+    description: "Initial communication made (call/email/message).",
     aliases: ['contacted', 'CONTACTED']
   },
   { 
@@ -39,8 +39,8 @@ const STAGES = [
     color: 'from-rose-500 to-rose-700',
     borderColor: 'border-rose-500/20',
     textColor: 'text-rose-500',
-    description: "Prospect contacted but not interested.",
-    aliases: ['Not Interested', 'not_interested', 'NOT_INTERESTED', 'Lost', 'lost', 'LOST', 'Rejected']
+    description: "Prospect is currently not interested.",
+    aliases: ['Not Interested', 'NOT_INTERESTED']
   },
   { 
     name: "Interested", 
@@ -98,7 +98,7 @@ export default function CRMPipeline() {
 
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 15000); // refresh every 15s to update card highlighting
+    }, 5000); // refresh every 5s to update card highlighting precisely
     return () => clearInterval(timer);
   }, [leads]);
 
@@ -106,30 +106,30 @@ export default function CRMPipeline() {
     if (!lead.crm_tasks || lead.crm_tasks.length === 0) return '';
     
     let urgency: 'red' | 'orange' | 'blue' | null = null;
+    const todayStr = new Date().toISOString().split('T')[0];
     
     lead.crm_tasks.forEach((task: any) => {
       if (task.status !== 'Pending') return;
-      
-      let dueDate = new Date(task.due_date);
-      if (task.due_time) {
-        const [hours, minutes] = task.due_time.split(':');
-        dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      // If task has NO explicit due_time, only mark red if the due date is strictly in the past
+      if (!task.due_time) {
+        if (task.due_date && task.due_date < todayStr) {
+          urgency = 'red';
+        }
+        return;
       }
+      
+      const dueDate = getTaskDueDate(task.due_date, task.due_time);
+      if (!dueDate) return;
       
       const diffMs = dueDate.getTime() - currentTime.getTime();
       
-      if (diffMs < 0) {
-        urgency = 'red'; // Overdue
-      } else if (diffMs <= 5 * 60 * 1000) {
-        if (urgency !== 'red') urgency = 'orange'; // Due in <= 5 mins
-      } else if (diffMs <= 10 * 60 * 1000) {
-        if (urgency !== 'red' && urgency !== 'orange') urgency = 'blue'; // Due in 5 to 10 mins
+      if (diffMs <= 0) {
+        urgency = 'red'; // Due right now or overdue -> red alarm glow
       }
     });
     
     if (urgency === 'red') return 'blink-ring-red';
-    if (urgency === 'orange') return 'blink-ring-orange';
-    if (urgency === 'blue') return 'blink-ring-blue';
     return '';
   };
   
@@ -218,7 +218,7 @@ export default function CRMPipeline() {
   const isBusinessMarketing = (user?.designation || '').toLowerCase().includes('business') || 
                                (user?.designation || '').toLowerCase().includes('marketing');
   const isSalesperson = !isAdmin && isBusinessMarketing;
-  const [glowingLeadId, setGlowingLeadId] = useState<string | null>(null);
+  const [glowingLeadId] = useState<string | null>(null);
 
   // Lead Form State
   const [formData, setFormData] = useState({
@@ -385,17 +385,6 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       }
 
       toast.success(`Action scheduled successfully!`);
-      if (taskFormData.lead_id) {
-        setGlowingLeadId(taskFormData.lead_id);
-        notificationService.playSound('success');
-        notificationService.showNotification("Action Scheduled 🚀", {
-          body: `Follow-up scheduled for lead: "${insertedData?.crm_leads?.company_name || insertedData?.crm_leads?.contact_person || 'Lead'}"`,
-          tag: insertedData?.id || taskFormData.lead_id,
-          silent: true,
-          data: { url: '/crm/tasks' }
-        });
-        setTimeout(() => setGlowingLeadId(null), 4000);
-      }
       setSyncToGoogle(false);
       setIsTaskModalOpen(false);
       refreshLeads();
@@ -408,7 +397,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!confirm("Delete this scheduled action?")) return;
+    if (!window.confirm("Delete this scheduled action?")) return;
     try {
       // Delete from Google Calendar first
       await googleCalendarService.deleteTaskEvent(taskId);

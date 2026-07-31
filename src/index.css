@@ -196,3 +196,41 @@
   transform: scale(1.02);
   z-index: 20;
 }
+
+/* Premium Bell Swinging Keyframe Animations */
+@keyframes bell-swing {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(15deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+  90% { transform: rotate(-2deg); }
+}
+
+@keyframes bell-oscillate {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(16deg); }
+  20% { transform: rotate(-14deg); }
+  30% { transform: rotate(12deg); }
+  40% { transform: rotate(-8deg); }
+  50% { transform: rotate(4deg); }
+  60%, 99% { transform: rotate(0deg); }
+}
+
+.bell-ringing {
+  animation: bell-swing 0.8s ease-in-out;
+  transform-origin: top center;
+}
+
+.bell-oscillating {
+  animation: bell-oscillate 2.5s infinite ease-in-out;
+  transform-origin: top center;
+}
+
+.bell-btn:hover .bell-icon {
+  animation: bell-swing 0.8s ease-in-out;
+  transform-origin: top center;
+}
+
+

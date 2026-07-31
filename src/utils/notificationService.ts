@@ -74,6 +74,12 @@ export const notificationService = {
       return;
     }
 
+    // Format the title to start with oomaworkspace-CRM to avoid duplicate app name wrapping
+    let formattedTitle = title;
+    if (!title.startsWith('oomaworkspace-CRM')) {
+      formattedTitle = `oomaworkspace-CRM - ${title}`;
+    }
+
     if (!options?.silent) {
       this.playSound();
     }
@@ -88,9 +94,9 @@ export const notificationService = {
         ]);
 
         if (swReady && swReady.showNotification) {
-          await swReady.showNotification(title, {
+          await swReady.showNotification(formattedTitle, {
             icon: '/pwa-192x192.png',
-            badge: '/pwa-192x192.png',
+            badge: '/ooma-badge.svg',
             ...options
           });
           return;
@@ -101,9 +107,9 @@ export const notificationService = {
     }
     
     try {
-      const notification = new Notification(title, {
+      const notification = new Notification(formattedTitle, {
         icon: '/pwa-192x192.png',
-        badge: '/pwa-192x192.png',
+        badge: '/ooma-badge.svg',
         ...options
       });
 

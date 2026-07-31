@@ -9,19 +9,20 @@ import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/Toast";
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { googleCalendarService } from "@/services/googleCalendarService";
-import { notificationService } from "@/utils/notificationService";
+
+import { getTaskDueDate } from "@/utils/dateUtils";
 
 export default function CRMTasks() {
   const { user } = useAuth();
   const { toast, toasts, removeToast } = useToast();
-  const { tasks, loading, refreshTasks } = useCRMData();
+  const { tasks, loading, refreshTasks, refreshLeads } = useCRMData();
   const [leads, setLeads] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("today");
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
   const [checkedTasks, setCheckedTasks] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [glowingTaskId, setGlowingTaskId] = useState<string | null>(null);
+  const [glowingTaskId] = useState<string | null>(null);
 
   const fetchLeads = async () => {
     if (!user?.workspace_id) return;
@@ -49,11 +50,8 @@ export default function CRMTasks() {
 
   const isTaskDue = (task: any) => {
     if (task.status !== 'Pending') return false;
-    let dueDate = new Date(task.due_date);
-    if (task.due_time) {
-      const [hours, minutes] = task.due_time.split(':');
-      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-    }
+    const dueDate = getTaskDueDate(task.due_date, task.due_time);
+    if (!dueDate) return false;
     const diffMs = dueDate.getTime() - currentTime.getTime();
     return diffMs <= 30000 && diffMs >= -120000;
   };
@@ -135,17 +133,6 @@ export default function CRMTasks() {
       }
 
       toast.success("Task created");
-      if (insertedData?.id) {
-        setGlowingTaskId(insertedData.id);
-        notificationService.playSound('success');
-        notificationService.showNotification("Task Scheduled 📅", {
-          body: `Follow-up set for: "${insertedData.title}" (${insertedData.due_date})`,
-          tag: insertedData.id,
-          silent: true,
-          data: { url: '/crm/tasks' }
-        });
-        setTimeout(() => setGlowingTaskId(null), 4000);
-      }
       setFormData({
         title: '',
         lead_id: '',
@@ -199,6 +186,7 @@ export default function CRMTasks() {
       }
 
       refreshTasks();
+      refreshLeads();
     } else {
       toast.error("Failed to update task");
     }
@@ -215,6 +203,7 @@ export default function CRMTasks() {
       if (error) throw error;
       toast.success("Task deleted");
       refreshTasks();
+      refreshLeads();
     } catch (error) {
       toast.error("Failed to delete task");
       console.error(error);
@@ -465,20 +454,24 @@ export default function CRMTasks() {
       )}
 
       {/* Tabs and Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-1">
-        <div className="flex gap-2 overflow-x-auto custom-scrollbar whitespace-nowrap">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="grid grid-cols-4 gap-1 p-1 bg-muted/20 rounded-xl w-full sm:w-auto sm:flex sm:bg-transparent sm:p-0 sm:gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 font-bold text-[11px] uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${
+              className={`py-2.5 px-1.5 sm:px-4 sm:py-3 font-bold text-[10px] sm:text-[11px] uppercase tracking-wider sm:tracking-widest transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-lg sm:rounded-none sm:border-b-2 ${
                 activeTab === tab.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground sm:bg-transparent sm:border-primary sm:text-primary shadow-sm sm:shadow-none"
+                  : "text-muted-foreground hover:text-foreground sm:hover:bg-transparent"
               }`}
             >
-              {tab.label} 
-              <span className={`px-2 py-0.5 rounded-full text-[9px] ${activeTab === tab.id ? 'bg-primary text-white' : 'bg-background text-muted-foreground'}`}>
+              <span className="truncate">{tab.label}</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                activeTab === tab.id 
+                  ? 'bg-primary-foreground text-primary sm:bg-primary sm:text-white' 
+                  : 'bg-background/50 text-muted-foreground sm:bg-background'
+              }`}>
                 {tab.count}
               </span>
             </button>
@@ -486,12 +479,12 @@ export default function CRMTasks() {
         </div>
 
         {/* Sort Dropdown */}
-        <div className="flex items-center gap-2 pb-2 sm:pb-0 px-2 sm:px-0">
+        <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto px-1 sm:px-0">
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sort:</span>
           <select 
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="text-[11px] font-bold text-foreground bg-background focus:outline-none appearance-none cursor-pointer border border-border rounded-lg px-3 py-1.5 shadow-sm"
+            className="text-[11px] font-bold text-foreground bg-card focus:outline-none appearance-none cursor-pointer border-2 border-border rounded-xl px-3 py-2 shadow-sm w-full sm:w-auto"
           >
             <option value="nearest_due" className="bg-background text-foreground">Nearest Due</option>
             <option value="furthest_due" className="bg-background text-foreground">Furthest Due</option>
@@ -511,7 +504,7 @@ export default function CRMTasks() {
               ? 'bg-green-500/15 text-green-500 border-green-500/20' 
               : 'bg-amber-500/15 text-amber-500 border-amber-500/20';
 
-          const isHighlighted = isTaskDue(task);
+          const isHighlighted = isTaskDue(task) && !isDone;
 
           return (
             <Card 
@@ -557,7 +550,7 @@ export default function CRMTasks() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mt-2 text-xs text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-3 text-xs text-muted-foreground">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <div className="flex items-center gap-1 font-semibold">
                         {task.activity_type === "Call" ? (
@@ -585,8 +578,8 @@ export default function CRMTasks() {
                       )}
                     </div>
                     
-                    {/* Action Links */}
-                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    {/* Action Links - Separated and divider-aligned on mobile to prevent overlaps */}
+                    <div className="flex items-center gap-2 flex-wrap sm:shrink-0 pt-2 sm:pt-0 border-t border-border/30 sm:border-none justify-start sm:justify-end w-full sm:w-auto">
                       {task.crm_leads && (
                         <Link 
                           to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads.company_name || task.crm_leads.contact_person)}`}
