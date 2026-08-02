@@ -160,7 +160,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         lead_id: noteFormData.lead_id,
         user_id: user.id,
         activity_type: 'note',
-        description: formattedNote
+        description: formattedNote,
+        workspace_id: user.workspace_id
       }]);
 
       if (error) throw error;
@@ -229,22 +230,18 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     }
   };
 
-  // Get unique list of leads that have notes
-  const uniqueLeads = Array.from(
-    new Map(
-      notes
-        .filter(n => n.crm_leads)
-        .map(n => [n.lead_id, {
-          id: n.lead_id,
-          company_name: n.crm_leads.company_name,
-          contact_person: n.crm_leads.contact_person,
-          noteCount: notes.filter(x => x.lead_id === n.lead_id).length
-        }])
-    ).values()
-  ).filter(lead => 
-    lead.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.contact_person.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Get list of all leads in workspace with note counts
+  const uniqueLeads = leads
+    .map(lead => ({
+      id: lead.id,
+      company_name: lead.company_name,
+      contact_person: lead.contact_person,
+      noteCount: notes.filter(x => x.lead_id === lead.id).length
+    }))
+    .filter(lead => 
+      lead.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (lead.contact_person && lead.contact_person.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
 
   // Filter notes based on selection, search, type
   const filteredNotes = notes.filter(note => {
@@ -277,9 +274,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   const totalNotesCount = notes.length;
   const callsCount = notes.filter(n => n.description.toLowerCase().includes('📞') || n.description.toLowerCase().includes('call')).length;
   const meetingsCount = notes.filter(n => n.description.toLowerCase().includes('🤝') || n.description.toLowerCase().includes('meeting')).length;
-  const positiveSentimentCount = notes.filter(n => 
-    n.description.toLowerCase().includes('interested') || n.description.toLowerCase().includes('very interested')
-  ).length;
+  const positiveSentimentCount = notes.filter(n => {
+    const parsed = parseNote(n.description);
+    const sentiment = parsed.sentiment.toLowerCase();
+    return sentiment.includes('very interested') || (sentiment.includes('interested') && !sentiment.includes('not'));
+  }).length;
   const positiveRate = totalNotesCount > 0 ? Math.round((positiveSentimentCount / totalNotesCount) * 100) : 0;
 
   if (loading) {

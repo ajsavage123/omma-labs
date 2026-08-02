@@ -9,8 +9,9 @@ import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
 import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book, Activity, CircleDollarSign, Calculator } from 'lucide-react';
+import { Plus, LayoutDashboard, LogOut, Settings, Search, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book, Activity, CircleDollarSign, Calculator, MessageSquare } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import NotificationCenterWidget from '@/components/NotificationCenterWidget';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected' | 'internal' | 'client';
 
@@ -195,6 +196,10 @@ export default function DashboardPage() {
           <Activity className="mr-3 h-4 w-4" />
           Live HQ (Beta)
         </Link>
+        <button onClick={() => { setIsMobileMenuOpen(false); window.dispatchEvent(new CustomEvent('open_chat_widget')); }} className="flex items-center px-4 py-3 text-[13px] font-bold text-[#6366f1] bg-indigo-500/5 border border-indigo-500/10 rounded-xl hover:bg-indigo-500/10 transition-colors relative overflow-hidden group">
+          <MessageSquare className="mr-3 h-4 w-4" />
+          Team Chat
+        </button>
         <Link to="/meetings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
           <GoogleMeetIcon size={16} className="mr-3" />
           Meetings
@@ -331,8 +336,10 @@ export default function DashboardPage() {
           <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-[0.2em] mt-0.5">Innovation Lab</p>
         </div>
 
-        {/* Empty spacer to balance flex-between and keep center logo perfectly centered */}
-        <div className="w-9"></div>
+        {/* Notification Center embedded in mobile header */}
+        <div className="relative">
+          <NotificationCenterWidget />
+        </div>
       </div>
 
       {/* Mobile Menu Overlay - Solid Premium Drawer */}
@@ -362,16 +369,20 @@ export default function DashboardPage() {
                   Monitoring <span className="text-indigo-400">Ooma Workflow</span>
                 </p>
               </div>
-              
-              {canCreateProject && (
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_15px_rgba(99,102,241,0.3)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all flex items-center justify-center active:scale-90 shrink-0"
-                  title="Create New Project"
-                >
-                  <Plus className="h-5 w-5 md:h-6 md:w-6" strokeWidth={3} />
-                </button>
-              )}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="hidden md:block">
+                  <NotificationCenterWidget />
+                </div>
+                {canCreateProject && (
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_15px_rgba(99,102,241,0.3)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all flex items-center justify-center active:scale-90 shrink-0"
+                    title="Create New Project"
+                  >
+                    <Plus className="h-5 w-5 md:h-6 md:w-6" strokeWidth={3} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Search bar row */}

@@ -59,14 +59,16 @@ export default function TaskNotificationManager() {
       const dueMs = dueDate.getTime();
       const diffMs = dueMs - now.getTime();
 
-      // Only trigger if: due within next 30s or past due within last 35s AND due time is after session started
+      // 1. Show browser notification popup + in-app toast ONCE — only within the 65s trigger window
       if (diffMs <= 30000 && diffMs >= -35000 && dueMs >= sessionStart.current) {
-        // 1. Show browser notification and in-app toast once
         if (!notifiedIds.current.has(task.id)) {
           triggerNotification(task);
         }
+      }
 
-        // 2. Play sound alert reminder every 60 seconds if task is still pending
+      // 2. Play sound alert every 1 minute for ANY overdue pending task — indefinitely until completed
+      //    (not limited to the 65s window so you keep getting reminded even if you miss the first alert)
+      if (diffMs <= 30000 && dueMs >= sessionStart.current) {
         const lastSoundTime = lastSoundTimes.current.get(task.id) || 0;
         if (now.getTime() - lastSoundTime >= 60000) {
           playSoundAlert = true;
@@ -147,12 +149,15 @@ export default function TaskNotificationManager() {
     // Dispatch custom event to trigger swinging bell in layout header
     window.dispatchEvent(new CustomEvent('crm-task-due', { detail: { task } }));
 
+    // Check if user is on mobile to enable notification sound (web audio is blocked in background)
+    const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
     // Browser Pop-up
     notificationService.showNotification(title, {
       body,
       tag: task.id, // Prevent duplicate popups for the same task
       requireInteraction: true,
-      silent: true, // prevent browser duplicate sound
+      silent: !isMobileDevice, // prevent duplicate sound on desktop, but allow sound on mobile
       data: { url: '/crm/tasks' }
     });
 

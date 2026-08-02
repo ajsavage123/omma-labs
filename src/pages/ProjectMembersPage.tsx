@@ -23,7 +23,7 @@ export default function ProjectMembersPage() {
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editSkills, setEditSkills] = useState('');
   const [editName, setEditName] = useState('');
-  const [editLocation, setEditLocation] = useState('Hyderabad');
+  const [editLocation, setEditLocation] = useState('');
 
   const [viewMode, setViewMode] = useState<'grid' | 'tree'>('grid');
 
@@ -45,7 +45,7 @@ export default function ProjectMembersPage() {
     try {
       await adminService.updateUserProfile(
         memberId,
-        { full_name: editName, skills: editSkills },
+        { full_name: editName, skills: editSkills, location: editLocation },
         user.workspace_id
       );
 
@@ -493,6 +493,7 @@ export default function ProjectMembersPage() {
                             setEditingMember(member.id);
                             setEditName(member.full_name || '');
                             setEditSkills(member.skills || '');
+                            setEditLocation(member.location || '');
                           }}
                           className="p-1 text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[10px] flex items-center gap-1 font-bold"
                         >
@@ -506,7 +507,17 @@ export default function ProjectMembersPage() {
                   <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-1 text-gray-400 text-[10px] font-medium">
                       <MapPin className="h-3 w-3 text-gray-500" />
-                      <span>{editLocation || 'Hyderabad'}</span>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editLocation}
+                          onChange={(e) => setEditLocation(e.target.value)}
+                          placeholder="Location..."
+                          className="w-24 bg-[#09090b] border border-indigo-500/50 rounded-lg px-2 py-1 text-xs text-white"
+                        />
+                      ) : (
+                        <span>{member.location || 'Hyderabad'}</span>
+                      )}
                     </div>
 
                     {isEditing ? (
@@ -566,6 +577,7 @@ export default function ProjectMembersPage() {
                           setEditingMember(member.id);
                           setEditName(member.full_name || '');
                           setEditSkills(member.skills || '');
+                          setEditLocation(member.location || '');
                         }}
                         className="p-1.5 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-colors backdrop-blur-md"
                         title="Update Profile"
@@ -621,7 +633,7 @@ export default function ProjectMembersPage() {
                           className="w-24 bg-[#09090b] border border-indigo-500/50 rounded text-[10px] px-1 py-0.5 text-center text-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       ) : (
-                        <span className="text-[11px] font-medium">{editLocation || 'Hyderabad'}</span>
+                        <span className="text-[11px] font-medium">{member.location || 'Hyderabad'}</span>
                       )}
                     </div>
                   </div>

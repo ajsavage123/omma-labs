@@ -95,7 +95,7 @@ export const adminService = {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, username, full_name, designation, role, workspace_id, skills, created_at')
+        .select('id, username, full_name, designation, role, workspace_id, skills, location, created_at')
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: false });
 
@@ -154,7 +154,7 @@ export const adminService = {
     if (error) throw error;
   },
 
-  async updateUserProfile(userId: string, data: { full_name?: string; designation?: string; role?: string; bio?: string; skills?: string }, workspaceId?: string) {
+  async updateUserProfile(userId: string, data: { full_name?: string; designation?: string; role?: string; bio?: string; skills?: string; location?: string }, workspaceId?: string) {
     const { error } = await supabase
       .from('users')
       .update(data)

@@ -320,7 +320,7 @@ export default function CRMLayout({ children }: LayoutProps) {
               </button>
 
               {notificationsOpen && (
-                <div className="absolute top-full right-0 mt-3 w-80 sm:w-96 bg-card/95 backdrop-blur-md border border-border/80 shadow-[0_10px_50px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-50 flex flex-col max-h-[85vh] transition-all duration-300 animate-in">
+                <div className="absolute right-0 top-full mt-3 w-[300px] sm:w-96 bg-card/95 backdrop-blur-md border border-border/80 shadow-[0_10px_50px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-[100] flex flex-col max-h-[85vh] transition-all duration-300 animate-in">
                   <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between sticky top-0">
                     <h3 className="font-black text-sm text-foreground uppercase tracking-wider">Notifications</h3>
                     <div className="flex items-center gap-3">
@@ -357,7 +357,7 @@ export default function CRMLayout({ children }: LayoutProps) {
                           .map((task: CRMTask) => (
                           <Link 
                             key={task.id} 
-                            to={`/crm/pipeline?search=${encodeURIComponent(task.crm_leads?.company_name || '')}`}
+                            to="/crm/tasks"
                             onClick={() => setNotificationsOpen(false)}
                             className="p-4 hover:bg-primary/5 dark:hover:bg-primary/10 transition-all flex items-start gap-3 group border-l-2 border-transparent hover:border-primary"
                           >

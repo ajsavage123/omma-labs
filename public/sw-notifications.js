@@ -1,3 +1,12 @@
+// Immediate activation for Service Worker
+self.addEventListener('install', function(event) {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function(event) {
+  event.waitUntil(clients.claim());
+});
+
 // Service Worker Custom Notification Click Handler
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
@@ -13,18 +22,32 @@ self.addEventListener('notificationclick', function(event) {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // Check if there is already a window open with this app
+      // Check if there is already a window open from this origin
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
-        // If matches or contains relative path, focus it and navigate
-        if (client.url === fullTargetUrl || client.url.indexOf('/crm/') !== -1) {
-          if ('focus' in client) {
-            client.focus();
+        try {
+          var clientUrl = new URL(client.url);
+          var selfUrl = new URL(self.location.origin);
+          if (clientUrl.origin === selfUrl.origin) {
+            if ('focus' in client) {
+              client.focus();
+            }
+            if ('navigate' in client && client.url !== fullTargetUrl) {
+              return client.navigate(fullTargetUrl);
+            }
+            return;
           }
-          if ('navigate' in client && client.url !== fullTargetUrl) {
-            return client.navigate(fullTargetUrl);
+        } catch (e) {
+          // Fallback if URL parsing fails
+          if (client.url === fullTargetUrl || client.url.indexOf('/crm/') !== -1) {
+            if ('focus' in client) {
+              client.focus();
+            }
+            if ('navigate' in client && client.url !== fullTargetUrl) {
+              return client.navigate(fullTargetUrl);
+            }
+            return;
           }
-          return;
         }
       }
       // Otherwise, open a new window/tab

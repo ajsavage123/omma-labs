@@ -2,6 +2,8 @@
 export const notificationService = {
   async requestPermission() {
     if (!('Notification' in window)) return false;
+
+
     if (Notification.permission === 'granted') return true;
     if (Notification.permission !== 'denied') {
       const permission = await Notification.requestPermission();
@@ -74,44 +76,42 @@ export const notificationService = {
       return;
     }
 
-    // Format the title to start with oomaworkspace-CRM to avoid duplicate app name wrapping
-    let formattedTitle = title;
-    if (!title.startsWith('oomaworkspace-CRM')) {
-      formattedTitle = `oomaworkspace-CRM - ${title}`;
-    }
+    const formattedTitle = title;
 
     if (!options?.silent) {
       this.playSound();
     }
 
-    // Try using ServiceWorker first for better mobile support (iOS/Android PWA)
-    // Race SW ready promise with a 300ms timeout to prevent hanging when SW is not active (like in dev mode)
+    const notificationPayload: any = {
+      icon: '/pwa-192x192.png',
+      badge: '/ooma-badge.svg',
+      vibrate: [200, 100, 200], // Vibration pattern for Android & mobile devices
+      ...options
+    };
+
+    // 1. Try Service Worker showNotification (Mandatory for Chrome Android & Mobile PWA)
     if ('serviceWorker' in navigator) {
       try {
-        const swReady = await Promise.race([
-          navigator.serviceWorker.ready,
-          new Promise<null>(resolve => setTimeout(() => resolve(null), 300))
-        ]);
+        let registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) {
+          registration = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<any>(resolve => setTimeout(() => resolve(null), 500))
+          ]);
+        }
 
-        if (swReady && swReady.showNotification) {
-          await swReady.showNotification(formattedTitle, {
-            icon: '/pwa-192x192.png',
-            badge: '/ooma-badge.svg',
-            ...options
-          });
+        if (registration && registration.showNotification) {
+          await registration.showNotification(formattedTitle, notificationPayload);
           return;
         }
       } catch (e) {
-        console.log('SW notification failed, falling back to basic Notification API', e);
+        console.warn('ServiceWorker showNotification failed, trying fallback:', e);
       }
     }
-    
+
+    // 2. Native Notification API fallback (Desktop Chrome/Firefox/Edge)
     try {
-      const notification = new Notification(formattedTitle, {
-        icon: '/pwa-192x192.png',
-        badge: '/ooma-badge.svg',
-        ...options
-      });
+      const notification = new Notification(formattedTitle, notificationPayload);
 
       notification.onclick = function(event) {
         event.preventDefault();
@@ -122,7 +122,7 @@ export const notificationService = {
       };
       return notification;
     } catch (e) {
-      console.log('Native Notification constructor failed:', e);
+      console.warn('Native Notification constructor failed (common on mobile browsers):', e);
     }
   }
 };

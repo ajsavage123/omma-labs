@@ -216,27 +216,52 @@ export default function CRMTasks() {
   const day = String(now.getDate()).padStart(2, '0');
   const todayStr = `${year}-${month}-${day}`;
 
+  // Helper: classify task using full datetime when due_time is set, date-only otherwise
+  const classifyTask = (task: any) => {
+    if (!task.due_date) return 'today'; // No date — treat as today bucket
+
+    const isToday = task.due_date === todayStr;
+
+    if (task.due_time) {
+      // Has explicit time — compare full datetime
+      const fullDue = getTaskDueDate(task.due_date, task.due_time);
+      if (!fullDue) return isToday ? 'today' : task.due_date < todayStr ? 'overdue' : 'upcoming';
+      if (fullDue < now) return 'overdue';   // datetime already passed
+      if (isToday) return 'today';           // today, time not yet reached
+      return 'upcoming';
+    }
+
+    // No time set — use date-only comparison
+    if (isToday) return 'today';
+    if (task.due_date < todayStr) return 'overdue';
+    return 'upcoming';
+  };
+
   const counts = {
-    today: tasks.filter(t => t.status !== "Completed" && t.due_date === todayStr).length,
-    upcoming: tasks.filter(t => t.status !== "Completed" && t.due_date > todayStr).length,
-    overdue: tasks.filter(t => t.status !== "Completed" && t.due_date < todayStr).length,
-    completed: tasks.filter(t => t.status === "Completed").length,
+    today:     tasks.filter(t => t.status !== 'Completed' && classifyTask(t) === 'today').length,
+    upcoming:  tasks.filter(t => t.status !== 'Completed' && classifyTask(t) === 'upcoming').length,
+    overdue:   tasks.filter(t => t.status !== 'Completed' && classifyTask(t) === 'overdue').length,
+    completed: tasks.filter(t => t.status === 'Completed').length,
   };
 
   const filteredTasks = tasks.filter((task) => {
-    if (activeTab === "completed") return task.status === "Completed";
-    if (task.status === "Completed") return false;
-    
-    if (activeTab === "today") return task.due_date === todayStr;
-    if (activeTab === "upcoming") return task.due_date > todayStr;
-    if (activeTab === "overdue") return task.due_date < todayStr;
-    return true;
+    if (activeTab === 'completed') return task.status === 'Completed';
+    if (task.status === 'Completed') return false;
+    return classifyTask(task) === activeTab;
   }).sort((a, b) => {
     if (sortBy === 'newest') return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     if (sortBy === 'oldest') return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-    if (sortBy === 'nearest_due') return new Date(a.due_date || 0).getTime() - new Date(b.due_date || 0).getTime();
-    if (sortBy === 'furthest_due') return new Date(b.due_date || 0).getTime() - new Date(a.due_date || 0).getTime();
-    return 0; // default
+    if (sortBy === 'nearest_due') {
+      const dA = getTaskDueDate(a.due_date, a.due_time)?.getTime() ?? 0;
+      const dB = getTaskDueDate(b.due_date, b.due_time)?.getTime() ?? 0;
+      return dA - dB;
+    }
+    if (sortBy === 'furthest_due') {
+      const dA = getTaskDueDate(a.due_date, a.due_time)?.getTime() ?? 0;
+      const dB = getTaskDueDate(b.due_date, b.due_time)?.getTime() ?? 0;
+      return dB - dA;
+    }
+    return 0;
   });
 
   const tabs = [

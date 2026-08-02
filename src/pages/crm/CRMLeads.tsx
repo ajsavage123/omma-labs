@@ -37,6 +37,11 @@ export default function CRMLeads() {
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
+  
+  // Advanced Deletion State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<'all' | 'mine' | 'partner'>('mine');
+  const [deleteTargetPartnerId, setDeleteTargetPartnerId] = useState('');
   const { users } = useWorkspaceUsers();
   
   // Include only CRM-authorized workspace users (admin or Business/Marketing designation) in the owner dropdown.
@@ -220,41 +225,34 @@ export default function CRMLeads() {
     }
   };
 
-  const deleteAllLeads = async () => {
-    console.log("deleteAllLeads handler triggered. State:", { isAdmin, workspaceId: user?.workspace_id, leadsCount: leads?.length, submitting });
-
-    if (!isAdmin) {
-      console.warn("Delete aborted: User is not an admin.");
-      return toast.error("Only administrators can delete all leads");
-    }
-    if (!user?.workspace_id) {
-      console.warn("Delete aborted: Workspace context not found.");
-      return toast.error("Workspace context not found");
-    }
-    if (!leads.length) {
-      console.warn("Delete aborted: Leads list is empty.");
-      return toast.error("No leads to delete");
-    }
-    
-    const confirm1 = confirm("⚠ WARNING: This will permanently delete ALL leads in your workspace. This includes all their related tasks and activities (due to cascade). Are you absolutely sure?");
-    if (!confirm1) return;
-    
-    const confirm2 = confirm("FINAL CONFIRMATION: This action CANNOT be undone. Delete all data?");
-    if (!confirm2) return;
-
+  const confirmAdvancedDelete = async () => {
     try {
       setSubmitting(true);
-      const { error } = await supabase
-        .from('crm_leads')
-        .delete()
-        .eq('workspace_id', user.workspace_id);
       
+      let query = supabase.from('crm_leads').delete();
+      
+      if (isAdmin) {
+        if (deleteTarget === 'all') {
+          query = query.eq('workspace_id', user.workspace_id);
+        } else if (deleteTarget === 'partner') {
+          if (!deleteTargetPartnerId) return toast.error("Please select a partner first.");
+          query = query.eq('created_by', deleteTargetPartnerId);
+        } else if (deleteTarget === 'mine') {
+          query = query.eq('created_by', user?.id);
+        }
+      } else {
+        // Partners can only delete their own leads
+        query = query.eq('created_by', user?.id);
+      }
+
+      const { error } = await query;
       if (error) throw error;
       
-      toast.success("All leads deleted successfully");
+      toast.success("Leads deleted successfully");
+      setIsDeleteModalOpen(false);
       refreshLeads();
     } catch (error) {
-      toast.error("Failed to delete all leads");
+      toast.error("Failed to delete leads");
       console.error(error);
     } finally {
       setSubmitting(false);
@@ -471,11 +469,11 @@ export default function CRMLeads() {
       </div>
 
       {/* Action Bar: Owner filter + bulk actions */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
           {/* Admin-only: Owner filter */}
           {isAdmin && (
-            <div className="flex items-center gap-1.5 bg-background border border-input rounded-xl px-2.5 py-1.5 shadow-sm">
+            <div className="flex items-center gap-1.5 bg-background border border-input rounded-xl px-2.5 py-1.5 shadow-sm whitespace-nowrap">
               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest hidden sm:inline">Owner:</span>
               <select 
                 value={filterSalesperson}
@@ -493,13 +491,13 @@ export default function CRMLeads() {
           )}
           {/* Business & Marketing: show My Leads badge */}
           {isSalesperson && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl whitespace-nowrap">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">My Leads</span>
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <input type="file" id="csv-upload" accept=".csv" className="hidden" onChange={handleImportCSV} />
           <Button 
             variant="outline"
@@ -518,17 +516,15 @@ export default function CRMLeads() {
             <Upload size={14} className="sm:mr-2" />
             <span className="hidden sm:inline">Export</span>
           </Button>
-          {isAdmin && (
-            <Button 
-              variant="outline"
-              onClick={deleteAllLeads}
-              disabled={submitting}
-              className="border-rose-500/20 hover:bg-rose-500/10 text-rose-500 transition-all px-2.5 sm:px-4 h-9"
-            >
-              <Trash2 size={14} className="sm:mr-2" />
-              <span className="hidden sm:inline">Delete All</span>
-            </Button>
-          )}
+          <Button 
+            variant="outline"
+            onClick={() => setIsDeleteModalOpen(true)}
+            disabled={submitting}
+            className="border-rose-500/20 hover:bg-rose-500/10 text-rose-500 transition-all px-2.5 sm:px-4 h-9"
+          >
+            <Trash2 size={14} className="sm:mr-2" />
+            <span className="hidden sm:inline">Delete Leads</span>
+          </Button>
         </div>
       </div>
 
@@ -1030,6 +1026,101 @@ export default function CRMLeads() {
           </div>
         </div>
       )}
+      {/* Advanced Delete Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-md rounded-2xl shadow-2xl border border-border p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center">
+                <Trash2 className="text-rose-500" size={20} />
+              </div>
+              <h2 className="text-xl font-bold text-foreground">Delete Leads</h2>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              {isAdmin ? (
+                <>
+                  <p className="text-sm text-muted-foreground mb-2">Select which leads you would like to permanently delete:</p>
+                  
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
+                      <input 
+                        type="radio" 
+                        name="deleteTarget" 
+                        checked={deleteTarget === 'mine'} 
+                        onChange={() => setDeleteTarget('mine')}
+                        className="text-primary focus:ring-primary h-4 w-4"
+                      />
+                      <span className="text-sm font-medium">Delete Only My Leads</span>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
+                      <input 
+                        type="radio" 
+                        name="deleteTarget" 
+                        checked={deleteTarget === 'partner'} 
+                        onChange={() => setDeleteTarget('partner')}
+                        className="text-primary focus:ring-primary h-4 w-4"
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm font-medium block mb-1">Delete Partner's Leads</span>
+                        {deleteTarget === 'partner' && (
+                          <select 
+                            className="w-full bg-background border border-input rounded-md px-3 py-1.5 text-sm"
+                            value={deleteTargetPartnerId}
+                            onChange={(e) => setDeleteTargetPartnerId(e.target.value)}
+                          >
+                            <option value="">Select a partner...</option>
+                            {users.filter(u => u.id !== user?.id && !['admin', 'oomadmin'].includes(u.username?.toLowerCase() || '')).map(u => (
+                              <option key={u.id} value={u.id}>{u.full_name || u.email || u.username}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 rounded-lg border border-rose-500/30 bg-rose-500/5 cursor-pointer hover:bg-rose-500/10 transition-colors">
+                      <input 
+                        type="radio" 
+                        name="deleteTarget" 
+                        checked={deleteTarget === 'all'} 
+                        onChange={() => setDeleteTarget('all')}
+                        className="text-rose-500 focus:ring-rose-500 h-4 w-4"
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm font-bold text-rose-500">Delete ALL Workspace Leads</span>
+                        <span className="text-xs text-rose-500/80 block">Warning: This deletes everyone's leads permanently.</span>
+                      </div>
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <div className="p-4 rounded-lg border border-rose-500/30 bg-rose-500/5 text-rose-500 text-sm">
+                  <p className="font-bold mb-1">Warning!</p>
+                  <p>You are about to permanently delete <strong>all of your own leads</strong>. This action cannot be undone.</p>
+                  <p className="mt-2 text-xs opacity-80">(Note: Security rules prevent you from deleting leads created by others).</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={confirmAdvancedDelete}
+                disabled={submitting || (isAdmin && deleteTarget === 'partner' && !deleteTargetPartnerId)}
+                className="bg-rose-500 hover:bg-rose-600 text-white"
+              >
+                {submitting ? <Loader2 size={16} className="animate-spin mr-2" /> : <Trash2 size={16} className="mr-2" />}
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

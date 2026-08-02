@@ -1,17 +1,11 @@
-<svg width="512" height="512" viewBox="-8 -8 116 116" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="o-grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#FFD700" />
       <stop offset="50%" stop-color="#FFA500" />
       <stop offset="100%" stop-color="#FF6B00" />
     </linearGradient>
-    <radialGradient id="bg-grad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#1a1030" />
-      <stop offset="100%" stop-color="#0a0f1c" />
-    </radialGradient>
   </defs>
-  <!-- Dark background -->
-  <rect width="100" height="100" rx="22" fill="url(#bg-grad)" />
-  <!-- Bold Ooma arc mark -->
-  <path d="M 35 15 A 40 40 0 1 1 20 35" stroke="url(#o-grad)" stroke-width="5" stroke-linecap="round" fill="none" />
+  <!-- Sleek slim Ooma arc mark — transparent background -->
+  <path d="M 35 15 A 40 40 0 1 1 20 35" stroke="url(#o-grad)" stroke-width="4" stroke-linecap="round" fill="none" />
 </svg>

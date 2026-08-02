@@ -22,6 +22,7 @@ import ChatWidget from '@/components/ChatWidget';
 import { notificationService } from '@/utils/notificationService';
 import { useEffect } from 'react';
 import TaskNotificationManager from '@/components/TaskNotificationManager';
+import GlobalNotificationManager from '@/components/GlobalNotificationManager';
 
 // Helper for the Onboarding route to ensure they are logged in to Supabase first
 function OnboardingRoute() {
@@ -88,6 +89,7 @@ function App() {
           </Routes>
           <ChatWidget />
           <TaskNotificationManager />
+          <GlobalNotificationManager />
           <InstallPWA />
           <UpdatePrompt />
         </CRMDataProvider>

@@ -308,7 +308,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         lead_id: selectedLeadForNote.id,
         user_id: user.id,
         activity_type: 'note',
-        description: formattedNote
+        description: formattedNote,
+        workspace_id: user.workspace_id
       }]);
 
       if (error) throw error;

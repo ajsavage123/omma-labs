@@ -29,6 +29,7 @@ export interface User {
   workspace_id: string;
   bio?: string;
   skills?: string;
+  location?: string;
   created_at: string;
 }
 
@@ -115,11 +116,26 @@ export interface ChatMessage {
   user_id: string;
   message: string;
   created_at: string;
+  parent_id?: string | null;
+  is_edited?: boolean;
+  edited_at?: string | null;
+  is_pinned?: boolean;
+  is_deleted_everyone?: boolean;
+  deleted_for?: string[];
+  reactions?: ChatReaction[];
   users?: {
     full_name: string;
     username: string;
     designation: string;
   };
+}
+
+export interface ChatReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
 }
 
 export interface Idea {

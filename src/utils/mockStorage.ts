@@ -87,9 +87,20 @@ export const mockStorage = {
   getContacts(): ClientContact[] { return this.get<ClientContact>(STORAGE_KEYS.CONTACTS); },
   addContact(c: ClientContact): void { this.set(STORAGE_KEYS.CONTACTS, [...this.get<ClientContact>(STORAGE_KEYS.CONTACTS), c]); },
 
-  // Messages
-  getMessages(): ChatMessage[] { return this.get<ChatMessage>(STORAGE_KEYS.MESSAGES); },
+  // Messages (auto-cleanup messages older than 6 days)
+  getMessages(): ChatMessage[] { 
+    const messages = this.get<ChatMessage>(STORAGE_KEYS.MESSAGES);
+    const sixDaysAgo = new Date();
+    sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
+    const filtered = messages.filter(m => new Date(m.created_at) >= sixDaysAgo);
+    if (filtered.length !== messages.length) {
+      this.set(STORAGE_KEYS.MESSAGES, filtered);
+    }
+    return filtered;
+  },
   addMessage(m: ChatMessage): void { this.set(STORAGE_KEYS.MESSAGES, [...this.get<ChatMessage>(STORAGE_KEYS.MESSAGES), m]); },
+  deleteMessage(id: string): void { this.set(STORAGE_KEYS.MESSAGES, this.get<ChatMessage>(STORAGE_KEYS.MESSAGES).filter(m => m.id !== id)); },
+  updateMessage(id: string, text: string): void { this.set(STORAGE_KEYS.MESSAGES, this.get<ChatMessage>(STORAGE_KEYS.MESSAGES).map(m => m.id === id ? { ...m, message: text } : m)); },
 
   // Meetings
   getMeetings(): any[] { return this.get(STORAGE_KEYS.MEETINGS); },
