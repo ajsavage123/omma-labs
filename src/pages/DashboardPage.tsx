@@ -62,6 +62,7 @@ export default function DashboardPage() {
       toast.error('Failed to load dashboard data.');
     } finally {
       setLoading(false);
+      window.dispatchEvent(new Event('app-ready'));
     }
   };
 

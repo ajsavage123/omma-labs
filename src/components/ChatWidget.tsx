@@ -312,44 +312,59 @@ export default function ChatWidget() {
         return;
       }
 
-      // FIX #1: Include parent_id in DB insert so replies persist
-      const { data, error } = await supabase.from('chat_messages').insert({
+      const msgId = window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); });
+      
+      const newMsg: ChatMessage = {
+        id: msgId,
+        user_id: user.id,
+        workspace_id: user.workspace_id!,
+        message: msgText,
+        parent_id: parentId,
+        created_at: new Date().toISOString(),
+        users: {
+          username: user.username,
+          full_name: user.full_name || user.username,
+          designation: user.designation
+        }
+      };
+
+      // Optimistic Update - instant UI response
+      setMessages(prev => {
+        if (prev.find(m => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+      setNewMessage('');
+      setReplyingToMessage(null);
+      setLoading(false); // Stop loading immediately
+
+      // Fire DB insert in background
+      supabase.from('chat_messages').insert({
+        id: msgId,
         user_id: user.id,
         workspace_id: user.workspace_id,
         message: msgText,
         parent_id: parentId
-      }).select('id, created_at').single();
-
-      if (error) throw error;
-
-      // Broadcast over WebSocket Realtime channel for instant zero-latency delivery
-      if (chatChannelRef.current) {
-        chatChannelRef.current.send({
-          type: 'broadcast',
-          event: 'broadcast_chat_message',
-          payload: {
-            id: data?.id || Math.random().toString(36).substring(2, 9),
-            user_id: user.id,
-            workspace_id: user.workspace_id,
-            message: msgText,
-            parent_id: parentId,
-            created_at: data?.created_at || new Date().toISOString(),
-            users: {
-              username: user.username,
-              full_name: user.full_name || user.username,
-              designation: user.designation
-            }
+      }).then(({ error }) => {
+        if (error) {
+          console.error('Error inserting message:', error);
+          toast.error('Failed to send message');
+          // Rollback if failed
+          setMessages(prev => prev.filter(m => m.id !== msgId));
+        } else {
+          // Broadcast over WebSocket Realtime channel for instant zero-latency delivery to peers
+          if (chatChannelRef.current) {
+            chatChannelRef.current.send({
+              type: 'broadcast',
+              event: 'broadcast_chat_message',
+              payload: newMsg
+            });
           }
-        });
-      }
+        }
+      });
 
-      setNewMessage('');
-      setReplyingToMessage(null);
-      // FIX #6: Removed redundant fetchMessages() — realtime subscription handles delivery
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
-    } finally {
       setLoading(false);
     }
   };

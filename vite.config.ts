@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['ooma-icon.svg', 'sw-notifications.js'],
       workbox: {
         importScripts: ['/sw-notifications.js']

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,10 @@ export default function OnboardingPage() {
 
   const [inviteCode, setInviteCode] = useState('');
   const [joinUsername, setJoinUsername] = useState('');
+
+  useEffect(() => {
+    window.dispatchEvent(new Event('app-ready'));
+  }, []);
 
   const handleJoinWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();

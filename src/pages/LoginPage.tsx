@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, Rocket, Workflow, PieChart } from 'lucide-react';
@@ -12,6 +12,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.dispatchEvent(new Event('app-ready'));
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
