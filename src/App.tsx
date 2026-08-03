@@ -19,7 +19,7 @@ import { CRMAccessGuard } from './components/CRMAccessGuard';
 import { InstallPWA } from '@/components/InstallPWA';
 import { UpdatePrompt } from '@/components/UpdatePrompt';
 import ChatWidget from '@/components/ChatWidget';
-import { notificationService } from '@/utils/notificationService';
+import { pushNotificationService } from '@/services/pushNotificationService';
 import { useEffect } from 'react';
 import TaskNotificationManager from '@/components/TaskNotificationManager';
 import GlobalNotificationManager from '@/components/GlobalNotificationManager';
@@ -55,7 +55,11 @@ import CommissionCalculatorPage from '@/pages/CommissionCalculatorPage';
 
 function App() {
   useEffect(() => {
-    notificationService.requestPermission();
+    // Validate VAPID key on startup — surfaces missing-key errors early in dev console.
+    // We do NOT auto-request notification permission here.
+    // Permission is requested only when the user explicitly clicks "Enable Push"
+    // in the NotificationCenterWidget.
+    pushNotificationService.validateEnvironment();
   }, []);
 
   return (

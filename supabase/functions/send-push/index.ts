@@ -6,6 +6,7 @@
 //    supabase secrets set VAPID_PUBLIC_KEY="your_public_key"
 //    supabase secrets set VAPID_PRIVATE_KEY="your_private_key"
 
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'https://esm.sh/web-push@3.6.4'
@@ -23,8 +24,15 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   );
 }
 
-serve(async (req) => {
+serve(async (req: any) => {
   try {
+    // 1. SECURITY FIX: Validate Webhook Secret to prevent unauthorized triggers
+    const secret = req.headers.get('webhook-secret');
+    const expectedSecret = Deno.env.get('WEBHOOK_SECRET');
+    if (!expectedSecret || secret !== expectedSecret) {
+      return new Response("Unauthorized request", { status: 401 });
+    }
+
     const payload = await req.json()
     
     // The payload comes from a Database Webhook
@@ -52,21 +60,46 @@ serve(async (req) => {
       });
     } else if (record.message) {
       // It's a Chat Message
-      const senderId = record.sender_id;
+      const senderId = record.user_id;
       
-      // Get ALL users who have push subscriptions EXCEPT the sender
+      // Fetch sender name
+      let senderName = 'Teammate';
+      const { data: senderData } = await supabase
+        .from('users')
+        .select('full_name, username')
+        .eq('id', senderId)
+        .single();
+        
+      if (senderData) {
+        senderName = senderData.full_name || senderData.username || 'Teammate';
+      }
+      
+      // 2. PRIVACY FIX: Restrict notification blast to users ONLY in this specific workspace!
+      const { data: workspaceUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('workspace_id', record.workspace_id);
+        
+      if (!workspaceUsers || workspaceUsers.length === 0) {
+        return new Response("No workspace users found", { status: 200 });
+      }
+      
+      const workspaceUserIds = workspaceUsers.map((u: any) => u.id);
+
+      // Get ALL users who have push subscriptions EXCEPT the sender, strictly within this workspace
       const { data: allSubs } = await supabase
         .from('user_push_subscriptions')
         .select('user_id')
+        .in('user_id', workspaceUserIds)
         .neq('user_id', senderId);
         
       if (allSubs) {
         // Extract unique user IDs
-        targetUserIds = [...new Set(allSubs.map(s => s.user_id))];
+        targetUserIds = Array.from(new Set<string>(allSubs.map((s: any) => s.user_id as string)));
       }
       
       pushPayloadStr = JSON.stringify({
-        title: 'New Chat Message',
+        title: `💬 New Message from ${senderName}`,
         body: record.message,
         url: '/?open_chat=true'
       });
@@ -89,17 +122,13 @@ serve(async (req) => {
     }
 
     // Send push to all registered devices for this user
-    const sendPromises = subscriptions.map(async (sub) => {
+    const sendPromises = subscriptions.map(async (sub: any) => {
       try {
-        const pushSubscription = {
+        await webpush.sendNotification({
           endpoint: sub.endpoint,
-          keys: {
-            p256dh: sub.p256dh_key,
-            auth: sub.auth_key
-          }
-        };
-        await webpush.sendNotification(pushSubscription, pushPayloadStr);
-      } catch (err) {
+          keys: { p256dh: sub.p256dh_key, auth: sub.auth_key }
+        }, pushPayloadStr);
+      } catch (err: any) {
         console.error(`Error sending push to endpoint ${sub.endpoint}:`, err);
         // If the subscription is expired or invalid (status 410 or 404), delete it from the database
         if (err.statusCode === 410 || err.statusCode === 404) {
@@ -110,15 +139,8 @@ serve(async (req) => {
 
     await Promise.all(sendPromises);
 
-    return new Response(
-      JSON.stringify({ success: true, message: "Push notifications sent!" }),
-      { headers: { "Content-Type": "application/json" } },
-    )
-  } catch (error) {
-    console.error(error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    )
+    return new Response(JSON.stringify({ success: true, message: "Push sent!" }), { headers: { "Content-Type": "application/json" } })
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } })
   }
 })

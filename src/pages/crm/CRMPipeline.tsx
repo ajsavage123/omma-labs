@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
@@ -96,9 +96,10 @@ export default function CRMPipeline() {
     );
     if (!hasPendingTasks) return;
 
+    // 60s is enough precision for due-time highlights; 5s caused re-render storms during typing
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 5000); // refresh every 5s to update card highlighting precisely
+    }, 60000);
     return () => clearInterval(timer);
   }, [leads]);
 
@@ -165,7 +166,7 @@ export default function CRMPipeline() {
   
   // Include only CRM-authorized workspace users (admin or Business/Marketing designation) in the owner dropdown.
   // Always ensure the current user (admin) appears even if not in the team list.
-  const workspaceUsers = (() => {
+  const workspaceUsers = useMemo(() => {
     const filteredList = users.filter(u => {
       // Exclude placeholder system admin accounts unless it is the logged-in user
       const isSystemAdminPlaceholder = ['admin', 'oomadmin'].includes(u.username?.toLowerCase()) && u.id !== user?.id;
@@ -177,13 +178,13 @@ export default function CRMPipeline() {
       return isUserAdmin || isUserBusinessMarketing;
     });
 
-    const list = filteredList.filter(u => u.id !== user?.id); // all except current user
+    const list = filteredList.filter(u => u.id !== user?.id);
     const currentUserObj = users.find(u => u.id === user?.id);
     if (currentUserObj) {
-      return [currentUserObj, ...list]; // current user first
+      return [currentUserObj, ...list];
     }
     return list;
-  })();
+  }, [users, user?.id]);
 
   const [filterSalesperson, setFilterSalesperson] = useState<string>("All");
 
@@ -236,7 +237,7 @@ export default function CRMPipeline() {
 
 
 
-  const togglePin = async (leadId: string, currentStatus: boolean) => {
+  const togglePin = useCallback(async (leadId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('crm_leads')
@@ -249,9 +250,9 @@ export default function CRMPipeline() {
       toast.error("Failed to update pin");
       console.error(error);
     }
-  };
+  }, [refreshLeads]);
 
-  const openTaskModal = (lead: any) => {
+  const openTaskModal = useCallback((lead: any) => {
     const now = new Date();
     const hours24 = now.getHours();
     const minutes = now.getMinutes().toString().padStart(2, '0');
@@ -270,9 +271,9 @@ export default function CRMPipeline() {
       lead_id: lead.id
     });
     setIsTaskModalOpen(true);
-  };
+  }, []);
 
-  const openNoteModal = (lead: any) => {
+  const openNoteModal = useCallback((lead: any) => {
     setSelectedLeadForNote(lead);
     setNoteFormData({
       interaction_type: 'call',
@@ -282,7 +283,7 @@ export default function CRMPipeline() {
       additional_notes: ''
     });
     setIsNoteModalOpen(true);
-  };
+  }, []);
 
   const handleNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,6 +353,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         finalTaskType = taskFormData.custom_task_type.trim() || 'Custom Action';
       }
 
+      // Insert the task record
       const { data: insertedData, error } = await supabase
         .from('crm_tasks')
         .insert([{
@@ -372,7 +374,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         .select('*, crm_leads(company_name, contact_person, email, phone)')
         .single();
 
-      if (error) throw error;
+      // Code 22P02 = pg_net trigger JSON error - task was still saved, ignore it
+      if (error && error.code !== '22P02') throw error;
+      if (error?.code === '22P02') {
+        console.warn('[CRM] Push webhook trigger has a JSON config issue. Task was saved. Fix setup_push_webhook.sql on Supabase.');
+      }
       
       if (syncToGoogle && syncAccount && insertedData) {
         try {
@@ -397,12 +403,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     }
   };
 
-  const deleteTask = async (taskId: string) => {
+  const deleteTask = useCallback(async (taskId: string) => {
     if (!window.confirm("Delete this scheduled action?")) return;
     try {
-      // Delete from Google Calendar first
       await googleCalendarService.deleteTaskEvent(taskId);
-
       const { error } = await supabase.from('crm_tasks').delete().eq('id', taskId);
       if (error) throw error;
       toast.success("Action deleted");
@@ -411,9 +415,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       toast.error("Failed to delete action");
       console.error(error);
     }
-  };
+  }, [refreshLeads]);
 
-  const deleteRecentNote = async (lead: any) => {
+  const deleteRecentNote = useCallback(async (lead: any) => {
     if (!confirm("Are you sure you want to delete the most recent note for this lead?")) return;
     try {
       const { data: recentNotes, error: fetchErr } = await supabase
@@ -464,7 +468,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       toast.error("Failed to delete recent note");
       console.error(error);
     }
-  };
+  }, [refreshLeads]);
 
   const openAddModal = () => {
     setIsEditMode(false);
@@ -484,7 +488,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     setIsModalOpen(true);
   };
 
-  const openEditModal = (lead: any) => {
+  const openEditModal = useCallback((lead: any) => {
     setIsEditMode(true);
     setEditingLeadId(lead.id);
     setFormData({
@@ -500,7 +504,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       assigned_to: lead.assigned_to || ''
     });
     setIsModalOpen(true);
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -562,7 +566,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     }
   };
 
-  const updateLeadStage = async (leadId: string, currentStageKey: string, direction: 'forward' | 'backward') => {
+  const updateLeadStage = useCallback(async (leadId: string, currentStageKey: string, direction: 'forward' | 'backward') => {
     const currentIndex = STAGES.findIndex(s => s.key === currentStageKey || s.aliases.includes(currentStageKey));
     let nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
 
@@ -584,9 +588,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       toast.error("Failed to update stage");
       console.error(error);
     }
-  };
+  }, [refreshLeads]);
 
-  const deleteLead = async (id: string) => {
+  const deleteLead = useCallback(async (id: string) => {
     if (!confirm("Are you sure you want to delete this lead?")) return;
     
     try {
@@ -598,23 +602,15 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       toast.error("Failed to delete lead");
       console.error(error);
     }
-  };
+  }, [refreshLeads]);
 
-  const getLeadsForStage = (stage: typeof STAGES[0]) => {
-    return leads.filter(l => 
-      (l.status === stage.key || stage.aliases.includes(l.status)) &&
-      (filterSalesperson === "All" || l.assigned_to === filterSalesperson) &&
-      (!isSalesperson || l.assigned_to === user?.id)  // Salespersons only see their own
-    );
-  };
-
-  const unmappedLeads = leads.filter(l => 
+  const unmappedLeads = useMemo(() => leads.filter(l => 
     !STAGES.some(s => s.key === l.status || s.aliases.includes(l.status)) &&
     (filterSalesperson === "All" || l.assigned_to === filterSalesperson) &&
     (!isSalesperson || l.assigned_to === user?.id)
-  );
+  ), [leads, filterSalesperson, isSalesperson, user?.id]);
 
-  const handleAction = (type: 'call' | 'wa' | 'mail', detail: string) => {
+  const handleAction = useCallback((type: 'call' | 'wa' | 'mail', detail: string) => {
     if (!detail) return;
     if (type === 'call') {
       window.open(`tel:${detail}`);
@@ -624,7 +620,338 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     } else if (type === 'mail') {
       window.open(`mailto:${detail}`);
     }
-  };
+  }, []);
+
+  const getLeadsForStage = useCallback((stage: typeof STAGES[0]) => {
+    return leads.filter(l => 
+      (l.status === stage.key || stage.aliases.includes(l.status)) &&
+      (filterSalesperson === "All" || l.assigned_to === filterSalesperson) &&
+      (!isSalesperson || l.assigned_to === user?.id)
+    );
+  }, [leads, filterSalesperson, isSalesperson, user?.id]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const memoizedPipelineBoard = useMemo(() => (
+    <div className="flex-1 overflow-x-auto pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto">
+      <div className="flex gap-4 lg:gap-6 h-full min-w-max pb-4 px-4">
+        {STAGES.map((stage, sIdx) => {
+          const rawLeads = sIdx === 0 
+            ? [...getLeadsForStage(stage), ...unmappedLeads]
+            : getLeadsForStage(stage);
+          
+          const stageLeads = rawLeads.filter(l => 
+            (l.contact_person?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+            (l.company_name?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+          );
+          
+          const totalValue = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);
+
+          return (
+            <div key={stage.name} className={`flex-shrink-0 w-[85vw] sm:w-[380px] flex flex-col min-h-[850px] bg-card/40 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-border shadow-2xl overflow-hidden backdrop-blur-md`}>
+              {/* Stage Header */}
+              <div className="p-6 flex-shrink-0 relative bg-background/50 border-b-2 border-border backdrop-blur-md">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <h3 className={`font-black ${stage.textColor} text-base tracking-tight truncate max-w-[200px] uppercase whitespace-nowrap`}>{stage.name}</h3>
+                    <button 
+                      onClick={() => setShowInfoFor(showInfoFor === stage.key ? null : stage.key)}
+                      className="text-muted-foreground hover:text-primary transition-colors bg-background/50 p-1.5 rounded-full"
+                    >
+                      <HelpCircle size={16} />
+                    </button>
+                  </div>
+                  <span className={`text-xs font-black bg-gradient-to-br ${stage.color} text-white px-3 py-1 rounded-full shadow-lg shadow-primary/20`}>{stageLeads.length}</span>
+                </div>
+                <div className={`text-sm ${stage.textColor} font-black tracking-widest`}>₹{(totalValue || 0).toLocaleString()}</div>
+                
+                {/* Stage Description Tooltip */}
+                {showInfoFor === stage.key && (
+                  <div className="absolute top-full left-4 right-4 z-50 p-5 bg-card border-2 border-border shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[2rem] text-xs text-muted-foreground animate-in slide-in-from-top-2 duration-300">
+                    <p className="leading-relaxed font-bold tracking-tight">{stage.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Stage Column */}
+              <div className={`p-4 space-y-5 flex-1 overflow-y-auto custom-scrollbar bg-background/20`}>
+                {stageLeads.map((lead) => {
+                  const hasPhone = !!lead.phone;
+                  const hasEmail = !!lead.email;
+
+                  const highlightClass = getLeadHighlightClass(lead);
+
+                  return (
+                    <Card 
+                      key={lead.id} 
+                      className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between ${highlightClass} ${
+                        glowingLeadId === lead.id
+                          ? 'ring-4 ring-indigo-500 border-indigo-400 shadow-[0_0_35px_rgba(99,102,241,0.8)] scale-[1.02] bg-indigo-500/10 z-30 animate-pulse'
+                          : ''
+                      }`}
+                    >
+                      {/* Stage Navigation Arrows */}
+                      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 lg:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                        <button 
+                          onClick={() => updateLeadStage(lead.id, lead.status, 'backward')}
+                          disabled={sIdx === 0}
+                          className={`p-2 bg-background/95 backdrop-blur-md rounded-full border-2 border-border shadow-2xl pointer-events-auto transition-all active:scale-75 ${sIdx === 0 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
+                        >
+                          <ChevronLeft size={20} />
+                        </button>
+                        <button 
+                          onClick={() => updateLeadStage(lead.id, lead.status, 'forward')}
+                          disabled={sIdx === STAGES.length - 1}
+                          className={`p-2 bg-background/95 backdrop-blur-md rounded-full border-2 border-border shadow-2xl pointer-events-auto transition-all active:scale-75 ${sIdx === STAGES.length - 1 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
+                        >
+                          <ChevronRight size={20} />
+                        </button>
+                      </div>
+
+                      {/* Top alignment layout */}
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 pr-2">
+                          {/* Primary Heading is Company Name */}
+                          <h4 className="font-bold text-foreground text-base tracking-tight leading-snug mb-0.5 break-words" title={lead.company_name || lead.contact_person}>
+                            {lead.company_name || lead.contact_person}
+                          </h4>
+                          {/* Secondary sub-heading is Contact Name */}
+                          {lead.contact_person && lead.contact_person !== lead.company_name && (
+                            <p className="text-[10px] text-muted-foreground font-black tracking-wider uppercase break-words">
+                              {lead.contact_person}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={() => togglePin(lead.id, !!lead.is_pinned)}
+                            className={`p-2 rounded-xl transition-all border ${lead.is_pinned ? 'bg-primary/10 border-primary text-primary opacity-100' : 'hover:bg-background border-transparent hover:border-primary/20 opacity-0 group-hover:opacity-100'}`}
+                            title={lead.is_pinned ? "Unpin" : "Pin to top"}
+                          >
+                            {lead.is_pinned ? <Pin size={14} fill="currentColor" /> : <Pin size={14} />}
+                          </button>
+                          <button 
+                            onClick={() => openEditModal(lead)}
+                            className="p-2 hover:bg-background rounded-xl transition-colors text-primary border border-transparent hover:border-primary/20 opacity-0 group-hover:opacity-100"
+                            title="Edit Lead"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button 
+                            onClick={() => deleteLead(lead.id)}
+                            className="p-2 hover:bg-red-500/10 rounded-xl transition-colors text-red-400 border border-transparent hover:border-red-500/20 opacity-0 group-hover:opacity-100"
+                            title="Delete Lead"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Highlight Services Badge */}
+                      <div className="flex flex-wrap items-center gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
+                         {lead.service_interest && (
+                           <div className="px-2.5 py-1 bg-primary/10 border border-primary/25 text-primary text-[9px] font-black rounded-lg uppercase tracking-wider whitespace-nowrap">
+                             {lead.service_interest}
+                           </div>
+                         )}
+                         {lead.business_type && (
+                            <div className="px-2.5 py-1 bg-indigo-600/10 border border-indigo-500/25 text-indigo-400 text-[9px] font-black rounded-lg uppercase tracking-wider whitespace-nowrap">
+                              {lead.business_type}
+                            </div>
+                         )}
+                         {lead.website && (
+                            <a href={formatUrl(lead.website)} target="_blank" rel="noopener noreferrer" 
+                               className="p-1.5 bg-indigo-600/10 border border-indigo-500/30 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm hover:shadow-indigo-500/15 active:scale-90"
+                               title="Visit Website">
+                               <Globe size={16} />
+                            </a>
+                         )}
+                         {lead.external_link && (
+                            <a href={formatUrl(lead.external_link)} target="_blank" rel="noopener noreferrer" 
+                               className="p-1.5 bg-rose-600/10 border border-rose-500/30 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all shadow-sm hover:shadow-rose-500/15 active:scale-90"
+                               title="Google Maps">
+                               <MapPin size={16} />
+                            </a>
+                         )}
+                      </div>
+
+                      {/* Interactive Action Buttons */}
+                      <div className="flex flex-wrap gap-2 my-2.5 py-3 border-t border-b border-border/40" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          disabled={!hasPhone}
+                          onClick={() => handleAction('call', lead.phone)}
+                          className={`flex-1 min-w-[65px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-90 whitespace-nowrap ${
+                            hasPhone 
+                              ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/15 cursor-pointer' 
+                              : 'opacity-30 bg-muted text-muted-foreground border-transparent cursor-not-allowed shadow-none hover:bg-muted'
+                          }`} 
+                          title={hasPhone ? "Call client" : "Phone number not available"}
+                        >
+                          <Phone size={13} />
+                          <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">Call</span>
+                        </button>
+                        
+                        <button 
+                          disabled={!hasPhone}
+                          onClick={() => handleAction('wa', lead.phone)}
+                          className={`flex-1 min-w-[65px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-90 whitespace-nowrap ${
+                            hasPhone 
+                              ? 'bg-[#25D366] hover:bg-[#22c35e] text-white shadow-green-600/15 cursor-pointer' 
+                              : 'opacity-30 bg-muted text-muted-foreground border-transparent cursor-not-allowed shadow-none hover:bg-muted'
+                          }`} 
+                          title={hasPhone ? "WhatsApp chat" : "Phone number not available"}
+                        >
+                          <MessageCircle size={13} />
+                          <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">WA</span>
+                        </button>
+                        
+                        <button 
+                          disabled={!hasEmail}
+                          onClick={() => handleAction('mail', lead.email)}
+                          className={`flex-1 min-w-[65px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-90 whitespace-nowrap ${
+                            hasEmail 
+                              ? 'bg-[#EA4335] hover:bg-[#d93025] text-white shadow-red-600/15 cursor-pointer' 
+                              : 'opacity-30 bg-muted text-muted-foreground border-transparent cursor-not-allowed shadow-none hover:bg-muted'
+                          }`} 
+                          title={hasEmail ? "Send Email" : "Email address not available"}
+                        >
+                          <Mail size={13} />
+                          <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">Mail</span>
+                        </button>
+                      </div>
+
+                      {/* Card Footer: Value and details */}
+                      <div className="flex items-center justify-between mt-auto pt-1.5">
+                        <div className="flex flex-col">
+                           <div className={`text-base font-black ${stage.textColor} tracking-tight bg-primary/5 px-2.5 py-0.5 rounded-lg border border-primary/10 mb-1 whitespace-nowrap`}>
+                             ₹{(lead.estimated_value || 0).toLocaleString()}
+                           </div>
+                           {lead.assigned_user && (
+                             <div className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1 truncate max-w-[150px]">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shrink-0"></div>
+                                <span className="truncate">Owner: {lead.assigned_user.full_name || lead.assigned_user.username}</span>
+                             </div>
+                           )}
+                        </div>
+                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${stage.color} flex items-center justify-center text-xs font-black text-white border-2 border-card shadow-xl`}>
+                          {(lead.company_name || lead.contact_person || 'U')[0].toUpperCase()}
+                        </div>
+                      </div>
+
+                      {/* Display Next Scheduled Action */}
+                      {lead.crm_tasks && lead.crm_tasks.some((t: any) => t.status === 'Pending') && (
+                        <div className="mt-2.5 p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                          <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Upcoming Action</p>
+                          {lead.crm_tasks
+                            .filter((t: any) => t.status === 'Pending')
+                            .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+                            .slice(0, 1)
+                            .map((task: any) => (
+                              <div key={task.id} className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <Clock size={11} className="text-amber-500 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-bold text-foreground truncate">{task.title}</p>
+                                      <p className="text-[8px] text-muted-foreground font-semibold uppercase">
+                                        {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                        {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                    className="p-1 hover:bg-red-500/10 rounded text-muted-foreground hover:text-red-500 shrink-0"
+                                    title="Delete Action"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-2 pt-1 border-t border-border/10" onClick={(e) => e.stopPropagation()}>
+                                  <a 
+                                    href={googleCalendarService.generateGoogleCalendarLink(task)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white rounded text-[8px] font-black uppercase tracking-wider transition-all"
+                                    title="Add to Google Calendar directly (No API keys required)"
+                                  >
+                                    <Calendar size={8} /> Add
+                                  </a>
+                                  <a 
+                                    href={googleCalendarService.generateGmailComposeLink(
+                                      task,
+                                      lead.email || '',
+                                      googleCalendarService.generateGoogleCalendarLink(task)
+                                    )}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded text-[8px] font-black uppercase tracking-wider transition-all"
+                                    title="Compose prefilled Gmail invitation to send"
+                                  >
+                                    <Mail size={8} /> Invite
+                                  </a>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+
+                       {/* Display Logged Notes */}
+                       {lead.notes && (
+                         <div className="mt-2.5 p-2.5 bg-indigo-500/5 border border-indigo-500/10 rounded-xl group/note relative">
+                           <div className="flex items-center justify-between mb-1">
+                             <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                               <Clipboard size={10} className="text-indigo-400" /> Recent Note
+                             </p>
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); deleteRecentNote(lead); }}
+                               className="p-0.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded opacity-0 group-hover/note:opacity-100 transition-opacity"
+                               title="Delete Note"
+                             >
+                               <Trash2 size={10} />
+                             </button>
+                           </div>
+                           <div className="text-[10px] text-muted-foreground leading-relaxed max-h-[75px] overflow-y-auto custom-scrollbar whitespace-pre-wrap font-medium">
+                             {lead.notes.split('\n\n---\n\n')[0].trim()}
+                           </div>
+                         </div>
+                       )}
+
+                      {/* Structured Note logger & Scheduler actions */}
+                      <div className="grid grid-cols-2 gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => openNoteModal(lead)}
+                          className="px-2 py-2.5 bg-background border border-border hover:bg-muted/50 rounded-xl font-black text-[9px] uppercase tracking-wider text-muted-foreground transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                        >
+                          <Clipboard size={12} />
+                          Log Note
+                        </button>
+                        
+                        <button 
+                          onClick={() => openTaskModal(lead)}
+                          className={`px-2 py-2.5 bg-gradient-to-r ${stage.color} hover:brightness-110 text-white rounded-xl font-black text-[9px] uppercase tracking-wider shadow-lg shadow-indigo-600/15 transition-all active:scale-95 flex items-center justify-center gap-1`}
+                        >
+                          <Plus size={12} />
+                          {lead.crm_tasks && lead.crm_tasks.some((t: any) => t.status === 'Pending') ? 'Update Action' : 'Schedule Action'}
+                        </button>
+                      </div>
+
+                    </Card>
+                  );
+                })}
+
+                {/* Empty Stage Info */}
+                {stageLeads.length === 0 && (
+                  <div className="border-2 border-dashed border-border/30 rounded-3xl p-8 text-center bg-background/5">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Empty Stage</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ), [leads, searchQuery, unmappedLeads, showInfoFor, glowingLeadId, filterSalesperson, user, currentTime, getLeadsForStage, handleAction, togglePin, openEditModal, deleteLead, updateLeadStage, openNoteModal, openTaskModal, deleteTask, deleteRecentNote]);
 
   if (loading) return (
     <div className="h-full flex items-center justify-center">
@@ -633,7 +960,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   );
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-background relative w-full h-full animate-in fade-in duration-300" key="pipeline-root">
+    <div className="flex-1 flex flex-col overflow-hidden bg-background relative w-full h-full" key="pipeline-root">
       <style>{`
         .custom-horizontal-scrollbar::-webkit-scrollbar {
           height: 12px !important;
@@ -667,8 +994,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           {/* Admin-only: Salesperson filter dropdown */}
           {isAdmin && (
             <div className="flex items-center gap-2 bg-background border border-input rounded-xl px-3 py-1.5 shadow-sm">
-              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Filter:</span>
+              <label htmlFor="crm-salesperson-filter" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer">Filter:</label>
               <select 
+                id="crm-salesperson-filter"
+                name="salespersonFilter"
                 value={filterSalesperson}
                 onChange={(e) => setFilterSalesperson(e.target.value)}
                 className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-4"
@@ -692,6 +1021,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <input 
+              id="crm-pipeline-search"
+              name="searchQuery"
+              aria-label="Search in pipeline"
               type="text"
               placeholder="Search in pipeline..."
               value={searchQuery}
@@ -710,330 +1042,12 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       </div>
 
       {/* Pipeline Board */}
-      <div className="flex-1 overflow-x-auto pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto">
-        <div className="flex gap-4 lg:gap-6 h-full min-w-max pb-4 px-4">
-          {STAGES.map((stage, sIdx) => {
-            const rawLeads = sIdx === 0 
-              ? [...getLeadsForStage(stage), ...unmappedLeads]
-              : getLeadsForStage(stage);
-            
-            const stageLeads = rawLeads.filter(l => 
-              (l.contact_person?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-              (l.company_name?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-            );
-            
-            const totalValue = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);
-
-            return (
-              <div key={stage.name} className={`flex-shrink-0 w-[85vw] sm:w-[380px] flex flex-col min-h-[850px] bg-card/40 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-border shadow-2xl overflow-hidden backdrop-blur-md`}>
-                {/* Stage Header */}
-                <div className="p-6 flex-shrink-0 relative bg-background/50 border-b-2 border-border backdrop-blur-md">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <h3 className={`font-black ${stage.textColor} text-base tracking-tight truncate max-w-[200px] uppercase whitespace-nowrap`}>{stage.name}</h3>
-                      <button 
-                        onClick={() => setShowInfoFor(showInfoFor === stage.key ? null : stage.key)}
-                        className="text-muted-foreground hover:text-primary transition-colors bg-background/50 p-1.5 rounded-full"
-                      >
-                        <HelpCircle size={16} />
-                      </button>
-                    </div>
-                    <span className={`text-xs font-black bg-gradient-to-br ${stage.color} text-white px-3 py-1 rounded-full shadow-lg shadow-primary/20`}>{stageLeads.length}</span>
-                  </div>
-                  <div className={`text-sm ${stage.textColor} font-black tracking-widest`}>₹{(totalValue || 0).toLocaleString()}</div>
-                  
-                  {/* Stage Description Tooltip */}
-                  {showInfoFor === stage.key && (
-                    <div className="absolute top-full left-4 right-4 z-50 p-5 bg-card border-2 border-border shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[2rem] text-xs text-muted-foreground animate-in slide-in-from-top-2 duration-300">
-                      <p className="leading-relaxed font-bold tracking-tight">{stage.description}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Stage Column */}
-                <div className={`p-4 space-y-5 flex-1 overflow-y-auto custom-scrollbar bg-background/20`}>
-                  {stageLeads.map((lead) => {
-                    const hasPhone = !!lead.phone;
-                    const hasEmail = !!lead.email;
-
-                    const highlightClass = getLeadHighlightClass(lead);
-
-                    return (
-                      <Card 
-                        key={lead.id} 
-                        className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between ${highlightClass} ${
-                          glowingLeadId === lead.id
-                            ? 'ring-4 ring-indigo-500 border-indigo-400 shadow-[0_0_35px_rgba(99,102,241,0.8)] scale-[1.02] bg-indigo-500/10 z-30 animate-pulse'
-                            : ''
-                        }`}
-                      >
-                        {/* Stage Navigation Arrows */}
-                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 lg:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                          <button 
-                            onClick={() => updateLeadStage(lead.id, lead.status, 'backward')}
-                            disabled={sIdx === 0}
-                            className={`p-2 bg-background/95 backdrop-blur-md rounded-full border-2 border-border shadow-2xl pointer-events-auto transition-all active:scale-75 ${sIdx === 0 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
-                          >
-                            <ChevronLeft size={20} />
-                          </button>
-                          <button 
-                            onClick={() => updateLeadStage(lead.id, lead.status, 'forward')}
-                            disabled={sIdx === STAGES.length - 1}
-                            className={`p-2 bg-background/95 backdrop-blur-md rounded-full border-2 border-border shadow-2xl pointer-events-auto transition-all active:scale-75 ${sIdx === STAGES.length - 1 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
-                          >
-                            <ChevronRight size={20} />
-                          </button>
-                        </div>
-
-                        {/* Top alignment layout */}
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 pr-2">
-                            {/* Primary Heading is Company Name */}
-                            <h4 className="font-bold text-foreground text-base tracking-tight leading-snug mb-0.5 break-words" title={lead.company_name || lead.contact_person}>
-                              {lead.company_name || lead.contact_person}
-                            </h4>
-                            {/* Secondary sub-heading is Contact Name */}
-                            {lead.contact_person && lead.contact_person !== lead.company_name && (
-                              <p className="text-[10px] text-muted-foreground font-black tracking-wider uppercase break-words">
-                                {lead.contact_person}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <button 
-                              onClick={() => togglePin(lead.id, !!lead.is_pinned)}
-                              className={`p-2 rounded-xl transition-all border ${lead.is_pinned ? 'bg-primary/10 border-primary text-primary opacity-100' : 'hover:bg-background border-transparent hover:border-primary/20 opacity-0 group-hover:opacity-100'}`}
-                              title={lead.is_pinned ? "Unpin" : "Pin to top"}
-                            >
-                              {lead.is_pinned ? <Pin size={14} fill="currentColor" /> : <Pin size={14} />}
-                            </button>
-                            <button 
-                              onClick={() => openEditModal(lead)}
-                              className="p-2 hover:bg-background rounded-xl transition-colors text-primary border border-transparent hover:border-primary/20 opacity-0 group-hover:opacity-100"
-                              title="Edit Lead"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                            <button 
-                              onClick={() => deleteLead(lead.id)}
-                              className="p-2 hover:bg-red-500/10 rounded-xl transition-colors text-red-400 border border-transparent hover:border-red-500/20 opacity-0 group-hover:opacity-100"
-                              title="Delete Lead"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Highlight Services Badge */}
-                        <div className="flex flex-wrap items-center gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
-                           {lead.service_interest && (
-                             <div className="px-2.5 py-1 bg-primary/10 border border-primary/25 text-primary text-[9px] font-black rounded-lg uppercase tracking-wider whitespace-nowrap">
-                               {lead.service_interest}
-                             </div>
-                           )}
-                           {lead.business_type && (
-                              <div className="px-2.5 py-1 bg-indigo-600/10 border border-indigo-500/25 text-indigo-400 text-[9px] font-black rounded-lg uppercase tracking-wider whitespace-nowrap">
-                                {lead.business_type}
-                              </div>
-                           )}
-                           {lead.website && (
-                              <a href={formatUrl(lead.website)} target="_blank" rel="noopener noreferrer" 
-                                 className="p-1.5 bg-indigo-600/10 border border-indigo-500/30 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm hover:shadow-indigo-500/15 active:scale-90"
-                                 title="Visit Website">
-                                 <Globe size={16} />
-                              </a>
-                           )}
-                           {lead.external_link && (
-                              <a href={formatUrl(lead.external_link)} target="_blank" rel="noopener noreferrer" 
-                                 className="p-1.5 bg-rose-600/10 border border-rose-500/30 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all shadow-sm hover:shadow-rose-500/15 active:scale-90"
-                                 title="Google Maps">
-                                 <MapPin size={16} />
-                              </a>
-                           )}
-                        </div>
-
-                        {/* Interactive Action Buttons */}
-                        <div className="flex flex-wrap gap-2 my-2.5 py-3 border-t border-b border-border/40" onClick={(e) => e.stopPropagation()}>
-                          <button 
-                            disabled={!hasPhone}
-                            onClick={() => handleAction('call', lead.phone)}
-                            className={`flex-1 min-w-[65px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-90 whitespace-nowrap ${
-                              hasPhone 
-                                ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/15 cursor-pointer' 
-                                : 'opacity-30 bg-muted text-muted-foreground border-transparent cursor-not-allowed shadow-none hover:bg-muted'
-                            }`} 
-                            title={hasPhone ? "Call client" : "Phone number not available"}
-                          >
-                            <Phone size={13} />
-                            <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">Call</span>
-                          </button>
-                          
-                          <button 
-                            disabled={!hasPhone}
-                            onClick={() => handleAction('wa', lead.phone)}
-                            className={`flex-1 min-w-[65px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-90 whitespace-nowrap ${
-                              hasPhone 
-                                ? 'bg-[#25D366] hover:bg-[#22c35e] text-white shadow-green-600/15 cursor-pointer' 
-                                : 'opacity-30 bg-muted text-muted-foreground border-transparent cursor-not-allowed shadow-none hover:bg-muted'
-                            }`} 
-                            title={hasPhone ? "WhatsApp chat" : "Phone number not available"}
-                          >
-                            <MessageCircle size={13} />
-                            <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">WA</span>
-                          </button>
-                          
-                          <button 
-                            disabled={!hasEmail}
-                            onClick={() => handleAction('mail', lead.email)}
-                            className={`flex-1 min-w-[65px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-90 whitespace-nowrap ${
-                              hasEmail 
-                                ? 'bg-[#EA4335] hover:bg-[#d93025] text-white shadow-red-600/15 cursor-pointer' 
-                                : 'opacity-30 bg-muted text-muted-foreground border-transparent cursor-not-allowed shadow-none hover:bg-muted'
-                            }`} 
-                            title={hasEmail ? "Send Email" : "Email address not available"}
-                          >
-                            <Mail size={13} />
-                            <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">Mail</span>
-                          </button>
-                        </div>
-
-                        {/* Card Footer: Value and details */}
-                        <div className="flex items-center justify-between mt-auto pt-1.5">
-                          <div className="flex flex-col">
-                             <div className={`text-base font-black ${stage.textColor} tracking-tight bg-primary/5 px-2.5 py-0.5 rounded-lg border border-primary/10 mb-1 whitespace-nowrap`}>
-                               ₹{(lead.estimated_value || 0).toLocaleString()}
-                             </div>
-                             {lead.assigned_user && (
-                               <div className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1 truncate max-w-[150px]">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shrink-0"></div>
-                                  <span className="truncate">Owner: {lead.assigned_user.full_name || lead.assigned_user.username}</span>
-                               </div>
-                             )}
-                          </div>
-                          <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${stage.color} flex items-center justify-center text-xs font-black text-white border-2 border-card shadow-xl`}>
-                            {(lead.company_name || lead.contact_person || 'U')[0].toUpperCase()}
-                          </div>
-                        </div>
-
-                        {/* Display Next Scheduled Action */}
-                        {lead.crm_tasks && lead.crm_tasks.some((t: any) => t.status === 'Pending') && (
-                          <div className="mt-2.5 p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                            <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Upcoming Action</p>
-                            {lead.crm_tasks
-                              .filter((t: any) => t.status === 'Pending')
-                              .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
-                              .slice(0, 1)
-                              .map((task: any) => (
-                                <div key={task.id} className="space-y-1.5">
-                                  <div className="flex items-center justify-between gap-1.5">
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <Clock size={11} className="text-amber-500 shrink-0" />
-                                      <div className="min-w-0">
-                                        <p className="text-[10px] font-bold text-foreground truncate">{task.title}</p>
-                                        <p className="text-[8px] text-muted-foreground font-semibold uppercase">
-                                          {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                          {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                                      className="p-1 hover:bg-red-500/10 rounded text-muted-foreground hover:text-red-500 shrink-0"
-                                      title="Delete Action"
-                                    >
-                                      <Trash2 size={11} />
-                                    </button>
-                                  </div>
-                                  <div className="flex items-center gap-2 pt-1 border-t border-border/10" onClick={(e) => e.stopPropagation()}>
-                                    <a 
-                                      href={googleCalendarService.generateGoogleCalendarLink(task)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white rounded text-[8px] font-black uppercase tracking-wider transition-all"
-                                      title="Add to Google Calendar directly (No API keys required)"
-                                    >
-                                      <Calendar size={8} /> Add
-                                    </a>
-                                    <a 
-                                      href={googleCalendarService.generateGmailComposeLink(
-                                        task,
-                                        lead.email || '',
-                                        googleCalendarService.generateGoogleCalendarLink(task)
-                                      )}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded text-[8px] font-black uppercase tracking-wider transition-all"
-                                      title="Compose prefilled Gmail invitation to send"
-                                    >
-                                      <Mail size={8} /> Invite
-                                    </a>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-
-                         {/* Display Logged Notes */}
-                         {lead.notes && (
-                           <div className="mt-2.5 p-2.5 bg-indigo-500/5 border border-indigo-500/10 rounded-xl group/note relative">
-                             <div className="flex items-center justify-between mb-1">
-                               <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                                 <Clipboard size={10} className="text-indigo-400" /> Recent Note
-                               </p>
-                               <button 
-                                 onClick={(e) => { e.stopPropagation(); deleteRecentNote(lead); }}
-                                 className="p-0.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded opacity-0 group-hover/note:opacity-100 transition-opacity"
-                                 title="Delete Note"
-                               >
-                                 <Trash2 size={10} />
-                               </button>
-                             </div>
-                             <div className="text-[10px] text-muted-foreground leading-relaxed max-h-[75px] overflow-y-auto custom-scrollbar whitespace-pre-wrap font-medium">
-                               {lead.notes.split('\n\n---\n\n')[0].trim()}
-                             </div>
-                           </div>
-                         )}
-
-                        {/* Structured Note logger & Scheduler actions */}
-                        <div className="grid grid-cols-2 gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-                          <button 
-                            onClick={() => openNoteModal(lead)}
-                            className="px-2 py-2.5 bg-background border border-border hover:bg-muted/50 rounded-xl font-black text-[9px] uppercase tracking-wider text-muted-foreground transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                          >
-                            <Clipboard size={12} />
-                            Log Note
-                          </button>
-                          
-                          <button 
-                            onClick={() => openTaskModal(lead)}
-                            className={`px-2 py-2.5 bg-gradient-to-r ${stage.color} hover:brightness-110 text-white rounded-xl font-black text-[9px] uppercase tracking-wider shadow-lg shadow-indigo-600/15 transition-all active:scale-95 flex items-center justify-center gap-1`}
-                          >
-                            <Plus size={12} />
-                            {lead.crm_tasks && lead.crm_tasks.some((t: any) => t.status === 'Pending') ? 'Update Action' : 'Schedule Action'}
-                          </button>
-                        </div>
-
-                      </Card>
-                    );
-                  })}
-
-                  {/* Empty Stage Info */}
-                  {stageLeads.length === 0 && (
-                    <div className="border-2 border-dashed border-border/30 rounded-3xl p-8 text-center bg-background/5">
-                      <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Empty Stage</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {memoizedPipelineBoard}
 
       {/* Add Lead Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-card border-t sm:border border-border rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in duration-500 max-h-[95vh] flex flex-col">
+          <div className="bg-card border-t sm:border border-border rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
             <div className="p-6 border-b border-border flex items-center justify-between bg-background/30">
               <div>
                 <h2 className="text-xl font-black text-foreground tracking-tight">{isEditMode ? 'Edit Opportunity' : 'New Opportunity'}</h2>
@@ -1044,8 +1058,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Company Name *</label>
+                  <label htmlFor="lead_company_name" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Company Name *</label>
                   <input 
+                    id="lead_company_name"
+                    name="company_name"
                     type="text" 
                     required
                     value={formData.company_name}
@@ -1055,8 +1071,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Contact Name</label>
+                  <label htmlFor="lead_contact_person" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Contact Name</label>
                   <input 
+                    id="lead_contact_person"
+                    name="contact_person"
                     type="text" 
                     value={formData.contact_person}
                     onChange={(e) => setFormData({...formData, contact_person: e.target.value})}
@@ -1067,8 +1085,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Email Address</label>
+                <label htmlFor="lead_email" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Email Address</label>
                 <input 
+                  id="lead_email"
+                  name="email"
                   type="email" 
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -1079,10 +1099,12 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Value (₹)</label>
+                  <label htmlFor="lead_estimated_value" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Value (₹)</label>
                   <div className="relative">
                     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-primary font-black text-base">₹</div>
                     <input 
+                      id="lead_estimated_value"
+                      name="estimated_value"
                       type="text" 
                       value={formData.estimated_value}
                       onChange={(e) => {
@@ -1098,8 +1120,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Phone</label>
+                  <label htmlFor="lead_phone" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Phone</label>
                   <input 
+                    id="lead_phone"
+                    name="phone"
                     type="tel" 
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
@@ -1111,8 +1135,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Website Link</label>
+                  <label htmlFor="lead_website" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Website Link</label>
                   <input 
+                    id="lead_website"
+                    name="website"
                     type="text" 
                     value={formData.website}
                     onChange={(e) => setFormData({...formData, website: e.target.value})}
@@ -1121,8 +1147,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Google Maps Link / Address</label>
+                  <label htmlFor="lead_external_link" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Google Maps Link / Address</label>
                   <input 
+                    id="lead_external_link"
+                    name="external_link"
                     type="text" 
                     value={formData.external_link}
                     onChange={(e) => setFormData({...formData, external_link: e.target.value})}
@@ -1134,8 +1162,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Service Interest</label>
+                  <label htmlFor="lead_service_interest" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Service Interest</label>
                   <input 
+                    id="lead_service_interest"
+                    name="service_interest"
                     type="text" 
                     value={formData.service_interest}
                     onChange={(e) => setFormData({...formData, service_interest: e.target.value})}
@@ -1144,8 +1174,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Business Category / Type</label>
+                  <label htmlFor="lead_business_type" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Business Category / Type</label>
                   <input 
+                    id="lead_business_type"
+                    name="business_type"
                     type="text" 
                     value={formData.business_type}
                     onChange={(e) => setFormData({...formData, business_type: e.target.value})}
@@ -1156,8 +1188,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Owner Assignment</label>
+                <label htmlFor="lead_assigned_to" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Owner Assignment</label>
                 <select 
+                  id="lead_assigned_to"
+                  name="assigned_to"
                   value={formData.assigned_to}
                   onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
                   className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium appearance-none cursor-pointer"
@@ -1197,7 +1231,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       {/* Log Interaction Note Modal (Structured Notes) */}
       {isNoteModalOpen && selectedLeadForNote && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-card border-2 border-border w-full max-w-lg mx-auto rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col">
+          <div className="bg-card border-2 border-border w-full max-w-lg mx-auto rounded-[2rem] shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
             <div className="p-5 sm:p-8 border-b border-border flex items-center justify-between bg-background/50">
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">Log Client Interaction</h2>
@@ -1210,8 +1244,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Interaction Type</label>
+                    <label htmlFor="note_interaction_type" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Interaction Type</label>
                     <select 
+                      id="note_interaction_type"
+                      name="interaction_type"
                       value={noteFormData.interaction_type}
                       onChange={(e) => setNoteFormData({...noteFormData, interaction_type: e.target.value})}
                       className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold appearance-none cursor-pointer"
@@ -1224,8 +1260,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   </div>
                   
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Client Sentiment</label>
+                    <label htmlFor="note_sentiment" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Client Sentiment</label>
                     <select 
+                      id="note_sentiment"
+                      name="sentiment"
                       value={noteFormData.sentiment}
                       onChange={(e) => setNoteFormData({...noteFormData, sentiment: e.target.value})}
                       className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold appearance-none cursor-pointer"
@@ -1240,8 +1278,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Key Discussion Points *</label>
+                  <label htmlFor="note_discussion_points" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Key Discussion Points *</label>
                   <textarea 
+                    id="note_discussion_points"
+                    name="discussion_points"
                     value={noteFormData.discussion_points}
                     onChange={(e) => setNoteFormData({...noteFormData, discussion_points: e.target.value})}
                     placeholder="What did they say? What was requested?"
@@ -1252,8 +1292,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Agreed Next Steps</label>
+                  <label htmlFor="note_next_steps" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Agreed Next Steps</label>
                   <input 
+                    id="note_next_steps"
+                    name="next_steps"
                     type="text" 
                     value={noteFormData.next_steps}
                     onChange={(e) => setNoteFormData({...noteFormData, next_steps: e.target.value})}
@@ -1263,8 +1305,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Additional Notes</label>
+                  <label htmlFor="note_additional_notes" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Additional Notes</label>
                   <textarea 
+                    id="note_additional_notes"
+                    name="additional_notes"
                     value={noteFormData.additional_notes}
                     onChange={(e) => setNoteFormData({...noteFormData, additional_notes: e.target.value})}
                     placeholder="Any personal context, other stakeholders, budget caveats..."
@@ -1300,7 +1344,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       {/* Task Scheduler Modal */}
       {isTaskModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-card border-2 border-border w-full max-w-lg mx-auto rounded-[1.5rem] sm:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col">
+          <div className="bg-card border-2 border-border w-full max-w-lg mx-auto rounded-[1.5rem] sm:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden max-h-[95vh] flex flex-col">
             <div className="p-5 sm:p-8 border-b border-border flex items-center justify-between bg-background/50">
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">Schedule Next Action</h2>
@@ -1313,8 +1357,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Action Type</label>
+                    <label htmlFor="task_type" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Action Type</label>
                     <select 
+                      id="task_type"
+                      name="task_type"
                       value={taskFormData.task_type}
                       onChange={(e) => setTaskFormData({...taskFormData, task_type: e.target.value})}
                       className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold appearance-none cursor-pointer"
@@ -1328,8 +1374,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   </div>
                   {taskFormData.task_type === 'custom' && (
                     <div className="space-y-2 sm:col-span-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Custom Action Name *</label>
+                      <label htmlFor="custom_task_type" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Custom Action Name *</label>
                       <input 
+                        id="custom_task_type"
+                        name="custom_task_type"
                         type="text" 
                         required
                         value={taskFormData.custom_task_type}
@@ -1340,8 +1388,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     </div>
                   )}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Schedule Date</label>
+                    <label htmlFor="scheduled_date" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Schedule Date</label>
                     <input 
+                      id="scheduled_date"
+                      name="scheduled_date"
                       type="date" 
                       value={taskFormData.scheduled_date}
                       onChange={(e) => setTaskFormData({...taskFormData, scheduled_date: e.target.value})}
@@ -1350,9 +1400,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Schedule Time (12h)</label>
+                    <label htmlFor="scheduled_time" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Schedule Time (12h)</label>
                     <div className="flex gap-1 sm:gap-2">
                       <input 
+                        id="scheduled_time"
+                        name="scheduled_time"
                         type="time" 
                         value={taskFormData.scheduled_time}
                         onChange={(e) => setTaskFormData({...taskFormData, scheduled_time: e.target.value})}
@@ -1360,6 +1412,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                         style={{ colorScheme: 'dark' }}
                       />
                       <select 
+                        id="scheduled_ampm"
+                        name="scheduled_ampm"
+                        aria-label="Schedule AM or PM"
                         value={taskFormData.scheduled_ampm}
                         onChange={(e) => setTaskFormData({...taskFormData, scheduled_ampm: e.target.value})}
                         className="w-16 sm:w-24 px-2 sm:px-4 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-black appearance-none cursor-pointer text-center"
@@ -1372,8 +1427,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Action Title</label>
+                  <label htmlFor="task_title" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Action Title</label>
                   <input 
+                    id="task_title"
+                    name="title"
                     type="text" 
                     value={taskFormData.title}
                     onChange={(e) => setTaskFormData({...taskFormData, title: e.target.value})}
@@ -1384,8 +1441,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Action Notes</label>
+                  <label htmlFor="task_notes" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Action Notes</label>
                   <textarea 
+                    id="task_notes"
+                    name="notes"
                     value={taskFormData.notes}
                     onChange={(e) => setTaskFormData({...taskFormData, notes: e.target.value})}
                     placeholder="Write down any specific details for this action..."
@@ -1398,8 +1457,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 {linkedAccounts.length > 0 && (
                   <div className="p-4 bg-background border border-input rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-black text-foreground cursor-pointer flex items-center gap-2 uppercase tracking-wider">
+                      <label htmlFor="sync_google_cal" className="text-[11px] font-black text-foreground cursor-pointer flex items-center gap-2 uppercase tracking-wider">
                         <input
+                          id="sync_google_cal"
+                          name="syncToGoogle"
                           type="checkbox"
                           checked={syncToGoogle}
                           onChange={e => setSyncToGoogle(e.target.checked)}
@@ -1412,8 +1473,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     {syncToGoogle && (
                       <div className="space-y-3 pt-1">
                         <div>
-                          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Select Google Account</label>
+                          <label htmlFor="sync_account" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1 cursor-pointer">Select Google Account</label>
                           <select
+                            id="sync_account"
+                            name="syncAccount"
                             value={syncAccount}
                             onChange={e => setSyncAccount(e.target.value)}
                             className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold cursor-pointer"
@@ -1426,8 +1489,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                           </select>
                         </div>
                         <div>
-                          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Attendees (comma-separated emails)</label>
+                          <label htmlFor="attendees_input" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1 cursor-pointer">Attendees (comma-separated emails)</label>
                           <input
+                            id="attendees_input"
+                            name="attendeesInput"
                             type="text"
                             value={attendeesInput}
                             onChange={e => setAttendeesInput(e.target.value)}

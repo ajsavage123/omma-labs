@@ -303,7 +303,8 @@ export default function ChatWidget() {
             username: user.username,
             full_name: user.full_name || user.username,
             designation: user.designation
-          }
+          },
+          workspace_id: user.workspace_id
         };
         mockStorage.addMessage(newMsg);
         setMessages(prev => [...prev, newMsg]);
@@ -405,7 +406,7 @@ export default function ChatWidget() {
         // Soft delete implementation
         const { error } = await supabase
           .from('chat_messages')
-          .update({ is_deleted_everyone: true })
+          .update({ is_deleted_everyone: true, message: '' })
           .eq('id', id);
 
         if (error) {
@@ -415,7 +416,7 @@ export default function ChatWidget() {
         }
         
         // Remove permanently from local UI state
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, is_deleted_everyone: true } : m));
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, is_deleted_everyone: true, message: '' } : m));
       }
       toast.info('Message deleted');
     } catch (error) {

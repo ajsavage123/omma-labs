@@ -14,9 +14,62 @@ export interface WorkspaceNotificationEvent {
   createdAt?: string;
 }
 
-const recentNotificationIds = new Set<string>();
+// ---------------------------------------------------------------------------
+// Deduplication — persisted to sessionStorage so page reloads don't re-show
+// the same notification. sessionStorage is cleared automatically on logout.
+// ---------------------------------------------------------------------------
+const DEDUP_KEY = 'ws_notif_recent_ids';
+
+function loadRecentIds(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(DEDUP_KEY);
+    if (raw) return new Set(JSON.parse(raw) as string[]);
+  } catch {
+    // corrupt storage — start fresh
+  }
+  return new Set<string>();
+}
+
+function saveRecentIds(ids: Set<string>): void {
+  try {
+    sessionStorage.setItem(DEDUP_KEY, JSON.stringify(Array.from(ids)));
+  } catch {
+    // storage quota exceeded — clear and retry
+    sessionStorage.removeItem(DEDUP_KEY);
+  }
+}
+
+const recentNotificationIds = loadRecentIds();
+
+/** Clear dedup state on logout */
+export function clearNotificationDedup(): void {
+  recentNotificationIds.clear();
+  sessionStorage.removeItem(DEDUP_KEY);
+}
+
+// ---------------------------------------------------------------------------
+// Exact-duplicate suppression — compare last title+body to block batch repeats
+// ---------------------------------------------------------------------------
+let lastNotifFingerprint = '';
+
+// ---------------------------------------------------------------------------
+// Debounce helper for chat message bursts
+// ---------------------------------------------------------------------------
+function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
+  let timer: ReturnType<typeof setTimeout>;
+  return ((...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  }) as T;
+}
+
+// Debounced chat dispatch — max one UI event per 200ms window
+const dispatchDebounced = debounce((event: WorkspaceNotificationEvent) => {
+  window.dispatchEvent(new CustomEvent('workspace-notification-received', { detail: event }));
+}, 200);
 
 export const workspaceNotificationService = {
+
   /**
    * Process and dispatch a workspace notification.
    * Suppresses notifications if triggered by the logged-in user or if duplicate.
@@ -29,16 +82,25 @@ export const workspaceNotificationService = {
       return;
     }
 
-    // Suppress duplicate events within session
+    // Suppress duplicate events within session (persisted to sessionStorage)
     if (recentNotificationIds.has(event.id)) {
       return;
     }
 
-    recentNotificationIds.add(event.id);
-    if (recentNotificationIds.size > 100) {
-      const firstKey = recentNotificationIds.values().next().value;
-      if (firstKey) recentNotificationIds.delete(firstKey);
+    // Suppress exact payload repeats from batch updates (same title + body)
+    const fingerprint = `${event.title}||${event.body}`;
+    if (fingerprint === lastNotifFingerprint) {
+      return;
     }
+    lastNotifFingerprint = fingerprint;
+
+    recentNotificationIds.add(event.id);
+    // Keep the dedup set bounded: prune to 50 entries when it exceeds 100
+    if (recentNotificationIds.size > 100) {
+      const entries = Array.from(recentNotificationIds);
+      entries.slice(0, 50).forEach(k => recentNotificationIds.delete(k));
+    }
+    saveRecentIds(recentNotificationIds);
 
     const sound = event.soundType || (event.category === 'chat' ? 'notification' : event.category === 'task' ? 'alert' : 'success');
     notificationService.playSound(sound);
@@ -51,8 +113,13 @@ export const workspaceNotificationService = {
       data: { url: event.targetUrl || '/' }
     });
 
-    // Broadcast in-app event for UI components/toasts
-    window.dispatchEvent(new CustomEvent('workspace-notification-received', { detail: event }));
+    // Broadcast in-app event for UI components / toasts
+    // Chat messages are debounced 200ms to prevent burst-flooding the UI
+    if (event.category === 'chat') {
+      dispatchDebounced(event);
+    } else {
+      window.dispatchEvent(new CustomEvent('workspace-notification-received', { detail: event }));
+    }
   },
 
   formatPayload(table: string, eventType: string, record: any, user: any): WorkspaceNotificationEvent | null {

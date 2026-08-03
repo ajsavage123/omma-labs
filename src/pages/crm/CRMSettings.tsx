@@ -1,9 +1,40 @@
 import { useAuth } from '@/hooks/useAuth';
-import { Building, Shield } from 'lucide-react';
+import { Building, Shield, Bell } from 'lucide-react';
+
 import SupabaseQuotaHealth from '@/components/admin/SupabaseQuotaHealth';
+import { pushNotificationService } from '@/services/pushNotificationService';
+import { notificationService } from '@/utils/notificationService';
+import { useState, useEffect } from 'react';
 
 export default function CRMSettings() {
   const { user, supabaseUser } = useAuth();
+  const [pushStatus, setPushStatus] = useState<string>('default');
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setPushStatus(Notification.permission);
+    }
+  }, []);
+
+  const handleEnablePush = async () => {
+    setIsSubscribing(true);
+    const success = await pushNotificationService.subscribeToPushNotifications();
+    if (success) {
+      setPushStatus('granted');
+    } else {
+      setPushStatus(Notification.permission);
+    }
+    setIsSubscribing(false);
+  };
+
+  const handleTestPush = () => {
+    notificationService.showNotification('Test Notification', {
+      body: 'This is a test notification from CRM Settings.',
+      tag: 'test-push',
+      requireInteraction: false
+    });
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-2xl space-y-6">
@@ -60,6 +91,57 @@ export default function CRMSettings() {
 
       {/* Supabase Quota & Workspace Health Monitor (Admin Only) */}
       <SupabaseQuotaHealth />
+
+      {/* Push Notifications Configuration */}
+      <div className="bg-[#111116] border border-white/5 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+            <Bell size={14} /> Push Notifications
+          </h2>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase text-gray-500">
+              Status:
+            </span>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/5">
+              {pushStatus === 'granted' ? (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Enabled</span>
+                </>
+              ) : (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+                  <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Not Enabled</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-500 leading-relaxed">
+          Enable background push notifications to receive real-time alerts for tasks, leads, and chat messages even when the app is closed.
+        </p>
+
+        <div className="flex items-center gap-3 pt-2">
+          {pushStatus !== 'granted' && (
+            <button
+              onClick={handleEnablePush}
+              disabled={isSubscribing}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isSubscribing ? 'Enabling...' : 'Enable Notifications'}
+            </button>
+          )}
+          
+          <button
+            onClick={handleTestPush}
+            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all border border-white/10 active:scale-95"
+          >
+            Test Local Push
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
