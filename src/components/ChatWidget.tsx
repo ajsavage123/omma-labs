@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { FormEvent, ChangeEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { queryCache } from '@/utils/cache';
 import { 
-  MessageSquare, X, Send, Bell, Pin, Reply, Edit2, 
-  Trash2, Smile, Video, Phone 
+  MessageSquare, X, Send, Pin, Reply, Edit2, 
+  Trash2, Video 
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import type { ChatMessage } from '@/types';
@@ -31,7 +32,8 @@ export default function ChatWidget() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [replyingToMessage, setReplyingToMessage] = useState<ChatMessage | null>(null);
   const [showPinned, setShowPinned] = useState(false);
-  const [showEmojiForId, setShowEmojiForId] = useState<string | null>(null);
+  // Long-press context menu (WhatsApp / Telegram style)
+  const [contextMenu, setContextMenu] = useState<{ msg: ChatMessage, x: number, y: number } | null>(null);
 
   const { toasts, toast, removeToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -89,8 +91,6 @@ export default function ChatWidget() {
         const isHidden = document.visibilityState === 'hidden';
         if (isClosed || isHidden) {
           setUnreadCount((prev: number) => prev + 1);
-          // Removed duplicate toast and notificationService calls here, 
-          // as GlobalNotificationManager handles it now.
         }
       }
     };
@@ -103,7 +103,9 @@ export default function ChatWidget() {
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'chat_messages'
+        table: 'chat_messages',
+        // FIX #3: Filter to current workspace only
+        filter: `workspace_id=eq.${user.workspace_id}`
       }, (payload: any) => {
         if (payload.eventType === 'INSERT') {
           handleIncomingMessage(payload.new as ChatMessage);
@@ -266,6 +268,7 @@ export default function ChatWidget() {
         users!user_id(username, full_name, designation),
         reactions:chat_reactions(*)
       `)
+      .eq('workspace_id', user.workspace_id)
       .order('created_at', { ascending: true })
       .limit(100);
 
@@ -309,9 +312,12 @@ export default function ChatWidget() {
         return;
       }
 
+      // FIX #1: Include parent_id in DB insert so replies persist
       const { data, error } = await supabase.from('chat_messages').insert({
         user_id: user.id,
-        message: msgText
+        workspace_id: user.workspace_id,
+        message: msgText,
+        parent_id: parentId
       }).select('id, created_at').single();
 
       if (error) throw error;
@@ -339,7 +345,7 @@ export default function ChatWidget() {
 
       setNewMessage('');
       setReplyingToMessage(null);
-      await fetchMessages();
+      // FIX #6: Removed redundant fetchMessages() — realtime subscription handles delivery
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
@@ -355,9 +361,10 @@ export default function ChatWidget() {
         mockStorage.updateMessage(id, text);
         setMessages(prev => prev.map(m => m.id === id ? { ...m, message: text, is_edited: true } : m));
       } else {
+        // FIX #4: Persist is_edited flag to DB so it survives refresh
         const { error } = await supabase
           .from('chat_messages')
-          .update({ message: text })
+          .update({ message: text, is_edited: true })
           .eq('id', id);
 
         if (error) throw error;
@@ -403,7 +410,21 @@ export default function ChatWidget() {
   };
 
   const handlePinToggle = async (id: string, currentPinStatus: boolean) => {
+    // Optimistic UI update
     setMessages(prev => prev.map(m => m.id === id ? { ...m, is_pinned: !currentPinStatus } : m));
+    // FIX #2: Persist pin state to DB so it survives refresh
+    if (!MOCK_MODE) {
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ is_pinned: !currentPinStatus })
+        .eq('id', id);
+      if (error) {
+        // Rollback UI on failure
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, is_pinned: currentPinStatus } : m));
+        toast.error('Failed to pin message');
+        return;
+      }
+    }
     toast.success(currentPinStatus ? 'Message unpinned' : 'Message pinned');
   };
 
@@ -435,12 +456,10 @@ export default function ChatWidget() {
         } else {
           await supabase.from('chat_reactions').insert({ message_id: messageId, user_id: user.id, emoji });
         }
-        await fetchMessages();
+        // FIX #6: Removed redundant fetchMessages() — realtime chat_reactions subscription handles update
       }
     } catch {
       // ignore reaction table if not setup
-    } finally {
-      setShowEmojiForId(null);
     }
   };
 
@@ -448,16 +467,13 @@ export default function ChatWidget() {
     window.open('https://meet.google.com/new', '_blank');
   };
 
-  const generatePhoneLink = () => {
-    setNewMessage(prev => (prev ? prev + ' \n' : '') + `📞 **Call me:** [tel:+18005550199](tel:+18005550199)`);
-  };
 
   const pinnedMessagesList = messages.filter(m => m.is_pinned);
 
   if (!user) return null;
 
   if (!isOpen) {
-    return (
+    return createPortal(
       <div className="no-print fixed bottom-6 right-6 z-[9999]">
         <button
           onClick={() => {
@@ -473,103 +489,69 @@ export default function ChatWidget() {
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
-          {/* Pulse dot if someone else is online */}
           {onlineUsers.size > 1 && (
             <span className="absolute bottom-0 right-0 h-3.5 w-3.5 bg-emerald-500 rounded-full border-2 border-[#0A0A0B] animate-pulse"></span>
           )}
         </button>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
-    <div className="no-print fixed bottom-4 sm:bottom-6 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[420px] bg-[#121216] rounded-2xl shadow-2xl border border-[#1F1F26] flex flex-col h-[560px] max-h-[85vh] z-[9999] overflow-hidden">
-      {/* Header */}
-      <div className="p-3.5 bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 text-white flex justify-between items-center relative overflow-hidden border-b border-indigo-500/20">
-        <div className="flex items-center gap-2.5 relative z-10">
-          <div className="p-2 bg-white/10 rounded-xl backdrop-blur-md">
-            <MessageSquare className="h-5 w-5 text-indigo-200" />
+  return createPortal(
+    <div className="no-print fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-[calc(100%-32px)] sm:w-[390px] bg-[#0B0B0F] rounded-2xl shadow-2xl flex flex-col h-[75vh] sm:h-[600px] max-h-[600px] z-[9999] overflow-hidden border border-white/[0.06]">
+
+      {/* ── TOP HEADER (WhatsApp / Telegram style) ── */}
+      <div className="shrink-0 flex items-center gap-3 px-3 py-2.5 bg-[#161620] border-b border-white/[0.06]">
+        {/* Close on mobile, acts like back */}
+        <button onClick={() => setIsOpen(false)} className="sm:hidden p-1.5 -ml-1 text-gray-400 hover:text-white transition-colors">
+          <X className="h-5 w-5" />
+        </button>
+
+        {/* Avatar with online ring */}
+        <div className="relative shrink-0">
+          <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow">
+            WC
           </div>
-          <div>
-            <h3 className="font-bold text-sm flex items-center gap-2">
-              Workspace Chat
-              {onlineUsers.size > 1 && (
-                <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border border-emerald-500/30 animate-pulse">
-                  {onlineUsers.size - 1} Online
-                </span>
-              )}
-            </h3>
-            <p className="text-[11px] text-indigo-200/80">Team Collaboration & Messaging</p>
-          </div>
+          {onlineUsers.size > 1 && (
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#161620]" />
+          )}
         </div>
 
-        <div className="flex items-center gap-1 relative z-10 text-indigo-100">
-          <button 
-            onClick={generateMeetLink} 
-            className="p-1.5 hover:bg-white/15 rounded-lg transition-colors" 
-            title="Create Instant Google Meet Link"
-          >
-            <Video className="h-4 w-4" />
+        {/* Name + status */}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-[14px] text-white leading-tight">Workspace Chat</p>
+          <p className="text-[11px] text-emerald-400 leading-tight">
+            {onlineUsers.size > 1 ? `${onlineUsers.size - 1} online` : 'tap for group info'}
+          </p>
+        </div>
+
+        {/* Right actions — only meaningful ones */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={generateMeetLink} title="Video call" className="p-2 rounded-full hover:bg-white/10 transition-colors text-gray-300 hover:text-white">
+            <Video className="h-[18px] w-[18px]" />
           </button>
-          <button 
-            onClick={generatePhoneLink} 
-            className="p-1.5 hover:bg-white/15 rounded-lg transition-colors" 
-            title="Share Phone Call Link"
-          >
-            <Phone className="h-4 w-4" />
-          </button>
-          <button 
-            onClick={() => setShowPinned(!showPinned)} 
-            className={`p-1.5 rounded-lg transition-colors ${showPinned ? 'bg-white/25 text-amber-300 font-bold' : 'hover:bg-white/15'}`} 
-            title="Pinned Messages"
-          >
-            <Pin className="h-4 w-4" />
-          </button>
-          <button 
-            onClick={async () => {
-              const granted = await notificationService.requestPermission();
-              if (granted) {
-                toast.success('Push notifications active!');
-                notificationService.showNotification('Notifications Enabled', { body: 'You will receive alerts for new workspace messages.' });
-              } else {
-                toast.error('Notification permission denied by browser.');
-              }
-            }}
-            title="Enable/Test Push Notifications" 
-            className="p-1.5 hover:bg-white/15 rounded-lg transition-colors"
-          >
-            <Bell className="h-4 w-4" />
-          </button>
-          <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-white/15 rounded-lg transition-colors ml-1">
-            <X className="h-4 w-4" />
+          <button onClick={() => setIsOpen(false)} className="hidden sm:flex p-2 rounded-full hover:bg-white/10 transition-colors text-gray-300 hover:text-white">
+            <X className="h-[18px] w-[18px]" />
           </button>
         </div>
       </div>
 
-      {/* Pinned Messages Header Drawer */}
+      {/* ── PINNED MESSAGES DRAWER ── */}
       {showPinned && (
-        <div className="bg-[#1A1A22] border-b border-[#2A2A36] p-3 text-xs">
-          <div className="flex items-center justify-between font-bold text-amber-400 mb-2">
-            <span className="flex items-center gap-1.5">
-              <Pin className="w-3.5 h-3.5" /> Pinned Messages ({pinnedMessagesList.length})
-            </span>
-            <button onClick={() => setShowPinned(false)} className="text-gray-400 hover:text-white text-[10px]">
-              Close
-            </button>
+        <div className="shrink-0 bg-[#1A1824] border-b border-white/[0.06] px-4 py-2.5 text-xs">
+          <div className="flex items-center justify-between text-amber-400 font-semibold mb-1.5">
+            <span className="flex items-center gap-1"><Pin className="w-3 h-3" /> Pinned ({pinnedMessagesList.length})</span>
+            <button onClick={() => setShowPinned(false)} className="text-gray-500 hover:text-white">✕</button>
           </div>
           {pinnedMessagesList.length === 0 ? (
-            <p className="text-gray-500 text-[11px]">No pinned messages yet. Click the pin icon on any message to pin it here.</p>
+            <p className="text-gray-500 text-[11px]">No pinned messages.</p>
           ) : (
-            <div className="max-h-28 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+            <div className="max-h-24 overflow-y-auto space-y-1.5 custom-scrollbar">
               {pinnedMessagesList.map(p => (
-                <div key={p.id} className="bg-[#0A0A0B] p-2 rounded border border-white/5 flex justify-between items-start">
-                  <div className="min-w-0 pr-2">
-                    <span className="font-bold text-gray-300 text-[10px]">{p.users?.username}: </span>
-                    <span className="text-gray-400 text-[11px] truncate">{p.message}</span>
-                  </div>
-                  <button onClick={() => handlePinToggle(p.id, true)} className="text-amber-400 hover:text-red-400 shrink-0 text-[10px]" title="Unpin">
-                    Unpin
-                  </button>
+                <div key={p.id} className="flex justify-between items-start bg-white/5 px-2 py-1 rounded-lg">
+                  <span className="text-gray-300 text-[11px] truncate pr-2"><span className="text-white font-semibold">{p.users?.username}: </span>{p.message}</span>
+                  <button onClick={() => handlePinToggle(p.id, true)} className="text-amber-400 hover:text-red-400 text-[10px] shrink-0">Unpin</button>
                 </div>
               ))}
             </div>
@@ -577,205 +559,260 @@ export default function ChatWidget() {
         </div>
       )}
 
-      {/* Messages List Area */}
-      <div 
+      {/* ── MESSAGES AREA ── */}
+      <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0A0A0B] custom-scrollbar"
+        className="flex-1 overflow-y-auto px-3 py-4 space-y-1 bg-[#0B0B0F] custom-scrollbar"
       >
         {messages.map((msg: ChatMessage) => {
           const isMe = msg.user_id === user?.id;
           const isOnline = onlineUsers.has(msg.user_id);
           const parentMsg = msg.parent_id ? messages.find(m => m.id === msg.parent_id) : null;
-          
-          return (
-            <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group relative`}>
-              {/* User Avatar & Name */}
-              <div className={`flex items-center gap-2 mb-1 ${isMe ? 'flex-row-reverse' : ''}`}>
-                <div className="relative">
-                  <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-indigo-500/20 to-[#121216] border border-white/10 flex items-center justify-center text-[10px] font-black text-white shadow-lg">
-                    {msg.users?.username.substring(0, 2).toUpperCase() || '??'}
-                  </div>
-                  {isOnline && (
-                    <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 bg-emerald-500 rounded-full border border-[#0A0A0B] shadow-[0_0_5px_rgba(16,185,129,0.8)]"></div>
-                  )}
-                </div>
-                <div className={`flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : ''}`}>
-                  <span className="text-[11px] font-bold text-gray-300">{msg.users?.username || 'User'}</span>
-                  {msg.is_pinned && <Pin className="w-3 h-3 text-amber-400" />}
-                </div>
-              </div>
+          const initials = (msg.users?.username || '??').substring(0, 2).toUpperCase();
 
-              {/* Replied Parent Context Preview */}
-              {parentMsg && (
-                <div className={`flex items-center gap-1.5 text-[11px] text-gray-400 mb-1 max-w-[85%] bg-white/[0.03] border-l-2 border-indigo-500 px-2 py-1 rounded ${isMe ? 'self-end' : 'self-start'}`}>
-                  <Reply className="w-3 h-3 text-indigo-400 shrink-0" />
-                  <span className="font-semibold text-gray-300 shrink-0">{parentMsg.users?.username}:</span>
-                  <span className="truncate">{parentMsg.message.replace(/\n/g, ' ')}</span>
+          // Interaction handler for both tap (mobile) and right-click (desktop)
+          const handleInteraction = (e: React.MouseEvent | React.TouchEvent) => {
+            if (msg.is_deleted_everyone) return;
+            // Don't open menu if they clicked a link
+            if ((e.target as HTMLElement).closest('a')) return;
+            e.preventDefault();
+
+            let x = 0;
+            let y = 0;
+            if ('clientX' in e) {
+              x = e.clientX;
+              y = e.clientY;
+            } else if (e.touches && e.touches.length > 0) {
+              x = e.touches[0].clientX;
+              y = e.touches[0].clientY;
+            }
+
+            // Adjust position so it doesn't go off screen
+            const menuWidth = 220;
+            const menuHeight = 250;
+            if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 20;
+            if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 20;
+            
+            setContextMenu({ msg, x, y });
+          };
+
+          return (
+            <div
+              key={msg.id}
+              className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
+              onClick={handleInteraction}
+              onContextMenu={handleInteraction}
+            >
+              {/* Avatar (only for others) */}
+              {!isMe && (
+                <div className="relative shrink-0 self-end mb-1">
+                  <div className="w-7 h-7 rounded-full bg-indigo-700 flex items-center justify-center text-[10px] font-bold text-white">
+                    {initials}
+                  </div>
+                  {isOnline && <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full border border-[#0B0B0F]" />}
                 </div>
               )}
-              
-              {/* Message Content Bubble */}
-              <div
-                className={`px-3.5 py-2.5 rounded-2xl max-w-[88%] text-xs shadow-xl transition-all ${
-                  isMe 
-                    ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-900/20' 
-                    : 'bg-[#1F1F26] text-gray-200 border border-[#2F2F3B] rounded-tl-none shadow-black/40'
-                }`}
-              >
-                <div className="leading-relaxed font-medium">
+
+              {/* Bubble + meta */}
+              <div className={`flex flex-col max-w-[78%] ${isMe ? 'items-end' : 'items-start'}`}>
+
+                {/* Sender name (for others only) */}
+                {!isMe && (
+                  <span className="text-[11px] font-semibold text-indigo-400 ml-1 mb-0.5">{msg.users?.username || 'User'}</span>
+                )}
+
+                {/* Reply preview */}
+                {parentMsg && (
+                  <div className={`flex items-start gap-1 text-[10px] mb-0.5 px-2 py-1 rounded-lg border-l-2 border-indigo-500 bg-white/5 text-gray-400 max-w-full truncate ${isMe ? 'self-end' : 'self-start'}`}>
+                    <Reply className="w-3 h-3 text-indigo-400 shrink-0 mt-0.5" />
+                    <span className="font-semibold text-gray-300 shrink-0">{parentMsg.users?.username}:</span>
+                    <span className="truncate">{parentMsg.message}</span>
+                  </div>
+                )}
+
+                {/* Message bubble */}
+                <div className={`relative px-3 py-2 text-[13px] leading-relaxed shadow-md select-none ${
+                  isMe
+                    ? 'bg-[#5B4BF0] text-white rounded-2xl rounded-br-sm'
+                    : 'bg-[#1E1E2A] text-gray-100 border border-white/[0.06] rounded-2xl rounded-bl-sm'
+                } ${msg.is_deleted_everyone ? 'opacity-60' : ''}`}>
                   {msg.is_deleted_everyone ? (
-                    <em className="text-gray-400 italic">This message was deleted</em>
+                    <em className="text-xs text-gray-400 italic flex items-center gap-1">
+                      <Trash2 className="w-3 h-3" /> This message was deleted
+                    </em>
                   ) : (
                     <MarkdownRenderer content={msg.message} />
                   )}
                 </div>
+
+                {/* Timestamp + edited */}
+                <div className={`flex items-center gap-1.5 mt-0.5 px-1 ${isMe ? 'flex-row-reverse' : ''}`}>
+                  <span className="text-[10px] text-gray-500">
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  {msg.is_edited && <span className="text-[10px] text-gray-600 italic">edited</span>}
+                  {msg.is_pinned && <Pin className="w-2.5 h-2.5 text-amber-400" />}
+                </div>
+
+                {/* Reactions */}
+                {msg.reactions && msg.reactions.length > 0 && !msg.is_deleted_everyone && (
+                  <div className={`flex items-center gap-1 mt-0.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    {Array.from(new Set(msg.reactions.map(r => r.emoji))).map(emoji => {
+                      const count = msg.reactions!.filter(r => r.emoji === emoji).length;
+                      const hasMyReaction = msg.reactions!.some(r => r.emoji === emoji && r.user_id === user?.id);
+                      return (
+                        <button key={emoji} onClick={() => handleAddReaction(msg.id, emoji)}
+                          className={`px-1.5 py-0.5 rounded-full text-xs flex items-center gap-0.5 border transition-colors ${hasMyReaction ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-200' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}>
+                          {emoji}<span className="font-bold text-[10px]">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-
-              {/* Footer Timestamp & Status */}
-              <div className={`flex items-center gap-1.5 mt-1 text-[9px] text-gray-500 font-semibold ${isMe ? 'flex-row-reverse' : ''}`}>
-                <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                {msg.is_edited && <span className="text-indigo-400/80">(edited)</span>}
-              </div>
-
-              {/* Reactions Bar */}
-              {msg.reactions && msg.reactions.length > 0 && !msg.is_deleted_everyone && (
-                <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                  {Array.from(new Set(msg.reactions.map(r => r.emoji))).map(emoji => {
-                    const count = msg.reactions!.filter(r => r.emoji === emoji).length;
-                    const hasMyReaction = msg.reactions!.some(r => r.emoji === emoji && r.user_id === user?.id);
-                    return (
-                      <button
-                        key={emoji}
-                        onClick={() => handleAddReaction(msg.id, emoji)}
-                        className={`px-1.5 py-0.5 rounded-full text-[10px] flex items-center gap-1 border transition-colors ${
-                          hasMyReaction 
-                            ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-200' 
-                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
-                        }`}
-                      >
-                        <span>{emoji}</span>
-                        <span className="font-bold">{count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Hover Actions Menu */}
-              {!msg.is_deleted_everyone && (
-                <div className={`absolute top-0 ${isMe ? 'left-0' : 'right-0'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center bg-[#1A1A22] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20`}>
-                  <button onClick={() => setReplyingToMessage(msg)} className="p-1 hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Reply">
-                    <Reply className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => setShowEmojiForId(showEmojiForId === msg.id ? null : msg.id)} className="p-1 hover:bg-white/10 text-gray-400 hover:text-amber-400 transition-colors" title="Add Emoji Reaction">
-                    <Smile className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => handlePinToggle(msg.id, msg.is_pinned || false)} className="p-1 hover:bg-white/10 text-gray-400 hover:text-amber-400 transition-colors" title={msg.is_pinned ? "Unpin" : "Pin"}>
-                    <Pin className="w-3.5 h-3.5" />
-                  </button>
-                  
-                  {isMe && (
-                    <>
-                      <div className="w-px h-3 bg-white/10 mx-0.5"></div>
-                      <button onClick={() => { setEditingMessageId(msg.id); setNewMessage(msg.message); }} className="p-1 hover:bg-white/10 text-gray-400 hover:text-blue-400 transition-colors" title="Edit">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleDeleteMessage(msg.id)} className="p-1 hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Emoji Quick Picker Popover */}
-              {showEmojiForId === msg.id && (
-                <div className={`absolute top-6 ${isMe ? 'left-0' : 'right-0'} bg-[#1F1F26] border border-white/15 p-1 rounded-lg shadow-2xl flex gap-1 z-30`}>
-                  {QUICK_EMOJIS.map(emoji => (
-                    <button key={emoji} onClick={() => handleAddReaction(msg.id, emoji)} className="p-1 hover:bg-white/10 rounded text-sm transition-transform hover:scale-125">
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           );
         })}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-3 bg-[#121216] border-t border-white/10">
-        {/* Reply Context Banner */}
+      {/* ✨ CONTEXT MENU POPUP (Attached to message) ✨ */}
+      {contextMenu && (
+        <div
+          className="fixed inset-0 z-[10000] overflow-hidden"
+          onClick={() => setContextMenu(null)}
+        >
+          {/* Invisible scrim to catch clicks outside */}
+          <div className="absolute inset-0 bg-transparent" />
+
+          {/* Popup Menu */}
+          <div
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            className="absolute w-[220px] bg-[#2A2A38] rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/[0.08] overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Message preview */}
+            <div className="px-3 py-2 border-b border-white/[0.07] bg-white/[0.02]">
+              <p className="text-[10px] text-indigo-400 font-semibold mb-0.5">{contextMenu.msg.users?.username}</p>
+              <p className="text-[11px] text-gray-300 line-clamp-2">{contextMenu.msg.message}</p>
+            </div>
+
+            {/* Quick emoji row */}
+            <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.07] bg-[#323242]">
+              {QUICK_EMOJIS.map(emoji => (
+                <button
+                  key={emoji}
+                  onClick={() => { handleAddReaction(contextMenu.msg.id, emoji); setContextMenu(null); }}
+                  className="text-xl hover:scale-125 transition-transform active:scale-110 select-none"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            {/* Action list */}
+            <div className="py-1">
+              <button
+                onClick={() => { setReplyingToMessage(contextMenu.msg); setContextMenu(null); }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors text-white"
+              >
+                <Reply className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span className="text-xs">Reply</span>
+              </button>
+
+              <button
+                onClick={() => { handlePinToggle(contextMenu.msg.id, contextMenu.msg.is_pinned || false); setContextMenu(null); }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors text-white"
+              >
+                <Pin className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-xs">{contextMenu.msg.is_pinned ? 'Unpin message' : 'Pin message'}</span>
+              </button>
+
+              {contextMenu.msg.user_id === user?.id && (
+                <>
+                  <button
+                    onClick={() => {
+                      setEditingMessageId(contextMenu.msg.id);
+                      setNewMessage(contextMenu.msg.message);
+                      setContextMenu(null);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors text-white"
+                  >
+                    <Edit2 className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span className="text-xs">Edit message</span>
+                  </button>
+
+                  <div className="h-px bg-white/[0.06] mx-3 my-0.5" />
+
+                  <button
+                    onClick={() => { handleDeleteMessage(contextMenu.msg.id); setContextMenu(null); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-red-500/10 active:bg-red-500/15 transition-colors text-red-400"
+                  >
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                    <span className="text-xs">Delete message</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── INPUT BAR (WhatsApp style) ── */}
+      <div className="shrink-0 bg-[#161620] border-t border-white/[0.06] px-2 py-2">
+        {/* Reply banner */}
         {replyingToMessage && (
-          <div className="mb-2 flex items-center justify-between bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 rounded-lg text-xs text-indigo-300">
-            <div className="flex items-center gap-1.5 truncate">
-              <Reply className="w-3.5 h-3.5 shrink-0" />
-              <span className="font-bold shrink-0">Replying to {replyingToMessage.users?.username}:</span>
-              <span className="truncate text-indigo-200/80">{replyingToMessage.message}</span>
+          <div className="mb-2 flex items-center justify-between bg-indigo-500/10 border-l-2 border-indigo-500 pl-3 pr-2 py-1.5 rounded-r-xl text-xs">
+            <div className="flex items-center gap-1.5 truncate text-indigo-300">
+              <Reply className="w-3 h-3 shrink-0" />
+              <span className="font-semibold shrink-0 text-white">{replyingToMessage.users?.username}</span>
+              <span className="truncate text-gray-400">{replyingToMessage.message}</span>
             </div>
-            <button onClick={() => setReplyingToMessage(null)} className="p-0.5 hover:bg-white/10 rounded shrink-0 text-gray-400 hover:text-white">
-              <X className="w-3.5 h-3.5" />
-            </button>
+            <button onClick={() => setReplyingToMessage(null)} className="text-gray-500 hover:text-white ml-2"><X className="w-3.5 h-3.5" /></button>
           </div>
         )}
 
-        {/* Edit Context Banner */}
+        {/* Edit banner */}
         {editingMessageId && (
-          <div className="mb-2 flex items-center justify-between bg-blue-500/10 border border-blue-500/20 px-2.5 py-1.5 rounded-lg text-xs text-blue-300">
-            <div className="flex items-center gap-1.5 truncate">
-              <Edit2 className="w-3.5 h-3.5 shrink-0" />
-              <span className="font-bold">Editing message</span>
-            </div>
-            <button onClick={() => { setEditingMessageId(null); setNewMessage(''); }} className="p-0.5 hover:bg-white/10 rounded text-red-400 hover:underline">
-              Cancel Edit
-            </button>
+          <div className="mb-2 flex items-center justify-between bg-blue-500/10 border-l-2 border-blue-500 pl-3 pr-2 py-1.5 rounded-r-xl text-xs">
+            <span className="flex items-center gap-1.5 text-blue-300 font-semibold"><Edit2 className="w-3 h-3" /> Editing message</span>
+            <button onClick={() => { setEditingMessageId(null); setNewMessage(''); }} className="text-red-400 hover:text-red-300 text-[11px]">Cancel</button>
           </div>
         )}
 
-        <form onSubmit={handleSendMessage} className="flex flex-col gap-2">
-          <div className="relative flex items-center">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+          <div className="flex-1 flex items-center bg-[#0F0F17] border border-white/[0.08] rounded-full px-4 py-2.5 gap-2">
             <input
               type="text"
               value={newMessage}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
-              placeholder={editingMessageId ? "Edit your message..." : "Broadcast a message..."}
-              className="w-full pl-3.5 pr-10 py-2.5 bg-[#0A0A0B] border border-white/10 rounded-xl text-xs text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all font-medium"
+              placeholder={editingMessageId ? 'Edit message…' : 'Message…'}
+              className="flex-1 bg-transparent text-[13px] text-gray-200 placeholder:text-gray-600 focus:outline-none"
               disabled={loading}
             />
-            <button
-              type="submit"
-              disabled={loading || !newMessage.trim()}
-              className="absolute right-1.5 p-1.5 text-indigo-400 hover:text-white hover:bg-indigo-600 rounded-lg transition-all disabled:opacity-30"
-              title="Send Message"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
           </div>
-          <div className="flex justify-between items-center px-1 text-[9px] text-gray-600 uppercase font-semibold">
-            <span>Markdown: **bold**, *italic*, `code`</span>
-          </div>
+          <button
+            type="submit"
+            disabled={loading || !newMessage.trim()}
+            className="w-10 h-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 rounded-full flex items-center justify-center transition-colors shadow-lg shadow-indigo-900/40 shrink-0"
+          >
+            <Send className="h-4 w-4 text-white" />
+          </button>
         </form>
       </div>
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      
+
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.08);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(99, 102, 241, 0.4);
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.3); }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
+
+

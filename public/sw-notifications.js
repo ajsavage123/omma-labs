@@ -57,3 +57,33 @@ self.addEventListener('notificationclick', function(event) {
     })
   );
 });
+
+// Web Push Event Handler (Triggers when app is closed)
+self.addEventListener('push', function(event) {
+  let data = {
+    title: 'New Notification',
+    body: 'You have a new update in Ooma Workspace.',
+    url: '/crm'
+  };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png', // Small monochrome icon ideally
+    data: { url: data.url || '/crm' },
+    vibrate: [100, 50, 100],
+    requireInteraction: true // Keeps notification visible until user interacts
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});

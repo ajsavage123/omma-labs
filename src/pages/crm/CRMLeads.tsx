@@ -236,13 +236,13 @@ export default function CRMLeads() {
           query = query.eq('workspace_id', user.workspace_id);
         } else if (deleteTarget === 'partner') {
           if (!deleteTargetPartnerId) return toast.error("Please select a partner first.");
-          query = query.eq('created_by', deleteTargetPartnerId);
+          query = query.eq('assigned_to', deleteTargetPartnerId);
         } else if (deleteTarget === 'mine') {
-          query = query.eq('created_by', user?.id);
+          query = query.eq('assigned_to', user?.id);
         }
       } else {
         // Partners can only delete their own leads
-        query = query.eq('created_by', user?.id);
+        query = query.eq('assigned_to', user?.id);
       }
 
       const { error } = await query;

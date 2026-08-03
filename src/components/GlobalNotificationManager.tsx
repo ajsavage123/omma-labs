@@ -32,16 +32,7 @@ export default function GlobalNotificationManager() {
         const notif = customEvent.detail;
         toast.info(`${notif.title}\n${notif.body}`);
         
-        // Save to DB
-        Promise.resolve(supabase.from('notifications').insert({
-          workspace_id: user.workspace_id,
-          user_id: user.id,
-          category: notif.category,
-          title: notif.title,
-          body: notif.body,
-          target_url: notif.targetUrl,
-          is_read: false
-        })).catch(() => {});
+        // Notifications are now saved to the DB automatically via Supabase Postgres Triggers
       }
     };
 

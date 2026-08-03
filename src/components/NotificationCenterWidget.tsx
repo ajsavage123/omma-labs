@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { type WorkspaceNotificationEvent } from '@/services/workspaceNotificationService';
 import { useNavigate } from 'react-router-dom';
+import { pushNotificationService } from '@/services/pushNotificationService';
 type NotificationWithMeta = WorkspaceNotificationEvent & { isRead?: boolean, createdAt?: string };
 
 export default function NotificationCenterWidget() {
@@ -12,6 +13,7 @@ export default function NotificationCenterWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationWithMeta[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isSubscribing, setIsSubscribing] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
 
   // Check CRM Access
@@ -132,6 +134,17 @@ export default function NotificationCenterWidget() {
     }
   };
 
+  const handleSubscribe = async () => {
+    setIsSubscribing(true);
+    const success = await pushNotificationService.subscribeToPushNotifications();
+    if (success) {
+      alert('Successfully enabled push notifications!');
+    } else {
+      alert('Failed to enable push notifications. Check permissions.');
+    }
+    setIsSubscribing(false);
+  };
+
   if (!user) return null;
 
   return (
@@ -158,11 +171,20 @@ export default function NotificationCenterWidget() {
               <Bell className="h-4 w-4 text-indigo-400" />
               <h3 className="font-black text-white uppercase tracking-widest text-[11px]">Notifications</h3>
             </div>
-            {unreadCount > 0 && (
-              <button onClick={markAllAsRead} className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider flex items-center gap-1">
-                <Check className="h-3 w-3" /> Mark Read
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleSubscribe} 
+                disabled={isSubscribing}
+                className="text-[10px] font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider flex items-center gap-1 bg-white/5 px-2 py-1 rounded"
+              >
+                {isSubscribing ? 'Enabling...' : 'Enable Push'}
               </button>
-            )}
+              {unreadCount > 0 && (
+                <button onClick={markAllAsRead} className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Mark Read
+                </button>
+              )}
+            </div>
           </div>
 
           {/* List */}
