@@ -142,6 +142,20 @@ export default function ChatWidget() {
           handleIncomingMessage(payload.payload as ChatMessage);
         }
       })
+      .on('broadcast', { event: 'broadcast_reaction_update' }, async (payload: any) => {
+        // If we receive a broadcast that a reaction happened, re-fetch that specific message's reactions
+        if (payload.payload?.messageId) {
+          const { data } = await supabase
+            .from('chat_messages')
+            .select('*, users:user_id(username, full_name, designation), reactions:chat_reactions(*)')
+            .eq('id', payload.payload.messageId)
+            .single();
+            
+          if (data) {
+            setMessages(prev => prev.map(m => m.id === payload.payload.messageId ? data as unknown as ChatMessage : m));
+          }
+        }
+      })
       .subscribe();
 
     // 2. Presence Subscription
@@ -446,19 +460,31 @@ export default function ChatWidget() {
 
   const handleAddReaction = async (messageId: string, emoji: string) => {
     if (!user) return;
-    try {
-      if (MOCK_MODE) {
-        setMessages(prev => prev.map(m => {
-          if (m.id !== messageId) return m;
-          const reactions = m.reactions || [];
-          const existing = reactions.find(r => r.user_id === user.id && r.emoji === emoji);
-          if (existing) {
-            return { ...m, reactions: reactions.filter(r => r.id !== existing.id) };
-          } else {
-            return { ...m, reactions: [...reactions, { id: Math.random().toString(), message_id: messageId, user_id: user.id, emoji, created_at: new Date().toISOString() }] };
-          }
-        }));
+    
+    // Optimistic UI Update for instant feedback
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const reactions = m.reactions || [];
+      const existing = reactions.find(r => r.user_id === user.id && r.emoji === emoji);
+      
+      if (existing) {
+        // Optimistically remove
+        return { ...m, reactions: reactions.filter(r => r.id !== existing.id) };
       } else {
+        // Optimistically add with a temporary random ID
+        const newReaction = { 
+          id: `temp-${Math.random()}`, 
+          message_id: messageId, 
+          user_id: user.id, 
+          emoji, 
+          created_at: new Date().toISOString() 
+        };
+        return { ...m, reactions: [...reactions, newReaction] };
+      }
+    }));
+
+    try {
+      if (!MOCK_MODE) {
         const { data: existing } = await supabase
           .from('chat_reactions')
           .select('id')
@@ -472,7 +498,15 @@ export default function ChatWidget() {
         } else {
           await supabase.from('chat_reactions').insert({ message_id: messageId, user_id: user.id, emoji });
         }
-        // FIX #6: Removed redundant fetchMessages() — realtime chat_reactions subscription handles update
+        
+        // Broadcast the reaction update manually just in case Realtime isn't enabled on the table
+        if (chatChannelRef.current) {
+          chatChannelRef.current.send({
+            type: 'broadcast',
+            event: 'broadcast_reaction_update',
+            payload: { messageId }
+          });
+        }
       }
     } catch {
       // ignore reaction table if not setup

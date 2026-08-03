@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, Check, ExternalLink, MessageSquare, Briefcase, CheckCircle, Activity, Info } from 'lucide-react';
+import { Bell, Check, ExternalLink, MessageSquare, Briefcase, CheckCircle, Activity, Info, Trash2, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { type WorkspaceNotificationEvent } from '@/services/workspaceNotificationService';
@@ -167,6 +167,28 @@ export default function NotificationCenterWidget() {
     } catch (e) {}
   };
 
+  const clearAllNotifications = async () => {
+    setUnreadCount(0);
+    setNotifications([]);
+    try {
+      await supabase.from('notifications').delete().eq('user_id', user?.id);
+    } catch (e) {}
+  };
+
+  const clearNotification = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Prevent the notification click handler from firing
+    setNotifications(prev => {
+      const target = prev.find(n => n.id === id);
+      if (target && !target.isRead) {
+        setUnreadCount(c => Math.max(0, c - 1));
+      }
+      return prev.filter(n => n.id !== id);
+    });
+    try {
+      await supabase.from('notifications').delete().eq('id', id);
+    } catch (e) {}
+  };
+
   const handleNotificationClick = (notif: WorkspaceNotificationEvent & { isRead?: boolean }) => {
     // Mark as read locally
     if (!notif.isRead) {
@@ -253,7 +275,7 @@ export default function NotificationCenterWidget() {
           <div
             role="menu"
             aria-label="Notifications panel"
-            className="absolute top-full right-0 mt-3 w-80 md:w-96 bg-[#0c0c0e]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden animate-slide-in-right flex flex-col max-h-[80vh] z-[999]"
+            className="absolute top-full right-0 mt-3 w-80 md:w-96 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.37)] overflow-hidden animate-slide-in-right flex flex-col z-[999] ring-1 ring-white/10"
           >
             {/* Header */}
             <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between shrink-0">
@@ -282,11 +304,20 @@ export default function NotificationCenterWidget() {
                     <Check className="h-3 w-3" /> Mark Read
                   </button>
                 )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={clearAllNotifications}
+                    aria-label="Clear all notifications"
+                    className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-wider flex items-center gap-1 ml-2"
+                  >
+                    <Trash2 className="h-3 w-3" /> Clear All
+                  </button>
+                )}
               </div>
             </div>
 
             {/* List */}
-            <div role="list" className="flex-1 overflow-y-auto custom-scrollbar">
+            <div role="list" className="flex-1 overflow-y-auto custom-scrollbar max-h-[400px]">
               {notifications.length > 0 ? (
                 <div className="divide-y divide-white/5">
                   {notifications.map((notif) => (
@@ -319,10 +350,18 @@ export default function NotificationCenterWidget() {
                       </div>
 
                       {notif.targetUrl && (
-                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-4 right-10 opacity-0 group-hover:opacity-100 transition-opacity">
                           <ExternalLink className="h-3 w-3 text-gray-500" />
                         </div>
                       )}
+                      
+                      <button 
+                        onClick={(e) => clearNotification(e, notif.id)}
+                        className="absolute top-3 right-3 p-1 rounded-full text-gray-500 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                        aria-label="Clear notification"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
                   ))}
                 </div>

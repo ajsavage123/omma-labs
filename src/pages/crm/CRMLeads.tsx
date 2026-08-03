@@ -74,11 +74,9 @@ export default function CRMLeads() {
   const [filterDate, setFilterDate] = useState("All");
   const [filterSalesperson, setFilterSalesperson] = useState("All");
 
-  // Role check
+  // Role check: admin sees all, all non-admins see only their own assigned leads
   const isAdmin = user?.role === 'admin';
-  const isBusinessMarketing = (user?.designation || '').toLowerCase().includes('business') ||
-                               (user?.designation || '').toLowerCase().includes('marketing');
-  const isSalesperson = !isAdmin && isBusinessMarketing;
+  const isSalesperson = !isAdmin;
   
   // Lead Form State
   const [formData, setFormData] = useState({

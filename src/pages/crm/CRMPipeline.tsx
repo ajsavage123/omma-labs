@@ -214,11 +214,9 @@ export default function CRMPipeline() {
     }
   }, [taskFormData.lead_id, leads]);
 
-  // Role check: admin/owner sees all, Business & Marketing sees only their own leads
+  // Role check: admin sees all, non-admins see only their own leads
   const isAdmin = user?.role === 'admin';
-  const isBusinessMarketing = (user?.designation || '').toLowerCase().includes('business') || 
-                               (user?.designation || '').toLowerCase().includes('marketing');
-  const isSalesperson = !isAdmin && isBusinessMarketing;
+  const isSalesperson = !isAdmin;
   const [glowingLeadId] = useState<string | null>(null);
 
   // Lead Form State

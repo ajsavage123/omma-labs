@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
   { label: "Calendar", href: "/crm/calendar", icon: Calendar },
   { label: "Notes", href: "/crm/notes", icon: FileText },
   { label: "Projects", href: "/crm/projects", icon: Briefcase },
-  { label: "Reports", href: "/crm/reports", icon: BarChart3 },
+  { label: "Reports", href: "/crm/reports", icon: BarChart3, adminOnly: true },
   { label: "Settings", href: "/crm/settings", icon: Settings },
 ];
 

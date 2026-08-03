@@ -138,8 +138,19 @@ export default function GlobalNotificationManager() {
 
     globalChannel.subscribe();
 
+    // Workaround: Also listen to manual broadcasts from ChatWidget (in case Postgres Realtime is disabled for the table)
+    const chatBroadcastChannel = supabase.channel(`workspace_chat_${user.workspace_id}`)
+      .on('broadcast', { event: 'broadcast_chat_message' }, (payload: any) => {
+        if (payload.payload) {
+          const event = workspaceNotificationService.formatPayload('chat_messages', 'INSERT', payload.payload, user);
+          if (event) workspaceNotificationService.notify(event, user.id);
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(globalChannel);
+      supabase.removeChannel(chatBroadcastChannel);
       window.removeEventListener('workspace-notification-event', handleCustomNotification);
       window.removeEventListener('workspace-notification-received', handleNotificationReceived);
     };

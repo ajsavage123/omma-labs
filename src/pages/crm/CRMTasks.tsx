@@ -26,10 +26,15 @@ export default function CRMTasks() {
 
   const fetchLeads = async () => {
     if (!user?.workspace_id) return;
-    const { data } = await supabase
+    let query = supabase
       .from('crm_leads')
       .select('id, company_name, contact_person, email')
       .eq('workspace_id', user?.workspace_id);
+
+    if (user?.role !== 'admin') {
+      query = query.eq('assigned_to', user?.id);
+    }
+    const { data } = await query;
     setLeads(data || []);
   };
 

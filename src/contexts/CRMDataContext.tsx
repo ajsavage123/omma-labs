@@ -45,10 +45,16 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('crm_leads')
         .select('*, assigned_user:assigned_to(full_name, username), crm_tasks(id, title, due_date, due_time, status, priority)')
         .eq('workspace_id', workspaceId);
+        
+      if (!isAdmin) {
+        query = query.eq('assigned_to', userId);
+      }
+
+      const { data, error } = await query;
       
       if (error) throw error;
 
@@ -61,7 +67,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error("Error fetching leads:", err);
     }
-  }, [workspaceId]);
+  }, [workspaceId, userId, isAdmin]);
 
   const fetchTasks = useCallback(async () => {
     if (!workspaceId || !userId) return;
@@ -73,7 +79,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
         .eq('workspace_id', workspaceId);
 
       if (!isAdmin) {
-        query = query.eq('assigned_to', userId);
+        query = query.or(`assigned_to.eq.${userId},created_by.eq.${userId}`);
       }
 
       query = query.order('due_date', { ascending: true });
@@ -89,19 +95,25 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   const fetchActivities = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('crm_activities')
-        .select('*, crm_leads!inner(company_name, contact_person, workspace_id)')
+        .select('*, crm_leads!inner(company_name, contact_person, workspace_id, assigned_to)')
         .eq('crm_leads.workspace_id', workspaceId)
         .eq('activity_type', 'note')
         .order('created_at', { ascending: false });
+
+      if (!isAdmin) {
+        query = query.eq('crm_leads.assigned_to', userId);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       setActivities(data || []);
     } catch (err) {
       console.error("Error fetching activities:", err);
     }
-  }, [workspaceId]);
+  }, [workspaceId, userId, isAdmin]);
 
   const refreshLeads = async () => {
     await fetchLeads();

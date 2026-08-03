@@ -20,8 +20,13 @@ export default function TaskNotificationManager() {
   const pendingTasksRef = useRef<any[]>([]);
   pendingTasksRef.current = pendingTasks;
 
+  const hasSeeded = useRef(false);
+
   /** Mark tasks that are already past-due at session start as "already notified" so they're silently skipped. */
   const seedAlreadyDueTasks = () => {
+    if (hasSeeded.current) return;
+    if (pendingTasksRef.current.length === 0) return;
+
     const now = new Date();
     pendingTasksRef.current.forEach(task => {
       if (!task.due_time || !task.due_date) return;
@@ -33,6 +38,8 @@ export default function TaskNotificationManager() {
         notifiedIds.current.add(task.id);
       }
     });
+    
+    hasSeeded.current = true;
   };
 
   useEffect(() => {
@@ -59,16 +66,16 @@ export default function TaskNotificationManager() {
       const dueMs = dueDate.getTime();
       const diffMs = dueMs - now.getTime();
 
-      // 1. Show browser notification popup + in-app toast ONCE — only within the 65s trigger window
-      if (diffMs <= 30000 && diffMs >= -35000 && dueMs >= sessionStart.current) {
+      // 1. Show browser notification popup + in-app toast ONCE — exactly when due (or within 35s after)
+      if (diffMs <= 0 && diffMs >= -35000 && dueMs >= sessionStart.current) {
         if (!notifiedIds.current.has(task.id)) {
           triggerNotification(task);
         }
       }
 
       // 2. Play sound alert every 1 minute for ANY overdue pending task — indefinitely until completed
-      //    (not limited to the 65s window so you keep getting reminded even if you miss the first alert)
-      if (diffMs <= 30000 && dueMs >= sessionStart.current) {
+      //    (starts exactly when due, not 30 seconds early)
+      if (diffMs <= 0 && dueMs >= sessionStart.current) {
         const lastSoundTime = lastSoundTimes.current.get(task.id) || 0;
         if (now.getTime() - lastSoundTime >= 60000) {
           playSoundAlert = true;

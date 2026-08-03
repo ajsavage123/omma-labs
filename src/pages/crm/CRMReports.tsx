@@ -1,8 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { useAuth } from "@/hooks/useAuth";
+import { ShieldAlert } from "lucide-react";
 
 export default function CRMReports() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { leads, loading } = useCRMData();
 
   const wonLeads = leads.filter(l => ['Won (Converted)', 'Completed'].includes(l.status));
@@ -18,6 +22,16 @@ export default function CRMReports() {
     { stage: "Negotiation", value: leads.filter(l => l.status === 'Negotiation').reduce((s,l) => s+(l.estimated_value||0), 0) },
     { stage: "Won", value: leads.filter(l => l.status === 'Won (Converted)').reduce((s,l) => s+(l.estimated_value||0), 0) },
   ];
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 text-rose-500 opacity-80" />
+        <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
+        <p className="text-muted-foreground max-w-md">You do not have permission to view workspace financial reports. This area is restricted to administrators.</p>
+      </div>
+    );
+  }
 
   if (loading) return null;
 
