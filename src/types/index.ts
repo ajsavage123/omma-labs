@@ -114,6 +114,7 @@ export interface AdminRating {
 export interface ChatMessage {
   id: string;
   user_id: string;
+  workspace_id: string;
   message: string;
   created_at: string;
   parent_id?: string | null;
