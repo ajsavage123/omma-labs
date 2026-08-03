@@ -23,6 +23,7 @@ import { notificationService } from '@/utils/notificationService';
 import { useEffect } from 'react';
 import TaskNotificationManager from '@/components/TaskNotificationManager';
 import GlobalNotificationManager from '@/components/GlobalNotificationManager';
+import { SplashScreen } from '@/components/SplashScreen';
 
 // Helper for the Onboarding route to ensure they are logged in to Supabase first
 function OnboardingRoute() {
@@ -58,7 +59,9 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
+    <>
+      <SplashScreen />
+      <AuthProvider>
       <BrowserRouter>
         <CRMDataProvider>
           <Routes>
@@ -95,6 +98,7 @@ function App() {
         </CRMDataProvider>
       </BrowserRouter>
     </AuthProvider>
+    </>
   );
 }
 
