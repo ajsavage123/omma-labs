@@ -609,14 +609,14 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   ), [leads, filterSalesperson, isSalesperson, user?.id]);
 
   const handleAction = useCallback((type: 'call' | 'wa' | 'mail', detail: string) => {
-    if (!detail) return;
+    if (!detail || detail.trim() === '' || detail.toLowerCase() === 'none' || detail.toLowerCase() === 'n/a') return;
     if (type === 'call') {
-      window.open(`tel:${detail}`);
+      window.location.href = `tel:${detail}`;
     } else if (type === 'wa') {
       const cleanPhone = detail.replace(/[^0-9]/g, '');
       window.open(`https://wa.me/${cleanPhone}`, '_blank');
     } else if (type === 'mail') {
-      window.open(`mailto:${detail}`);
+      window.location.href = `mailto:${detail}`;
     }
   }, []);
 
@@ -673,8 +673,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               {/* Stage Column */}
               <div className={`p-4 space-y-5 flex-1 overflow-y-auto custom-scrollbar bg-background/20`}>
                 {stageLeads.map((lead) => {
-                  const hasPhone = !!lead.phone;
-                  const hasEmail = !!lead.email;
+                  const hasPhone = !!lead.phone && lead.phone.trim() !== '' && lead.phone.toLowerCase() !== 'none' && lead.phone.toLowerCase() !== 'n/a';
+                  const hasEmail = !!lead.email && lead.email.trim() !== '' && lead.email.toLowerCase() !== 'none' && lead.email.toLowerCase() !== 'n/a';
 
                   const highlightClass = getLeadHighlightClass(lead);
 
