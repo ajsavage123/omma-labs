@@ -182,15 +182,16 @@ export const workspaceNotificationService = {
     if (table === 'crm_leads') {
       const company = record.company_name || record.contact_person || 'New Lead';
       if (eventType === 'INSERT') {
-        // STRICT TARGETING: Only notify Assignee. Do not notify admins by default.
+        // STRICT TARGETING: Notify Assignee. If unassigned, notify Admins to assign it.
         const isAssignee = record.assigned_to === currentUserId;
+        const isAdmin = userRole === 'admin';
         
-        if (!isAssignee) return null;
+        if (!isAssignee && !isAdmin) return null;
 
         return {
           id,
           category: 'lead',
-          title: `💼 New Lead Assigned to You`,
+          title: isAssignee ? `💼 New Lead Assigned to You` : `💼 New CRM Lead Added`,
           body: `${company} added to sales pipeline (${record.stage || 'New Leads'})`,
           actorId: record.created_by,
           targetUrl: '/crm/leads',

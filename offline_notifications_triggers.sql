@@ -51,6 +51,12 @@ BEGIN
         INSERT INTO public.notifications (workspace_id, user_id, category, title, body, target_url, is_read)
         VALUES (NEW.workspace_id, NEW.assigned_to, 'lead', '💼 New Lead Assigned to You', company || ' added to pipeline', '/crm/leads', false);
       END IF;
+    ELSE
+      -- Notify Admins if unassigned
+      INSERT INTO public.notifications (workspace_id, user_id, category, title, body, target_url, is_read)
+      SELECT NEW.workspace_id, id, 'lead', '💼 New CRM Lead Added', company || ' needs to be assigned', '/crm/leads', false
+      FROM public.users
+      WHERE workspace_id = NEW.workspace_id AND role = 'admin' AND id != auth.uid();
     END IF;
   ELSIF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
     -- Notify Assignee of stage change, if the assignee didn't move it themselves
