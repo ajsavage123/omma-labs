@@ -6,14 +6,13 @@ import { type WorkspaceNotificationEvent } from '@/services/workspaceNotificatio
 import { useNavigate } from 'react-router-dom';
 import { pushNotificationService } from '@/services/pushNotificationService';
 import { useToast } from '@/hooks/useToast';
-import { ToastContainer } from '@/components/Toast';
-type NotificationWithMeta = WorkspaceNotificationEvent & { isRead?: boolean, createdAt?: string };
+type NotificationWithMeta = WorkspaceNotificationEvent & { isRead?: boolean, createdAt?: string, isTaskAlert?: boolean };
 
 
 export default function NotificationCenterWidget() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast, toasts, removeToast } = useToast();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationWithMeta[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -57,16 +56,18 @@ export default function NotificationCenterWidget() {
     // Load existing notifications from DB if available
     const loadDBNotifications = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: dbNotifs, error: notifErr } = await supabase
           .from('notifications')
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(50);
 
-        if (!error && data) {
+        let mergedNotifications: NotificationWithMeta[] = [];
+
+        if (!notifErr && dbNotifs) {
           // Format them to WorkspaceNotificationEvent
-          const mapped = data.map((d: any) => ({
+          const mapped = dbNotifs.map((d: any) => ({
             id: d.id,
             category: d.category,
             title: d.title,
@@ -77,13 +78,48 @@ export default function NotificationCenterWidget() {
           }));
 
           // Filter out CRM notifications if user shouldn't see them
-          const filtered = hasCRMAccess
+          mergedNotifications = hasCRMAccess
             ? mapped
             : mapped.filter((n: any) => n.category !== 'task' && n.category !== 'lead' && n.category !== 'activity');
-
-          setNotifications(filtered);
-          setUnreadCount(filtered.filter((n: any) => !n.isRead).length);
         }
+
+        // FETCH PENDING TASKS FOR CURRENT USER
+        if (hasCRMAccess) {
+          const { data: tasks, error: tasksErr } = await supabase
+            .from('crm_tasks')
+            .select('id, title, due_date, due_time, priority')
+            .eq('assigned_to', user.id)
+            .eq('status', 'Pending');
+            
+          if (!tasksErr && tasks) {
+            const now = new Date();
+            const dueTasks = tasks.filter((t: any) => {
+              if (!t.due_date) return false;
+              const dateStr = t.due_time
+                ? `${t.due_date}T${t.due_time}`
+                : `${t.due_date}T23:59:59`;
+              const dueDate = new Date(dateStr);
+              return !isNaN(dueDate.getTime()) && dueDate.getTime() <= now.getTime();
+            });
+
+            const taskAlerts: NotificationWithMeta[] = dueTasks.map((t: any) => ({
+              id: `task_alert_${t.id}`, // pseudo-ID
+              category: 'task' as any,
+              title: `⏰ Task Due: ${t.title}`,
+              body: `Priority: ${t.priority || 'Medium'} — Action required.`,
+              targetUrl: '/crm/tasks',
+              isRead: false, // Tasks always highlight as unread until completed
+              createdAt: new Date().toISOString(),
+              isTaskAlert: true
+            }));
+
+            // Merge task alerts at the top
+            mergedNotifications = [...taskAlerts, ...mergedNotifications];
+          }
+        }
+
+        setNotifications(mergedNotifications);
+        setUnreadCount(mergedNotifications.filter(n => !n.isRead).length);
       } catch (err) {
         console.error('Failed to load DB notifications', err);
       }
@@ -177,13 +213,21 @@ export default function NotificationCenterWidget() {
 
   const clearNotification = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation(); // Prevent the notification click handler from firing
+    
+    const target = notifications.find(n => n.id === id);
+    if ((target as any)?.isTaskAlert) {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadCount(c => Math.max(0, c - 1));
+      return;
+    }
+
     setNotifications(prev => {
-      const target = prev.find(n => n.id === id);
       if (target && !target.isRead) {
         setUnreadCount(c => Math.max(0, c - 1));
       }
       return prev.filter(n => n.id !== id);
     });
+
     try {
       await supabase.from('notifications').delete().eq('id', id);
     } catch (e) {}
@@ -233,9 +277,9 @@ export default function NotificationCenterWidget() {
   if (!user) return null;
 
   return (
-    <>
+    <div className="crm-root dark">
       <div className="fixed top-4 right-4 z-[99999] pointer-events-none">
-        <ToastContainer toasts={toasts} removeToast={removeToast} />
+        
       </div>
       <div className="relative" ref={widgetRef}>
         {/* Bell Button */}
@@ -247,18 +291,18 @@ export default function NotificationCenterWidget() {
           aria-haspopup="true"
           className={`relative p-2.5 border rounded-full transition-all duration-300 active:scale-95 group ${
             unreadCount > 0
-              ? 'bg-red-500/20 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse'
+              ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse'
               : isOpen
-                ? 'bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                : 'bg-white/5 border-white/10 hover:bg-white/10'
+                ? 'bg-primary/10 border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)]'
+                : 'bg-background border-border hover:bg-muted'
           }`}
         >
           <Bell className={`h-5 w-5 transition-colors duration-300 ${
             unreadCount > 0
-              ? 'text-red-400 group-hover:text-red-300 animate-[wiggle_1s_ease-in-out_infinite]'
+              ? 'text-red-500 group-hover:text-red-600 animate-[wiggle_1s_ease-in-out_infinite]'
               : isOpen
-                ? 'text-emerald-400 group-hover:text-emerald-300'
-                : 'text-gray-400 group-hover:text-white'
+                ? 'text-primary group-hover:text-primary/80'
+                : 'text-muted-foreground group-hover:text-foreground'
           }`} />
           {unreadCount > 0 && (
             <span
@@ -275,13 +319,13 @@ export default function NotificationCenterWidget() {
           <div
             role="menu"
             aria-label="Notifications panel"
-            className="absolute top-full right-0 mt-3 w-80 md:w-96 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.37)] overflow-hidden animate-slide-in-right flex flex-col z-[999] ring-1 ring-white/10"
+            className="absolute top-full right-0 mt-3 w-80 md:w-96 bg-card/95 backdrop-blur-3xl border border-border rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden animate-slide-in-right flex flex-col z-[999]"
           >
             {/* Header */}
-            <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between shrink-0">
+            <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <Bell className="h-4 w-4 text-indigo-400" />
-                <h3 className="font-black text-white uppercase tracking-widest text-[11px]">Notifications</h3>
+                <Bell className="h-4 w-4 text-primary" />
+                <h3 className="font-black text-foreground uppercase tracking-widest text-[11px]">Notifications</h3>
               </div>
               <div className="flex items-center gap-3">
                 {/* Only show Enable Push on supporting browsers */}
@@ -290,7 +334,7 @@ export default function NotificationCenterWidget() {
                     onClick={handleSubscribe}
                     disabled={isSubscribing}
                     aria-label="Enable browser push notifications"
-                    className="text-[10px] font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider flex items-center gap-1 bg-white/5 px-2 py-1 rounded"
+                    className="text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider flex items-center gap-1 bg-muted px-2 py-1 rounded"
                   >
                     {isSubscribing ? 'Enabling...' : 'Enable Push'}
                   </button>
@@ -317,9 +361,9 @@ export default function NotificationCenterWidget() {
             </div>
 
             {/* List */}
-            <div role="list" className="flex-1 overflow-y-auto custom-scrollbar max-h-[400px]">
+            <div role="list" className="flex-1 overflow-y-auto custom-scrollbar max-h-[60vh]">
               {notifications.length > 0 ? (
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-border">
                   {notifications.map((notif) => (
                     <div
                       key={notif.id}
@@ -327,24 +371,24 @@ export default function NotificationCenterWidget() {
                       tabIndex={0}
                       onClick={() => handleNotificationClick(notif as any)}
                       onKeyDown={(e) => e.key === 'Enter' && handleNotificationClick(notif as any)}
-                      className={`p-4 cursor-pointer transition-all hover:bg-white/[0.03] flex items-start gap-3 relative overflow-hidden group ${!notif.isRead ? 'bg-indigo-500/[0.02]' : ''}`}
+                      className={`p-4 cursor-pointer transition-all hover:bg-muted/50 flex items-start gap-3 relative overflow-hidden group ${!notif.isRead ? 'bg-primary/5' : ''}`}
                     >
                       {!notif.isRead && (
-                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
                       )}
                       
-                      <div className={`p-2 rounded-xl shrink-0 ${!notif.isRead ? 'bg-indigo-500/10 border border-indigo-500/20' : 'bg-white/5 border border-white/5'}`}>
+                      <div className={`p-2 rounded-xl shrink-0 ${!notif.isRead ? 'bg-primary/10 border border-primary/20' : 'bg-muted border border-border'}`}>
                         {getIconForCategory(notif.category)}
                       </div>
                       
                       <div className="flex-1 min-w-0 pr-4">
-                        <h4 className={`text-[12px] font-bold truncate ${!notif.isRead ? 'text-white' : 'text-gray-300'}`}>
+                        <h4 className={`text-[12px] font-bold truncate ${!notif.isRead ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {notif.title}
                         </h4>
-                        <p className="text-[11px] text-gray-500 line-clamp-2 mt-0.5 leading-snug">
+                        <p className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-0.5 leading-snug">
                           {notif.body}
                         </p>
-                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest mt-2 block">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2 block">
                           {notif.createdAt ? new Date(notif.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                         </span>
                       </div>
@@ -357,7 +401,7 @@ export default function NotificationCenterWidget() {
                       
                       <button 
                         onClick={(e) => clearNotification(e, notif.id)}
-                        className="absolute top-3 right-3 p-1 rounded-full text-gray-500 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                        className="absolute top-3 right-3 p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-all"
                         aria-label="Clear notification"
                       >
                         <X className="h-3 w-3" />
@@ -367,14 +411,14 @@ export default function NotificationCenterWidget() {
                 </div>
               ) : (
                 <div className="p-8 text-center flex flex-col items-center justify-center h-40">
-                  <Bell className="h-8 w-8 text-gray-700 mb-3" />
-                  <p className="text-gray-500 text-[11px] font-bold uppercase tracking-widest">All Caught Up</p>
+                  <Bell className="h-8 w-8 text-muted-foreground/50 mb-3" />
+                  <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest">All Caught Up</p>
                 </div>
               )}
             </div>
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

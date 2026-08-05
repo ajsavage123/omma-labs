@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/useToast";
-import { ToastContainer } from "@/components/Toast";
+
 import { useAuth } from "@/hooks/useAuth";
 import { 
   Trash2, Phone, Clipboard, Search, Plus, X, Loader2, 
@@ -24,7 +24,7 @@ interface ParsedNote {
 export default function CRMNotes() {
   const { activities: notes, leads, loading, refreshActivities, refreshLeads } = useCRMData();
   const { user } = useAuth();
-  const { toast, toasts, removeToast } = useToast();
+  const { toast } = useToast();
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -501,7 +501,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                             )}
                             {parsed.sentiment && (
                               <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border rounded-lg ${sentiment}`}>
-                                {parsed.sentiment.replace(/[🟢🔴🟡⚪🟠]/g, '').trim()}
+                                {parsed.sentiment.replace(/[🟢🔴🟡⚪🟠]/gu, '').trim()}
                               </span>
                             )}
                           </div>
@@ -701,7 +701,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         </div>
       )}
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import type { User } from '@/types';
 import { Search, Bell, Moon, UserPlus, Filter, LayoutGrid, CheckCircle2, MapPin, Briefcase, Network, Code, TrendingUp, ChevronRight, Star, Edit2, Check, X, Lightbulb } from 'lucide-react';
-import { ToastContainer } from '@/components/Toast';
+
 import { useToast } from '@/hooks/useToast';
 import { OomaLogo } from '@/components/OomaLogo';
 
@@ -12,7 +12,7 @@ import { queryCache } from '@/utils/cache';
 
 export default function ProjectMembersPage() {
   const { user } = useAuth();
-  const { toast, toasts, removeToast } = useToast();
+  const { toast } = useToast();
 
   const [members, setMembers] = useState<User[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
@@ -905,7 +905,7 @@ export default function ProjectMembersPage() {
         )}
       </main>
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
     </div>
   );
 }

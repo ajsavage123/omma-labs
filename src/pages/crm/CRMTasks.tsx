@@ -6,17 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Plus, CheckCircle2, Phone, Mail, Trash2, ArrowRight, Loader2, Calendar, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
-import { ToastContainer } from "@/components/Toast";
+
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { googleCalendarService } from "@/services/googleCalendarService";
 
 import { getTaskDueDate } from "@/utils/dateUtils";
 
+type CRMLead = Record<string, unknown>;
+type CRMTask = Record<string, unknown>;
+type GoogleAccount = { email: string; name: string; expiresAt: number; [key: string]: unknown };
+
 export default function CRMTasks() {
   const { user } = useAuth();
-  const { toast, toasts, removeToast } = useToast();
+  const { toast } = useToast();
   const { tasks, loading, refreshTasks, refreshLeads } = useCRMData();
-  const [leads, setLeads] = useState<any[]>([]);
+  const [leads, setLeads] = useState<CRMLead[]>([]);
   const [activeTab, setActiveTab] = useState("today");
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
   const [checkedTasks, setCheckedTasks] = useState<string[]>([]);
@@ -38,7 +42,7 @@ export default function CRMTasks() {
     setLeads(data || []);
   };
 
-  const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
+  const [linkedAccounts, setLinkedAccounts] = useState<GoogleAccount[]>([]);
   const [syncToGoogle, setSyncToGoogle] = useState(false);
   const [syncAccount, setSyncAccount] = useState("");
   const [attendeesInput, setAttendeesInput] = useState("");
@@ -53,6 +57,7 @@ export default function CRMTasks() {
     return () => clearInterval(timer);
   }, [tasks]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isTaskDue = (task: any) => {
     if (task.status !== 'Pending') return false;
     const dueDate = getTaskDueDate(task.due_date, task.due_time);
@@ -122,18 +127,19 @@ export default function CRMTasks() {
           assigned_to: user.id
         }])
         .select('*, crm_leads(company_name, contact_person, email, phone)')
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      // Code 22P02 = pg_net trigger JSON error - task was still saved, ignore it
+      if (error && error.code !== '22P02') throw error;
       
       if (syncToGoogle && syncAccount && insertedData) {
         try {
           const listAttendees = attendeesInput ? attendeesInput.split(',').map(em => em.trim()) : [];
           await googleCalendarService.syncTask(insertedData, syncAccount, listAttendees);
           toast.success("Task synced with Google Calendar");
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.error("Google Calendar sync failed:", e);
-          toast.error(`Sync failed: ${e.message}`);
+          toast.error(`Sync failed: ${(e as Error).message}`);
         }
       }
 
@@ -159,13 +165,17 @@ export default function CRMTasks() {
   };
 
   const toggleTask = async (id: string) => {
-    const isCompleted = checkedTasks.includes(id);
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    
+    const isCompleted = checkedTasks.includes(id) || task.status === 'Completed';
     const newStatus = isCompleted ? 'Pending' : 'Completed';
     
-    if (isCompleted) {
-      setCheckedTasks(prev => prev.filter(t => t !== id));
-    } else {
+    if (newStatus === 'Completed') {
       setCheckedTasks(prev => [...prev, id]);
+    } else {
+      setCheckedTasks(prev => prev.filter(t => t !== id));
+      task.status = 'Pending'; // Optimistic update
     }
 
     const { error, data: updatedData } = await supabase
@@ -173,19 +183,21 @@ export default function CRMTasks() {
       .update({ status: newStatus })
       .eq('id', id)
       .select('*, crm_leads(company_name, contact_person, email, phone)')
-      .single();
+      .maybeSingle();
     
     if (!error) {
       if (!isCompleted) toast.success('Task marked as completed');
 
       // Update Google Calendar event if synced previously
-      const accounts = googleCalendarService.getLinkedAccounts();
-      for (const account of accounts) {
-        if (Date.now() < account.expiresAt) {
-          try {
-            await googleCalendarService.syncTask(updatedData, account.email);
-          } catch (e) {
-            console.warn(`Failed to update task toggle in Google Calendar for account ${account.email}`, e);
+      if (updatedData) {
+        const accounts = googleCalendarService.getLinkedAccounts();
+        for (const account of accounts) {
+          if (Date.now() < account.expiresAt) {
+            try {
+              await googleCalendarService.syncTask(updatedData, account.email);
+            } catch (e) {
+              console.warn(`Failed to update task toggle in Google Calendar for account ${account.email}`, e);
+            }
           }
         }
       }
@@ -222,6 +234,7 @@ export default function CRMTasks() {
   const todayStr = `${year}-${month}-${day}`;
 
   // Helper: classify task using full datetime when due_time is set, date-only otherwise
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const classifyTask = (task: any) => {
     if (!task.due_date) return 'today'; // No date — treat as today bucket
 
@@ -660,7 +673,7 @@ export default function CRMTasks() {
         )}
       </div>
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
     </div>
   );
 }

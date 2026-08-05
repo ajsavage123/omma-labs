@@ -4,14 +4,14 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Link2, LogOut, Hel
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { googleCalendarService, type LinkedAccount } from "@/services/googleCalendarService";
 import { useToast } from "@/hooks/useToast";
-import { ToastContainer } from "@/components/Toast";
+
 
 const daysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 const firstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
 export default function CRMCalendar() {
   const { tasks, loading } = useCRMData();
-  const { toast, toasts, removeToast } = useToast();
+  const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
 
@@ -136,7 +136,7 @@ export default function CRMCalendar() {
 
   return (
     <div className="space-y-4 lg:space-y-6">
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
       <div>
         <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Calendar</h1>
         <p className="text-sm text-muted-foreground font-medium">View your tasks and follow-ups</p>

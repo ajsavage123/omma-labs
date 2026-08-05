@@ -69,7 +69,7 @@ export default function CRMLayout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { tasks: globalTasks, refreshTasks } = useCRMData();
+  const { tasks: globalTasks, refreshTasks, crmViewMode, setCrmViewMode } = useCRMData();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('crm_notifications_muted') === 'true');
   const [bellRinging, setBellRinging] = useState(false);
@@ -80,9 +80,12 @@ export default function CRMLayout({ children }: LayoutProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Filter tasks to show ONLY PENDING tasks that are currently DUE or OVERDUE (scheduled time has arrived)
+  // Filter tasks to show ONLY the current user's PENDING tasks that are currently DUE or OVERDUE.
+  // IMPORTANT: Always scoped to user?.id regardless of crmViewMode (Team vs My CRM).
+  // This prevents admins from accidentally clearing other people's tasks via "Clear All".
   const tasks = globalTasks
     .filter((t: any) => {
+      if (t.assigned_to !== user?.id) return false; // strict user scope
       if (t.status !== 'Pending') return false;
       const dueDate = getTaskDueDate(t.due_date, t.due_time);
       if (!dueDate) return false;
@@ -305,6 +308,29 @@ export default function CRMLayout({ children }: LayoutProps) {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
+            
+            {/* Global Admin Data Toggle */}
+            {isAdmin && (
+              <div className="flex bg-muted/50 p-1 rounded-xl mr-1 sm:mr-2">
+                <button
+                  onClick={() => setCrmViewMode('mine')}
+                  className={`px-2 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    crmViewMode === 'mine' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  My CRM
+                </button>
+                <button
+                  onClick={() => setCrmViewMode('team')}
+                  className={`px-2 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    crmViewMode === 'team' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Team CRM
+                </button>
+              </div>
+            )}
+
             <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => setNotificationsOpen(!notificationsOpen)}

@@ -22,11 +22,11 @@ export function ToastContainer({ toasts, removeToast }: ToastProps) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm w-full">
+    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm w-full max-h-[85vh] overflow-y-auto custom-scrollbar p-2 pointer-events-none">
       {toasts.map(t => (
         <div
           key={t.id}
-          className={`flex items-start gap-3 p-4 rounded-xl shadow-2xl ${styles[t.type]} animate-toast-in`}
+          className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl shadow-2xl ${styles[t.type]} animate-toast-in shrink-0`}
         >
           {icons[t.type]}
           <p className="flex-1 text-sm font-medium text-gray-800 leading-relaxed">{t.message}</p>

@@ -10,7 +10,6 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import type { ChatMessage } from '@/types';
 import { useToast } from '@/hooks/useToast';
-import { ToastContainer } from '@/components/Toast';
 import { notificationService } from '@/utils/notificationService';
 import { projectService } from '@/services/projectService';
 import { MOCK_MODE } from '@/lib/mockMode';
@@ -35,7 +34,7 @@ export default function ChatWidget() {
   // Long-press context menu (WhatsApp / Telegram style)
   const [contextMenu, setContextMenu] = useState<{ msg: ChatMessage, x: number, y: number } | null>(null);
 
-  const { toasts, toast, removeToast } = useToast();
+  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isOpenRef = useRef(isOpen);
   const isHistoryLoaded = useRef(false);
@@ -852,7 +851,7 @@ export default function ChatWidget() {
         </form>
       </div>
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }

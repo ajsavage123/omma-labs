@@ -121,7 +121,7 @@ export default function CRMLeads() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (lead: any) => {
+  const openEditModal = (lead: Record<string, any>) => {
     setIsEditMode(true);
     setEditingLeadId(lead.id);
     setFormData({
@@ -158,7 +158,7 @@ export default function CRMLeads() {
       const amountPaidNum = parseInt(formData.amount_paid.replace(/[^0-9.]/g, '')) || 0;
 
       // Smart name/company fallback so they are not blank or "Unknown Name"
-      let finalCompany = formData.company_name.trim();
+      const finalCompany = formData.company_name.trim();
       let finalContact = formData.contact_person.trim();
       if (!finalContact) {
         finalContact = finalCompany;
@@ -299,7 +299,7 @@ export default function CRMLeads() {
       skipEmptyLines: true,
       complete: async (results) => {
         try {
-          const newLeads = results.data.map((row: any) => {
+          const newLeads = results.data.map((row: Record<string, any>) => {
             const matchedKeys: string[] = [];
             const getField = (keys: string[]) => {
               const key = Object.keys(row).find(k => keys.includes(k.toLowerCase().trim()));
@@ -365,7 +365,7 @@ export default function CRMLeads() {
             }
 
             // Collect all other keys into custom_data (only keys that were not actually matched and mapped)
-            const customData: any = {};
+            const customData: Record<string, any> = {};
             Object.keys(row).forEach(k => {
               const cleanedK = k.toLowerCase().trim();
               if (!matchedKeys.includes(cleanedK)) {

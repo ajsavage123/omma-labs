@@ -125,7 +125,7 @@ export const workspaceNotificationService = {
   formatPayload(table: string, eventType: string, record: any, user: any): WorkspaceNotificationEvent | null {
     if (!record || !user) return null;
     const currentUserId = typeof user === 'string' ? user : user.id;
-    const userRole = typeof user === 'object' ? user.role : 'user';
+    const _userRole = typeof user === 'object' ? user.role : 'user';
     const id = record.id || Math.random().toString(36).substring(2, 9);
     const nowStr = new Date().toISOString();
 
@@ -182,16 +182,15 @@ export const workspaceNotificationService = {
     if (table === 'crm_leads') {
       const company = record.company_name || record.contact_person || 'New Lead';
       if (eventType === 'INSERT') {
-        // STRICT TARGETING: Notify Assignee. If unassigned, notify Admins to assign it.
+        // STRICT TARGETING: Notify Assignee only. Do not notify admins by default to prevent spam.
         const isAssignee = record.assigned_to === currentUserId;
-        const isAdmin = userRole === 'admin';
         
-        if (!isAssignee && !isAdmin) return null;
+        if (!isAssignee) return null;
 
         return {
           id,
           category: 'lead',
-          title: isAssignee ? `💼 New Lead Assigned to You` : `💼 New CRM Lead Added`,
+          title: `💼 New Lead Assigned to You`,
           body: `${company} added to sales pipeline (${record.stage || 'New Leads'})`,
           actorId: record.created_by,
           targetUrl: '/crm/leads',

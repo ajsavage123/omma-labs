@@ -138,23 +138,18 @@ export default function GlobalNotificationManager() {
 
     globalChannel.subscribe();
 
-    // Workaround: Also listen to manual broadcasts from ChatWidget (in case Postgres Realtime is disabled for the table)
-    const chatBroadcastChannel = supabase.channel(`workspace_chat_${user.workspace_id}`)
-      .on('broadcast', { event: 'broadcast_chat_message' }, (payload: any) => {
-        if (payload.payload) {
-          const event = workspaceNotificationService.formatPayload('chat_messages', 'INSERT', payload.payload, user);
-          if (event) workspaceNotificationService.notify(event, user.id);
-        }
-      })
-      .subscribe();
+    // Listen to manual broadcasts from ChatWidget via the SAME channel (avoid creating a duplicate).
+    // NOTE: Do NOT create a separate channel with the same name as ChatWidget's channel
+    // (`workspace_chat_${id}`), because Supabase deduplicates by name and it causes conflicts.
+    // Instead, we already get chat_messages via postgres_changes above.
 
     return () => {
       supabase.removeChannel(globalChannel);
-      supabase.removeChannel(chatBroadcastChannel);
       window.removeEventListener('workspace-notification-event', handleCustomNotification);
       window.removeEventListener('workspace-notification-received', handleNotificationReceived);
     };
-  }, [user?.workspace_id, user?.id, hasCRMAccess, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.workspace_id, user?.id, hasCRMAccess]);
 
   return (
     <div className="fixed top-4 right-4 z-[99999] pointer-events-none">

@@ -1,38 +1,43 @@
 import { Card } from "@/components/ui/card";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Loader2, TrendingUp, Clock, AlertCircle, Briefcase, IndianRupee, CheckCircle2 } from "lucide-react";
+import { useMemo } from "react";
 import { useCRMData } from "@/contexts/CRMDataContext";
 
 export default function CRMDashboard() {
   const { leads, tasks, loading } = useCRMData();
 
-  const activeLeads = leads.filter(l => !['Lost', 'Not Interested'].includes(l.status));
+  // Leads and tasks are ALREADY filtered by the global crmViewMode!
+  const displayLeads = leads;
+  const displayTasks = tasks;
+
+  const activeLeads = displayLeads.filter(l => !['Lost', 'Not Interested'].includes(l.status));
   const pipelineValue = activeLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);
-  const closedWonValue = leads.filter(l => ['Won (Converted)', 'Completed'].includes(l.status)).reduce((s, l) => s + (l.estimated_value || 0), 0);
+  const closedWonValue = displayLeads.filter(l => ['Won (Converted)', 'Completed'].includes(l.status)).reduce((s, l) => s + (l.estimated_value || 0), 0);
   
   const now = new Date();
   const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
   const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999);
   
-  const tasksDueToday = tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) >= todayStart && new Date(t.due_date) <= todayEnd);
-  const overdueTasks = tasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) < todayStart);
+  const tasksDueToday = displayTasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) >= todayStart && new Date(t.due_date) <= todayEnd);
+  const overdueTasks = displayTasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) < todayStart);
 
   const pipelineData = [
-    { name: "New Leads", value: leads.filter(l => l.status === 'New Leads').length, color: "#3B82F6" },
-    { name: "Contacted", value: leads.filter(l => l.status === 'Contacted').length, color: "#06B6D4" },
-    { name: "Interested", value: leads.filter(l => l.status === 'Interested').length, color: "#F59E0B" },
-    { name: "Proposal/Quotation", value: leads.filter(l => l.status === 'Proposal Sent').length, color: "#8B5CF6" },
-    { name: "Negotiation", value: leads.filter(l => l.status === 'Negotiation').length, color: "#06B6D4" },
-    { name: "Won", value: leads.filter(l => l.status === 'Won (Converted)').length, color: "#10B981" },
+    { name: "New Leads", value: displayLeads.filter(l => l.status === 'New Leads').length, color: "#3B82F6" },
+    { name: "Contacted", value: displayLeads.filter(l => l.status === 'Contacted').length, color: "#06B6D4" },
+    { name: "Interested", value: displayLeads.filter(l => l.status === 'Interested').length, color: "#F59E0B" },
+    { name: "Proposal/Quotation", value: displayLeads.filter(l => l.status === 'Proposal Sent').length, color: "#8B5CF6" },
+    { name: "Negotiation", value: displayLeads.filter(l => l.status === 'Negotiation').length, color: "#06B6D4" },
+    { name: "Won", value: displayLeads.filter(l => l.status === 'Won (Converted)').length, color: "#10B981" },
   ];
 
   const stageData = [
-    { stage: "New", value: leads.filter(l => l.status === 'New Leads').reduce((s,l) => s+(l.estimated_value||0), 0) },
-    { stage: "Contact", value: leads.filter(l => l.status === 'Contacted').reduce((s,l) => s+(l.estimated_value||0), 0) },
-    { stage: "Interest", value: leads.filter(l => l.status === 'Interested').reduce((s,l) => s+(l.estimated_value||0), 0) },
-    { stage: "Proposal", value: leads.filter(l => l.status === 'Proposal Sent').reduce((s,l) => s+(l.estimated_value||0), 0) },
-    { stage: "Negotiate", value: leads.filter(l => l.status === 'Negotiation').reduce((s,l) => s+(l.estimated_value||0), 0) },
-    { stage: "Won", value: leads.filter(l => l.status === 'Won (Converted)').reduce((s,l) => s+(l.estimated_value||0), 0) },
+    { stage: "New", value: displayLeads.filter(l => l.status === 'New Leads').reduce((s,l) => s+(l.estimated_value||0), 0) },
+    { stage: "Contact", value: displayLeads.filter(l => l.status === 'Contacted').reduce((s,l) => s+(l.estimated_value||0), 0) },
+    { stage: "Interest", value: displayLeads.filter(l => l.status === 'Interested').reduce((s,l) => s+(l.estimated_value||0), 0) },
+    { stage: "Proposal", value: displayLeads.filter(l => l.status === 'Proposal Sent').reduce((s,l) => s+(l.estimated_value||0), 0) },
+    { stage: "Negotiate", value: displayLeads.filter(l => l.status === 'Negotiation').reduce((s,l) => s+(l.estimated_value||0), 0) },
+    { stage: "Won", value: displayLeads.filter(l => l.status === 'Won (Converted)').reduce((s,l) => s+(l.estimated_value||0), 0) },
   ];
 
   if (loading) return (
@@ -44,13 +49,11 @@ export default function CRMDashboard() {
   const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const sixtyDaysAgo = new Date(); sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-  // Pipeline Value trend (Last 30 days vs Previous 30 days)
   const recentPipeline = activeLeads.filter(l => new Date(l.created_at) >= thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
-  const oldPipeline = activeLeads.filter(l => new Date(l.created_at) >= sixtyDaysAgo && new Date(l.created_at) < thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
+  const oldPipeline = displayLeads.filter(l => !['Lost', 'Not Interested', 'Won (Converted)', 'Completed'].includes(l.status) && new Date(l.created_at) >= sixtyDaysAgo && new Date(l.created_at) < thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
   const pipelineTrend = oldPipeline === 0 ? (recentPipeline > 0 ? '+100%' : '0%') : `${recentPipeline >= oldPipeline ? '+' : ''}${Math.round(((recentPipeline - oldPipeline) / oldPipeline) * 100)}%`;
 
-  // Closed Won trend
-  const closedWonLeads = leads.filter(l => ['Won (Converted)', 'Completed'].includes(l.status));
+  const closedWonLeads = displayLeads.filter(l => ['Won (Converted)', 'Completed'].includes(l.status));
   const recentClosed = closedWonLeads.filter(l => new Date(l.created_at) >= thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
   const oldClosed = closedWonLeads.filter(l => new Date(l.created_at) >= sixtyDaysAgo && new Date(l.created_at) < thirtyDaysAgo).reduce((s,l) => s + (l.estimated_value || 0), 0);
   const closedTrend = oldClosed === 0 ? (recentClosed > 0 ? '+100%' : '0%') : `${recentClosed >= oldClosed ? '+' : ''}${Math.round(((recentClosed - oldClosed) / oldClosed) * 100)}%`;
@@ -161,7 +164,7 @@ export default function CRMDashboard() {
           <Card className="p-6 bg-card border-border rounded-3xl shadow-xl flex flex-col h-full">
             <h2 className="text-lg font-black text-foreground mb-6 uppercase tracking-widest text-[11px]">Recent Updates</h2>
             <div className="space-y-5 flex-1">
-              {leads.slice(0, 8).map((lead, index) => (
+              {displayLeads.slice(0, 8).map((lead, index) => (
                 <div key={index} className="flex gap-4 items-start group">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0 text-primary border border-primary/20 group-hover:scale-110 transition-transform">
                     <Briefcase size={18} />

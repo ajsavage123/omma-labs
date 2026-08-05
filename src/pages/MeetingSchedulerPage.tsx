@@ -16,7 +16,7 @@ import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
 import { Link, useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
 import { useToast } from '@/hooks/useToast';
-import { ToastContainer } from '@/components/Toast';
+
 import { dataService } from '@/services/dataService';
 
 interface Meeting {
@@ -32,7 +32,7 @@ interface Meeting {
 export default function MeetingSchedulerPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toasts, toast, removeToast } = useToast();
+  const { toast } = useToast();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -102,7 +102,7 @@ export default function MeetingSchedulerPage() {
 
   return (
     <div className="h-screen flex bg-[#050505] text-white overflow-hidden">
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
       {/* Sidebar (Shared) */}
       <aside className="hidden md:flex w-[260px] flex-shrink-0 flex-col bg-[#0c0c0e] border-r border-white/5 h-full">
         <div className="p-6 flex items-center justify-between">

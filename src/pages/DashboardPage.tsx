@@ -4,7 +4,7 @@ import { projectService } from '@/services/projectService';
 import { adminService } from '@/services/adminService';
 import type { Project, ProjectStage, TimelineLog } from '@/types';
 import { ProjectCard } from '@/components/ProjectCard';
-import { ToastContainer } from '@/components/Toast';
+
 import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
@@ -18,7 +18,7 @@ type StatusFilter = 'all' | 'active' | 'completed' | 'rejected' | 'internal' | '
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { toasts, toast, removeToast } = useToast();
+  const { toast, removeToast } = useToast();
   
   const [projects, setProjects] = useState<(Project & { project_stages: ProjectStage[] })[]>([]);
   const [logs, setLogs] = useState<TimelineLog[]>([]);
@@ -643,7 +643,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
       {creating && <LoadingOverlay message="Forging New Project..." />}
     </div>
   );

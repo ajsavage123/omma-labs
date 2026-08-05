@@ -10,6 +10,8 @@ interface CRMDataContextType {
   refreshLeads: () => Promise<void>;
   refreshTasks: () => Promise<void>;
   refreshActivities: () => Promise<void>;
+  crmViewMode: 'mine' | 'team';
+  setCrmViewMode: (mode: 'mine' | 'team') => void;
 }
 
 const CRMDataContext = createContext<CRMDataContextType | undefined>(undefined);
@@ -20,6 +22,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [crmViewMode, setCrmViewMode] = useState<'mine' | 'team'>('mine');
 
   // Use refs to keep track of current states to avoid stale closures in subscriptions
   const leadsRef = useRef<any[]>([]);
@@ -84,7 +87,21 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
 
       query = query.order('due_date', { ascending: true });
 
-      const { data, error } = await query;
+      let { data, error } = await query;
+
+      // Fallback: If created_by column doesn't exist yet, retry with assigned_to only
+      if (error && !isAdmin) {
+        console.warn('[CRM] created_by column may not exist, falling back to assigned_to filter.');
+        const fallback = await supabase
+          .from('crm_tasks')
+          .select('*, crm_leads(company_name, contact_person, email, phone)')
+          .eq('workspace_id', workspaceId)
+          .eq('assigned_to', userId)
+          .order('due_date', { ascending: true });
+        data = fallback.data;
+        error = fallback.error;
+      }
+
       if (error) throw error;
       setTasks(data || []);
     } catch (err) {
@@ -115,17 +132,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [workspaceId, userId, isAdmin]);
 
-  const refreshLeads = async () => {
-    await fetchLeads();
-  };
-
-  const refreshTasks = async () => {
-    await fetchTasks();
-  };
-
-  const refreshActivities = async () => {
-    await fetchActivities();
-  };
+  // Use fetch functions directly as refresh functions
 
   useEffect(() => {
     if (!workspaceId) {
@@ -237,10 +244,39 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(fetchTasksTimeout);
       clearTimeout(fetchActivitiesTimeout);
     };
-  }, [workspaceId, fetchLeads, fetchTasks, fetchActivities]); // Dependencies stabilized
+  }, [workspaceId, fetchLeads, fetchTasks, fetchActivities]);
+
+  // Global filtering based on crmViewMode
+  const filteredLeads = React.useMemo(() => {
+    if (!isAdmin) return leads;
+    if (crmViewMode === 'team') return leads.filter(l => l.assigned_to !== userId);
+    return leads.filter(l => l.assigned_to === userId);
+  }, [leads, crmViewMode, isAdmin, userId]);
+
+  const filteredTasks = React.useMemo(() => {
+    if (!isAdmin) return tasks;
+    if (crmViewMode === 'team') return tasks.filter(t => t.assigned_to !== userId);
+    return tasks.filter(t => t.assigned_to === userId || t.created_by === userId);
+  }, [tasks, crmViewMode, isAdmin, userId]);
+
+  const filteredActivities = React.useMemo(() => {
+    if (!isAdmin) return activities;
+    if (crmViewMode === 'team') return activities.filter(a => a.crm_leads?.assigned_to !== userId);
+    return activities.filter(a => a.crm_leads?.assigned_to === userId);
+  }, [activities, crmViewMode, isAdmin, userId]);
 
   return (
-    <CRMDataContext.Provider value={{ leads, tasks, activities, loading, refreshLeads, refreshTasks, refreshActivities }}>
+    <CRMDataContext.Provider value={{
+      leads: filteredLeads,
+      tasks: filteredTasks,
+      activities: filteredActivities,
+      loading,
+      refreshLeads: fetchLeads,
+      refreshTasks: fetchTasks,
+      refreshActivities: fetchActivities,
+      crmViewMode,
+      setCrmViewMode
+    }}>
       {children}
     </CRMDataContext.Provider>
   );

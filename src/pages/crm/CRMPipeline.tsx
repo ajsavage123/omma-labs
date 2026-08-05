@@ -1,4 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+type CRMLead = Record<string, any>;
+type CRMTask = Record<string, any>;
+type GoogleAccount = { email: string; name: string; expiresAt: number; [key: string]: any };
+
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
@@ -8,7 +13,7 @@ import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X
 
 import { useWorkspaceUsers } from '@/hooks/useWorkspaceUsers';
 import { useToast } from '@/hooks/useToast';
-import { ToastContainer } from '@/components/Toast';
+
 import { useCRMData } from '@/contexts/CRMDataContext';
 import { formatUrl } from '../../utils/formatUrl';
 import { googleCalendarService } from '@/services/googleCalendarService';
@@ -83,7 +88,7 @@ const STAGES = [
 
 export default function CRMPipeline() {
   const { user } = useAuth();
-  const { toast, toasts, removeToast } = useToast();
+  const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const { leads, loading, refreshLeads } = useCRMData();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
@@ -92,7 +97,7 @@ export default function CRMPipeline() {
 
   useEffect(() => {
     const hasPendingTasks = leads.some(lead => 
-      lead.crm_tasks?.some((t: any) => t.status === 'Pending')
+      lead.crm_tasks?.some((t: Record<string, any>) => t.status === 'Pending')
     );
     if (!hasPendingTasks) return;
 
@@ -103,13 +108,13 @@ export default function CRMPipeline() {
     return () => clearInterval(timer);
   }, [leads]);
 
-  const getLeadHighlightClass = (lead: any) => {
+  const getLeadHighlightClass = (lead: Record<string, any>) => {
     if (!lead.crm_tasks || lead.crm_tasks.length === 0) return '';
     
     let urgency: 'red' | 'orange' | 'blue' | null = null;
     const todayStr = new Date().toISOString().split('T')[0];
     
-    lead.crm_tasks.forEach((task: any) => {
+    lead.crm_tasks.forEach((task: Record<string, any>) => {
       if (task.status !== 'Pending') return;
 
       // If task has NO explicit due_time, only mark red if the due date is strictly in the past
@@ -136,7 +141,7 @@ export default function CRMPipeline() {
   
   // Note Logger state
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
-  const [selectedLeadForNote, setSelectedLeadForNote] = useState<any>(null);
+  const [selectedLeadForNote, setSelectedLeadForNote] = useState<Record<string, any> | null>(null);
   const [noteFormData, setNoteFormData] = useState({
     interaction_type: 'call',
     discussion_points: '',
@@ -188,7 +193,7 @@ export default function CRMPipeline() {
 
   const [filterSalesperson, setFilterSalesperson] = useState<string>("All");
 
-  const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
+  const [linkedAccounts, setLinkedAccounts] = useState<GoogleAccount[]>([]);
   const [syncToGoogle, setSyncToGoogle] = useState(false);
   const [syncAccount, setSyncAccount] = useState("");
   const [attendeesInput, setAttendeesInput] = useState("");
@@ -248,9 +253,9 @@ export default function CRMPipeline() {
       toast.error("Failed to update pin");
       console.error(error);
     }
-  }, [refreshLeads]);
+  }, [refreshLeads, toast]);
 
-  const openTaskModal = useCallback((lead: any) => {
+  const openTaskModal = useCallback((lead: Record<string, any>) => {
     const now = new Date();
     const hours24 = now.getHours();
     const minutes = now.getMinutes().toString().padStart(2, '0');
@@ -269,9 +274,9 @@ export default function CRMPipeline() {
       lead_id: lead.id
     });
     setIsTaskModalOpen(true);
-  }, []);
+  }, [toast]);
 
-  const openNoteModal = useCallback((lead: any) => {
+  const openNoteModal = useCallback((lead: Record<string, any>) => {
     setSelectedLeadForNote(lead);
     setNoteFormData({
       interaction_type: 'call',
@@ -281,7 +286,7 @@ export default function CRMPipeline() {
       additional_notes: ''
     });
     setIsNoteModalOpen(true);
-  }, []);
+  }, [toast]);
 
   const handleNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -340,7 +345,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     e.preventDefault();
     setTaskSubmitting(true);
     try {
-      let [hours, minutes] = taskFormData.scheduled_time.split(':').map(Number);
+      const timeParts = taskFormData.scheduled_time.split(':').map(Number);
+      let hours = timeParts[0];
+      const minutes = timeParts[1];
       if (taskFormData.scheduled_ampm === 'PM' && hours < 12) hours += 12;
       if (taskFormData.scheduled_ampm === 'AM' && hours === 12) hours = 0;
       
@@ -370,7 +377,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           status: 'Pending'
         }])
         .select('*, crm_leads(company_name, contact_person, email, phone)')
-        .single();
+        .maybeSingle();
 
       // Code 22P02 = pg_net trigger JSON error - task was still saved, ignore it
       if (error && error.code !== '22P02') throw error;
@@ -413,9 +420,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       toast.error("Failed to delete action");
       console.error(error);
     }
-  }, [refreshLeads]);
+  }, [refreshLeads, toast]);
 
-  const deleteRecentNote = useCallback(async (lead: any) => {
+  const deleteRecentNote = useCallback(async (lead: Record<string, any>) => {
     if (!confirm("Are you sure you want to delete the most recent note for this lead?")) return;
     try {
       const { data: recentNotes, error: fetchErr } = await supabase
@@ -466,7 +473,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       toast.error("Failed to delete recent note");
       console.error(error);
     }
-  }, [refreshLeads]);
+  }, [refreshLeads, toast]);
 
   const openAddModal = () => {
     setIsEditMode(false);
@@ -486,7 +493,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     setIsModalOpen(true);
   };
 
-  const openEditModal = useCallback((lead: any) => {
+  const openEditModal = useCallback((lead: Record<string, any>) => {
     setIsEditMode(true);
     setEditingLeadId(lead.id);
     setFormData({
@@ -518,8 +525,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         : formData.estimated_value;
 
       // Smart name fallback
-      let finalCompany = formData.company_name.trim();
-      let finalContact = formData.contact_person.trim() || finalCompany;
+      const finalCompany = formData.company_name.trim();
+      const finalContact = formData.contact_person.trim() || finalCompany;
 
       const dataToSave = { 
         contact_person: finalContact,
@@ -566,7 +573,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
   const updateLeadStage = useCallback(async (leadId: string, currentStageKey: string, direction: 'forward' | 'backward') => {
     const currentIndex = STAGES.findIndex(s => s.key === currentStageKey || s.aliases.includes(currentStageKey));
-    let nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
+    const nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
 
     if (nextIndex < 0 || nextIndex >= STAGES.length) return;
 
@@ -586,7 +593,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       toast.error("Failed to update stage");
       console.error(error);
     }
-  }, [refreshLeads]);
+  }, [refreshLeads, toast]);
 
   const deleteLead = useCallback(async (id: string) => {
     if (!confirm("Are you sure you want to delete this lead?")) return;
@@ -600,7 +607,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       toast.error("Failed to delete lead");
       console.error(error);
     }
-  }, [refreshLeads]);
+  }, [refreshLeads, toast]);
 
   const unmappedLeads = useMemo(() => leads.filter(l => 
     !STAGES.some(s => s.key === l.status || s.aliases.includes(l.status)) &&
@@ -628,7 +635,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     );
   }, [leads, filterSalesperson, isSalesperson, user?.id]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   const memoizedPipelineBoard = useMemo(() => (
     <div className="flex-1 overflow-x-auto pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto">
       <div className="flex gap-4 lg:gap-6 h-full min-w-max pb-4 px-4">
@@ -836,14 +843,14 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                       </div>
 
                       {/* Display Next Scheduled Action */}
-                      {lead.crm_tasks && lead.crm_tasks.some((t: any) => t.status === 'Pending') && (
+                      {lead.crm_tasks && lead.crm_tasks.some((t: Record<string, any>) => t.status === 'Pending') && (
                         <div className="mt-2.5 p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                           <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Upcoming Action</p>
                           {lead.crm_tasks
-                            .filter((t: any) => t.status === 'Pending')
+                            .filter((t: Record<string, any>) => t.status === 'Pending')
                             .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
                             .slice(0, 1)
-                            .map((task: any) => (
+                            .map((task: Record<string, any>) => (
                               <div key={task.id} className="space-y-1.5">
                                 <div className="flex items-center justify-between gap-1.5">
                                   <div className="flex items-center gap-1.5 min-w-0">
@@ -929,7 +936,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                           className={`px-2 py-2.5 bg-gradient-to-r ${stage.color} hover:brightness-110 text-white rounded-xl font-black text-[9px] uppercase tracking-wider shadow-lg shadow-indigo-600/15 transition-all active:scale-95 flex items-center justify-center gap-1`}
                         >
                           <Plus size={12} />
-                          {lead.crm_tasks && lead.crm_tasks.some((t: any) => t.status === 'Pending') ? 'Update Action' : 'Schedule Action'}
+                          {lead.crm_tasks && lead.crm_tasks.some((t: Record<string, any>) => t.status === 'Pending') ? 'Update Action' : 'Schedule Action'}
                         </button>
                       </div>
 
@@ -1530,7 +1537,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         </div>
       )}
       {/* Toast Notifications */}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
     </div>
   );
 }

@@ -7,7 +7,7 @@ import type { Project, ProjectStage, TimelineLog, Designation } from '@/types';
 import { PipelineBar } from '@/components/PipelineBar';
 import { StageCard } from '@/components/StageCard';
 import { ProjectInfoModal } from '@/components/ProjectInfoModal';
-import { ToastContainer } from '@/components/Toast';
+
 import { useToast } from '@/hooks/useToast';
 import { ChevronLeft, Info, Code, Clock, Sparkles, ShieldAlert, Users } from 'lucide-react';
 
@@ -15,7 +15,7 @@ export default function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toasts, toast, removeToast } = useToast();
+  const { toast } = useToast();
 
   const [project, setProject] = useState<(Project & { project_stages: ProjectStage[] }) | null>(null);
   const [logs, setLogs] = useState<TimelineLog[]>([]);
@@ -380,7 +380,7 @@ export default function ProjectWorkspacePage() {
         <ProjectInfoModal project={project} onClose={() => setInfoModalOpen(false)} />
       )}
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
     </div>
   );
 }

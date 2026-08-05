@@ -113,17 +113,17 @@ describe('CRMLeads', () => {
     expect(screen.getByText('Beta LLC')).toBeInTheDocument();
   });
 
-  it('shows Delete All button for admin users', () => {
+  it('shows Delete Leads button for admin users', () => {
     renderLeads();
-    expect(screen.getByText('Delete All')).toBeInTheDocument();
+    expect(screen.getByText('Delete Leads')).toBeInTheDocument();
   });
 
-  it('hides Delete All button for partner (non-admin) users', () => {
+  it('shows Delete Leads button for partner (non-admin) users', () => {
     mockUser.mockReturnValue({
       user: { id: 'user-2', workspace_id: 'ws-1', role: 'partner', designation: 'Business Strategy & Marketing Team' },
     });
     renderLeads();
-    expect(screen.queryByText('Delete All')).not.toBeInTheDocument();
+    expect(screen.getByText('Delete Leads')).toBeInTheDocument();
   });
 
   it('shows Owner filter for admin users', () => {

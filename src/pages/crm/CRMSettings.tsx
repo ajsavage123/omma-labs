@@ -8,14 +8,13 @@ import { useState, useEffect } from 'react';
 
 export default function CRMSettings() {
   const { user, supabaseUser } = useAuth();
-  const [pushStatus, setPushStatus] = useState<string>('default');
-  const [isSubscribing, setIsSubscribing] = useState(false);
-
-  useEffect(() => {
-    if ('Notification' in window) {
-      setPushStatus(Notification.permission);
+  const [pushStatus, setPushStatus] = useState<string>(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission;
     }
-  }, []);
+    return 'default';
+  });
+  const [isSubscribing, setIsSubscribing] = useState(false);
 
   const handleEnablePush = async () => {
     setIsSubscribing(true);

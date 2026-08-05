@@ -4,8 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 
 // Mock recharts
 vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  BarChart: ({ children }: any) => <div>{children}</div>,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Bar: () => null,
   XAxis: () => null,
   YAxis: () => null,
@@ -17,6 +17,12 @@ vi.mock('recharts', () => ({
 const mockUseCRMData = vi.fn();
 vi.mock('@/contexts/CRMDataContext', () => ({
   useCRMData: () => mockUseCRMData(),
+}));
+
+// Mock useAuth
+const mockUseAuth = vi.fn();
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => mockUseAuth(),
 }));
 
 import CRMReports from '../CRMReports';
@@ -32,6 +38,7 @@ const renderReports = () => {
 describe('CRMReports', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({ user: { role: 'admin' } });
   });
 
   it('returns null during loading', () => {

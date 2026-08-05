@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { notificationService } from '@/utils/notificationService';
 import { useToast } from '@/hooks/useToast';
-import { ToastContainer } from '@/components/Toast';
 import { useCRMData } from '@/contexts/CRMDataContext';
 import { useAuth } from '@/hooks/useAuth';
 import { getTaskDueDate } from '@/utils/dateUtils';
@@ -9,7 +8,7 @@ import { getTaskDueDate } from '@/utils/dateUtils';
 export default function TaskNotificationManager() {
   const { user } = useAuth();
   const { tasks } = useCRMData();
-  const { toasts, toast, removeToast } = useToast();
+  const { toast } = useToast();
   const notifiedIds = useRef<Set<string>>(new Set());
   const lastSoundTimes = useRef<Map<string, number>>(new Map());
   // Record the exact moment this session started — only notify tasks that become due AFTER this point
@@ -172,6 +171,6 @@ export default function TaskNotificationManager() {
     toast.info(`${title}\n${body}`);
   };
 
-  return <div className="fixed bottom-0 right-0 z-50 pointer-events-none"><ToastContainer toasts={toasts} removeToast={removeToast} /></div>;
+  return <div className="fixed bottom-0 right-0 z-50 pointer-events-none"></div>;
 }
 
