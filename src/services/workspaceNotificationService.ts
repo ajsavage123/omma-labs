@@ -125,7 +125,7 @@ export const workspaceNotificationService = {
   formatPayload(table: string, eventType: string, record: any, user: any): WorkspaceNotificationEvent | null {
     if (!record || !user) return null;
     const currentUserId = typeof user === 'string' ? user : user.id;
-    const _userRole = typeof user === 'object' ? user.role : 'user';
+
     const id = record.id || Math.random().toString(36).substring(2, 9);
     const nowStr = new Date().toISOString();
 

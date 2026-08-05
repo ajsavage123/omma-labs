@@ -299,7 +299,7 @@ export default function CRMLeads() {
       skipEmptyLines: true,
       complete: async (results) => {
         try {
-          const newLeads = results.data.map((row: Record<string, any>) => {
+          const newLeads = (results.data as Record<string, any>[]).map((row) => {
             const matchedKeys: string[] = [];
             const getField = (keys: string[]) => {
               const key = Object.keys(row).find(k => keys.includes(k.toLowerCase().trim()));

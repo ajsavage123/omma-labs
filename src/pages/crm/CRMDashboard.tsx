@@ -1,7 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Loader2, TrendingUp, Clock, AlertCircle, Briefcase, IndianRupee, CheckCircle2 } from "lucide-react";
-import { useMemo } from "react";
 import { useCRMData } from "@/contexts/CRMDataContext";
 
 export default function CRMDashboard() {

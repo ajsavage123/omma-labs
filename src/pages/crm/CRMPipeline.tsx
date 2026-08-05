@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-type CRMLead = Record<string, any>;
-type CRMTask = Record<string, any>;
 type GoogleAccount = { email: string; name: string; expiresAt: number; [key: string]: any };
 
 import { useSearchParams } from "react-router-dom";

@@ -4,7 +4,7 @@ import { Building, Shield, Bell } from 'lucide-react';
 import SupabaseQuotaHealth from '@/components/admin/SupabaseQuotaHealth';
 import { pushNotificationService } from '@/services/pushNotificationService';
 import { notificationService } from '@/utils/notificationService';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function CRMSettings() {
   const { user, supabaseUser } = useAuth();

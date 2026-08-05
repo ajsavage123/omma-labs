@@ -12,9 +12,8 @@ import { googleCalendarService } from "@/services/googleCalendarService";
 
 import { getTaskDueDate } from "@/utils/dateUtils";
 
-type CRMLead = Record<string, unknown>;
-type CRMTask = Record<string, unknown>;
-type GoogleAccount = { email: string; name: string; expiresAt: number; [key: string]: unknown };
+type CRMLead = Record<string, any>;
+type GoogleAccount = { email: string; name: string; expiresAt: number; [key: string]: any };
 
 export default function CRMTasks() {
   const { user } = useAuth();
@@ -79,9 +78,9 @@ export default function CRMTasks() {
 
   useEffect(() => {
     const accounts = googleCalendarService.getLinkedAccounts();
-    setLinkedAccounts(accounts);
+    setLinkedAccounts(accounts as GoogleAccount[]);
     if (accounts.length > 0) {
-      setSyncAccount(accounts[0].email);
+      setSyncAccount((accounts[0] as GoogleAccount).email);
     }
   }, [isModalOpen]);
 
@@ -89,7 +88,7 @@ export default function CRMTasks() {
     if (formData.lead_id) {
       const selectedLead = leads.find(l => l.id === formData.lead_id);
       if (selectedLead?.email) {
-        setAttendeesInput(selectedLead.email);
+        setAttendeesInput(String(selectedLead.email));
       } else {
         setAttendeesInput("");
       }
@@ -417,8 +416,8 @@ export default function CRMTasks() {
                   >
                     <option value="" className="bg-background text-foreground">No lead linked</option>
                     {leads.map(lead => (
-                      <option key={lead.id} value={lead.id} className="bg-background text-foreground">
-                        {lead.company_name || lead.contact_person} {lead.contact_person && lead.contact_person !== lead.company_name ? `(${lead.contact_person})` : ''}
+                      <option key={String(lead.id)} value={String(lead.id)} className="bg-background text-foreground">
+                        {String(lead.company_name || lead.contact_person || '')} {lead.contact_person && lead.contact_person !== lead.company_name ? `(${lead.contact_person})` : ''}
                       </option>
                     ))}
                   </select>
