@@ -16,21 +16,26 @@ BEGIN
   user_role := COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), 'service_role');
 
   -- We use pg_net to call the edge function asynchronously.
-  SELECT net.http_post(
-      url:='https://uswknwkxdzkrkaimwqvf.supabase.co/functions/v1/send-push',
-      headers:=jsonb_build_object(
-        'Content-Type', 'application/json',
-        'webhook-secret', 'my-super-secret-webhook-key',
-        'Authorization', 'Bearer ' || user_role
-      ),
-      body:=json_build_object(
-        'type', TG_OP,
-        'table', TG_TABLE_NAME,
-        'schema', TG_TABLE_SCHEMA,
-        'record', row_to_json(NEW),
-        'old_record', CASE WHEN TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN row_to_json(OLD) ELSE null END
-      )::jsonb
-  ) INTO request_id;
+  BEGIN
+    SELECT net.http_post(
+        url:='https://uswknwkxdzkrkaimwqvf.supabase.co/functions/v1/send-push',
+        headers:=jsonb_build_object(
+          'Content-Type', 'application/json',
+          'webhook-secret', 'my-super-secret-webhook-key',
+          'Authorization', 'Bearer ' || user_role
+        ),
+        body:=json_build_object(
+          'type', TG_OP,
+          'table', TG_TABLE_NAME,
+          'schema', TG_TABLE_SCHEMA,
+          'record', row_to_json(NEW),
+          'old_record', CASE WHEN TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN row_to_json(OLD) ELSE null END
+        )::jsonb
+    ) INTO request_id;
+  EXCEPTION WHEN OTHERS THEN
+    -- Silently ignore pg_net exceptions so we don't crash the main transaction
+    RAISE WARNING 'Push webhook failed: %', SQLERRM;
+  END;
 
   RETURN NEW;
 END;

@@ -583,13 +583,23 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         .update({ status: nextStageKey })
         .eq('id', leadId);
 
-      if (error) throw error;
+      // Code 22P02 = pg_net trigger JSON error - lead was still updated, ignore it
+      if (error && error.code !== '22P02') throw error;
+      if (error?.code === '22P02') {
+        console.warn('[CRM] Push webhook trigger has a JSON config issue. Lead stage was updated. Fix setup_push_webhook.sql on Supabase.');
+      }
 
       toast.success(`Moved to ${STAGES[nextIndex].name}`);
       refreshLeads();
-    } catch (error) {
+    } catch (error: any) {
       toast.error("Failed to update stage");
-      console.error(error);
+      console.error("[PIPELINE MOVE ERROR] Details:", {
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        fullError: error
+      });
     }
   }, [refreshLeads, toast]);
 

@@ -58,17 +58,6 @@ BEGIN
       FROM public.users
       WHERE workspace_id = NEW.workspace_id AND role = 'admin' AND id != auth.uid();
     END IF;
-  ELSIF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
-    -- Notify Assignee of stage change, if the assignee didn't move it themselves
-    IF NEW.assigned_to IS NOT NULL AND NEW.assigned_to != auth.uid() THEN
-      INSERT INTO public.notifications (workspace_id, user_id, category, title, body, target_url, is_read)
-      VALUES (NEW.workspace_id, NEW.assigned_to, 'lead', '🚀 Lead Stage Moved', company || ' moved to "' || NEW.status || '"', '/crm/pipeline', false);
-    END IF;
-    -- Notify the Creator of stage change, if the creator didn't move it themselves and isn't the assignee
-    IF NEW.created_by IS NOT NULL AND NEW.created_by != auth.uid() AND NEW.created_by != NEW.assigned_to THEN
-      INSERT INTO public.notifications (workspace_id, user_id, category, title, body, target_url, is_read)
-      VALUES (NEW.workspace_id, NEW.created_by, 'lead', '🚀 Lead Stage Moved', company || ' moved to "' || NEW.status || '"', '/crm/pipeline', false);
-    END IF;
   END IF;
 
   RETURN NEW;
@@ -77,7 +66,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS after_lead_change ON public.crm_leads;
 CREATE TRIGGER after_lead_change
-AFTER INSERT OR UPDATE OF status ON public.crm_leads
+AFTER INSERT ON public.crm_leads
 FOR EACH ROW EXECUTE FUNCTION trigger_lead_notification();
 
 
