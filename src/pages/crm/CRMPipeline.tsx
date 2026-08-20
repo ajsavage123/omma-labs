@@ -626,7 +626,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     (!isSalesperson || l.assigned_to === user?.id)
   ), [scoredLeads, filterSalesperson, isSalesperson, user?.id]);
 
-  const handleAction = useCallback((type: 'call' | 'wa' | 'mail', detail: string) => {
+  const handleAction = useCallback((type: 'call' | 'wa' | 'mail', detail?: string) => {
     if (!detail || detail.trim() === '' || detail.toLowerCase() === 'none' || detail.toLowerCase() === 'n/a') return;
     if (type === 'call') {
       window.location.href = `tel:${detail}`;
