@@ -5,15 +5,6 @@ export const SplashScreen: React.FC = () => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    let minTimePassed = false;
-    let appReady = false;
-
-    const checkReady = () => {
-      if (minTimePassed && appReady) {
-        setIsVisible(false);
-      }
-    };
-
     const timer = setTimeout(() => {
       setIsVisible(false);
     }, 2200);
