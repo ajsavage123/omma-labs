@@ -22,6 +22,7 @@ import {
   Edit2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { OomaLogo } from '@/components/OomaLogo';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
@@ -122,16 +123,17 @@ export default function AdminDashboardPage() {
     try {
       const { crmAccessService } = await import('@/services/crmAccessService');
       await crmAccessService.updateRequestStatus(requestId, approve ? 'approved' : 'rejected');
+      toast.success(approve ? "CRM Access Approved" : "CRM Access Rejected");
       await fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to process request.");
+      toast.error(err?.message || "Failed to process request.");
     }
   };
 
   const handleGenerateInvite = async () => {
     if (!user?.workspace_id || newInviteData.designations.length === 0) {
-      alert("Please select at least one department.");
+      toast.error("Please select at least one department.");
       return;
     }
     setGenerating(true);
@@ -144,13 +146,13 @@ export default function AdminDashboardPage() {
       
       // Copy to clipboard
       await navigator.clipboard.writeText(invite.code);
-      alert(`Invite created and code copied to clipboard: ${invite.code}`);
+      toast.success(`Invite created and copied to clipboard: ${invite.code}`);
       
       // Refresh invites
       await fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create invite', err);
-      alert('Failed to generate invite code. Check console.');
+      toast.error(err?.message || 'Failed to generate invite code.');
     } finally {
       setGenerating(false);
     }
@@ -160,10 +162,11 @@ export default function AdminDashboardPage() {
     if (!window.confirm("Are you sure you want to delete this invitation?")) return;
     try {
       await adminService.deleteInvite(inviteId);
+      toast.success("Invitation deleted.");
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete invite", error);
-      alert("Failed to delete invitation.");
+      toast.error(error?.message || "Failed to delete invitation.");
     }
   };
 
@@ -346,11 +349,9 @@ export default function AdminDashboardPage() {
         <div className="flex items-center">
           <button 
             onClick={() => navigate('/')} 
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold active:scale-90 transition-all"
-            title="Back to Dashboard"
+            className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white active:scale-90 transition-all"
           >
             <ChevronLeft className="h-5 w-5" />
-            <span className="hidden sm:inline">Dashboard</span>
           </button>
         </div>
         

@@ -253,11 +253,9 @@ export default function ServiceMenuCardPage() {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate('/ideas')} 
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold transition-all active:scale-95"
-            title="Back to Tools Space"
+            className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white transition-all active:scale-95"
           >
             <ChevronLeft size={20} />
-            <span className="hidden sm:inline">Tools Space</span>
           </button>
           <div className="flex flex-col">
             <h1 className="text-[14px] font-black uppercase text-white tracking-tight flex items-center gap-2">

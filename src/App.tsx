@@ -53,17 +53,15 @@ import { CRMDataProvider } from '@/contexts/CRMDataContext';
 
 import CommissionCalculatorPage from '@/pages/CommissionCalculatorPage';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
 function App() {
   useEffect(() => {
-    // Validate VAPID key on startup — surfaces missing-key errors early in dev console.
-    // We do NOT auto-request notification permission here.
-    // Permission is requested only when the user explicitly clicks "Enable Push"
-    // in the NotificationCenterWidget.
     pushNotificationService.validateEnvironment();
   }, []);
 
   return (
-    <>
+    <ErrorBoundary>
       <SplashScreen />
       <AuthProvider>
       <BrowserRouter>
@@ -102,7 +100,7 @@ function App() {
         </CRMDataProvider>
       </BrowserRouter>
     </AuthProvider>
-    </>
+    </ErrorBoundary>
   );
 }
 

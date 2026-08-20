@@ -82,11 +82,9 @@ export default function LiveOfficePage() {
         <div className="flex items-center gap-6">
           <Link 
             to="/" 
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group text-xs font-bold text-gray-400 hover:text-white"
-            title="Back to Dashboard"
+            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all group"
           >
             <ChevronLeft className="h-5 w-5 text-gray-400 group-hover:text-white" />
-            <span className="hidden sm:inline">Dashboard</span>
           </Link>
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-3">

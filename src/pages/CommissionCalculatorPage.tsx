@@ -222,10 +222,9 @@ export default function CommissionCalculatorPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/admin')}
-            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 text-gray-400 hover:text-white transition-all active:scale-95 flex items-center gap-1 text-xs font-bold"
+            className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 text-gray-400 hover:text-white transition-all active:scale-95"
           >
-            <ChevronLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Admin Panel</span>
+            <ChevronLeft className="h-5 w-5" />
           </button>
         </div>
 

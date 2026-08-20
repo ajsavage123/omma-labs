@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 interface CRMDataContextType {
   leads: any[];
@@ -60,8 +61,9 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
         .eq('workspace_id', workspaceId);
       if (error) throw error;
       setTeamMembers(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching team members:", err);
+      toast.error(err?.message || "Failed to load team members");
     }
   }, [workspaceId]);
 
@@ -87,8 +89,9 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
       setLeads(sortedData);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching leads:", err);
+      toast.error(err?.message || "Failed to load leads");
     }
   }, [workspaceId, userId, isAdmin]);
 
@@ -113,8 +116,9 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
       setTasks(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching tasks:", err);
+      toast.error(err?.message || "Failed to load tasks");
     }
   }, [workspaceId, userId, isAdmin]);
 
@@ -138,8 +142,9 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       
       if (error) throw error;
       setActivities(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching activities:", err);
+      toast.error(err?.message || "Failed to load activity log");
     }
   }, [workspaceId, userId, isAdmin]);
 

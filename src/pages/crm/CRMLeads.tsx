@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { useLeadScoring } from "@/hooks/useLeadScoring";
 import { formatUrl } from "../../utils/formatUrl";
+import { DataErrorBanner } from "@/components/DataErrorBanner";
 
 const STAGE_COLORS: Record<string, string> = {
   'New Leads': 'bg-blue-500',
@@ -462,6 +463,12 @@ export default function CRMLeads() {
 
   return (
     <div className="space-y-6">
+      {loading === false && leads.length === 0 && (
+        <DataErrorBanner 
+          message="No CRM leads loaded or database query returned 0 records." 
+          onRetry={refreshLeads} 
+        />
+      )}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground leading-tight">Leads</h1>

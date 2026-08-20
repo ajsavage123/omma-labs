@@ -13,6 +13,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
+import { DataErrorBanner } from '@/components/DataErrorBanner';
 import { Link, useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
 import { useToast } from '@/hooks/useToast';
@@ -35,6 +36,7 @@ export default function MeetingSchedulerPage() {
   const { toast } = useToast();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -46,18 +48,21 @@ export default function MeetingSchedulerPage() {
   });
 
   useEffect(() => {
-    if (user?.workspace_id) {
-      fetchMeetings();
-    }
+    fetchMeetings();
   }, [user?.workspace_id]);
 
   const fetchMeetings = async () => {
     if (!user?.workspace_id) return;
+    setLoading(true);
+    setError(null);
     try {
       const data = await dataService.getMeetings(user.workspace_id);
       setMeetings(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Fetch meetings failed', err);
+      const msg = err?.message || 'Failed to connect to database or fetch meetings.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -132,15 +137,17 @@ export default function MeetingSchedulerPage() {
 
       <main className="flex-1 flex flex-col pt-4 md:pt-0 overflow-y-auto">
         <div className="max-w-6xl mx-auto w-full px-6 py-4 md:py-10">
+          {error && (
+            <DataErrorBanner message={error} onRetry={fetchMeetings} />
+          )}
+
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-10 gap-6">
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => navigate('/')}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-gray-400 hover:text-white active:scale-95 transition-all text-xs font-bold"
-                title="Back to Dashboard"
+                className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-gray-400 hover:text-white active:scale-95 transition-all"
               >
                 <ChevronLeft className="h-5 w-5" />
-                <span className="hidden sm:inline">Dashboard</span>
               </button>
               <div>
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-3 md:gap-4">

@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { dataService } from '@/services/dataService';
 import type { ClientContact } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { 
   ChevronLeft, 
   Users, 
@@ -18,11 +19,14 @@ import {
   Check
 } from 'lucide-react';
 
+import { DataErrorBanner } from '@/components/DataErrorBanner';
+
 export default function ClientContactsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<ClientContact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Form State
@@ -50,11 +54,16 @@ export default function ClientContactsPage() {
 
   const fetchContacts = async () => {
     if (!user?.workspace_id) return;
+    setLoading(true);
+    setError(null);
     try {
       const data = await dataService.getClientContacts(user.workspace_id);
       setContacts(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load contacts', err);
+      const msg = err?.message || 'Failed to connect to database or fetch contacts.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -67,6 +76,7 @@ export default function ClientContactsPage() {
     setCreating(true);
     try {
       await dataService.createClientContact(newName, newNumber, newWebsite, newEmail, newAbout, newStatus, user.workspace_id);
+      toast.success('Contact created successfully');
       setIsModalOpen(false);
       setNewName('');
       setNewNumber('');
@@ -75,9 +85,9 @@ export default function ClientContactsPage() {
       setNewAbout('');
       setNewStatus('offline');
       fetchContacts();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Creation failed', err);
-      alert('Failed to save contact');
+      toast.error(err?.message || 'Failed to save contact');
     } finally {
       setCreating(false);
     }
@@ -88,10 +98,10 @@ export default function ClientContactsPage() {
     try {
       await dataService.deleteClientContact(id);
       setContacts(contacts.filter(c => c.id !== id));
-      alert('Contact deleted successfully');
+      toast.success('Contact deleted');
     } catch (err: any) {
       console.error('Delete failed', err);
-      alert('Failed to delete: ' + (err.message || 'Unknown error'));
+      toast.error(err?.message || 'Failed to delete contact');
     }
   };
 
@@ -108,11 +118,9 @@ export default function ClientContactsPage() {
       <header className="sticky top-0 z-40 bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 h-16 flex items-center justify-between px-4">
         <button 
           onClick={() => navigate('/')} 
-          className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold active:scale-90 transition-all"
-          title="Back to Dashboard"
+          className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white active:scale-90 transition-all"
         >
           <ChevronLeft className="h-5 w-5" />
-          <span className="hidden sm:inline">Dashboard</span>
         </button>
         
         <div className="flex flex-col items-center">
@@ -139,6 +147,10 @@ export default function ClientContactsPage() {
           />
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
         </div>
+
+        {error && (
+          <DataErrorBanner message={error} onRetry={fetchContacts} />
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20">

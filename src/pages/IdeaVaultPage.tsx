@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { dataService } from '@/services/dataService';
 import type { Idea } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { 
   ChevronLeft, 
   Plus, 
@@ -12,12 +13,14 @@ import {
   ExternalLink,
   Wrench
 } from 'lucide-react';
+import { DataErrorBanner } from '@/components/DataErrorBanner';
 
 export default function IdeaVaultPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Form State
@@ -34,11 +37,16 @@ export default function IdeaVaultPage() {
 
   const fetchIdeas = async () => {
     if (!user?.workspace_id) return;
+    setLoading(true);
+    setError(null);
     try {
       const data = await dataService.getIdeas(user.workspace_id);
       setIdeas(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load ideas', err);
+      const msg = err?.message || 'Failed to connect to database or fetch tools.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -51,13 +59,14 @@ export default function IdeaVaultPage() {
     setCreating(true);
     try {
       await dataService.createIdea(newName, newLink, user.workspace_id);
+      toast.success('Tool added successfully');
       setIsModalOpen(false);
       setNewName('');
       setNewLink('');
       fetchIdeas();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Creation failed', err);
-      alert('Failed to save idea');
+      toast.error(err?.message || 'Failed to save tool');
     } finally {
       setCreating(false);
     }
@@ -68,7 +77,7 @@ export default function IdeaVaultPage() {
     
     // Prevent deletion of builtin system tools
     if (id.startsWith('builtin-')) {
-      alert('Built-in system tools cannot be deleted.');
+      toast.error('Built-in system tools cannot be deleted.');
       return;
     }
 
@@ -76,9 +85,10 @@ export default function IdeaVaultPage() {
     try {
       await dataService.deleteIdea(id);
       setIdeas(ideas.filter(i => i.id !== id));
+      toast.success('Tool deleted successfully');
     } catch (err: any) {
       console.error('Delete failed', err);
-      alert('Failed to delete: ' + (err.message || 'Unknown error'));
+      toast.error(err?.message || 'Failed to delete tool');
     }
   };
 
@@ -112,11 +122,9 @@ export default function IdeaVaultPage() {
       <header className="sticky top-0 z-40 bg-[#0c0c0e]/90 backdrop-blur-2xl border-b border-white/5 h-16 flex items-center justify-between px-6">
         <button 
           onClick={() => navigate('/')} 
-          className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold active:scale-95 transition-all"
-          title="Back to Dashboard"
+          className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white active:scale-95 transition-all"
         >
           <ChevronLeft className="h-5 w-5" />
-          <span className="hidden sm:inline">Dashboard</span>
         </button>
         
         <div className="flex flex-col items-center">
@@ -130,6 +138,10 @@ export default function IdeaVaultPage() {
       </header>
 
       <main className="flex-1 p-5 md:p-10 max-w-7xl mx-auto w-full relative z-10">
+        {error && (
+          <DataErrorBanner message={error} onRetry={fetchIdeas} />
+        )}
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
           <div className="space-y-1">
             <h2 className="text-3xl font-black tracking-tight text-white">Resource Vault</h2>

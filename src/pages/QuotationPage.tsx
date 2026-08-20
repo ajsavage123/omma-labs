@@ -461,12 +461,10 @@ export default function QuotationPage() {
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/ideas')} 
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-300 hover:text-white transition-all text-xs font-bold active:scale-95" 
+            className="p-2 rounded-lg transition-all text-gray-300 hover:text-white active:scale-95" 
             style={{ background: 'rgba(255,255,255,0.1)' }}
-            title="Back to Tools Space"
           >
             <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-            <span className="hidden sm:inline">Tools Space</span>
           </button>
           <div className="flex items-center gap-2.5 ml-1 md:ml-2">
             <div className="w-6 h-6 md:w-7 md:h-7">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { 
   ChevronLeft, Copy, Download, Check, Trash2, FolderOpen,
   User, Lightbulb, Target, Code, LayoutList, Gavel, 
@@ -355,9 +356,10 @@ export default function ClientRequirementPage() {
   const copySummary = () => {
     navigator.clipboard.writeText(generatedSummary).then(() => {
       setShowCopyMsg(true);
+      toast.success('Summary copied to clipboard!');
       setTimeout(() => setShowCopyMsg(false), 2500);
     }).catch(() => {
-      alert('Failed to copy to clipboard.');
+      toast.error('Failed to copy to clipboard.');
     });
   };
 
@@ -393,11 +395,9 @@ export default function ClientRequirementPage() {
       <header className="sticky top-0 z-40 bg-[#0c0c0e]/90 backdrop-blur-2xl border-b border-white/5 h-16 flex items-center justify-between px-6">
         <button 
           onClick={() => navigate('/ideas')} 
-          className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold active:scale-95 transition-all"
-          title="Back to Tools Space"
+          className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white active:scale-95 transition-all"
         >
           <ChevronLeft className="h-5 w-5" />
-          <span className="hidden sm:inline">Tools Space</span>
         </button>
         
         <div className="flex flex-col items-center">
