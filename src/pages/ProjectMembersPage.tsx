@@ -4,7 +4,7 @@ import { adminService } from '@/services/adminService';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import type { User } from '@/types';
-import { Search, Bell, Moon, UserPlus, Filter, LayoutGrid, CheckCircle2, MapPin, Briefcase, Network, Code, TrendingUp, ChevronRight, ChevronLeft, Star, Edit2, Lightbulb } from 'lucide-react';
+import { Search, Bell, Moon, Filter, LayoutGrid, MapPin, Briefcase, Network, Code, TrendingUp, ChevronRight, ChevronLeft, Star, Edit2, Lightbulb } from 'lucide-react';
 
 import { useToast } from '@/hooks/useToast';
 import { OomaLogo } from '@/components/OomaLogo';
@@ -393,17 +393,17 @@ export default function ProjectMembersPage() {
           <div className="space-y-10">
             {/* 👑 1. Leadership & Executive Section */}
             {ceo && (activeFilter === 'All' || activeFilter === getNormalizedDepartment(ceo.designation)) && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-amber-500/20">
-                  <Star className="h-5 w-5 text-amber-400 fill-amber-400/30" />
-                  <h2 className="text-lg font-black tracking-tight text-white uppercase">Executive Board & Leadership</h2>
-                  <span className="ml-auto text-[10px] font-black uppercase tracking-widest bg-amber-500/10 border border-amber-500/30 text-amber-400 px-2.5 py-0.5 rounded-full">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1.5 border-b border-amber-500/20">
+                  <Star className="h-4 w-4 text-amber-400 fill-amber-400/30" />
+                  <h2 className="text-sm font-bold tracking-tight text-white uppercase">Executive Board & Leadership</h2>
+                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/30 text-amber-400 px-2 py-0.5 rounded-full">
                     Executive
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {/* CEO Card */}
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  {/* Compact CEO Card matching department cards */}
                   {(() => {
                     const member = ceo;
                     const isOnline = onlineUsers.has(member.id);
@@ -411,44 +411,49 @@ export default function ProjectMembersPage() {
                     const isOwnProfile = user?.id === member.id;
                     const isEditing = isOwnProfile && editingMember === member.id;
                     const theme = {
-                      cardBg: 'bg-gradient-to-b from-amber-950/60 via-[#1c1917] to-[#09090b]',
-                      border: 'border-amber-500/60 hover:border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.15)]',
+                      cardBg: 'bg-gradient-to-b from-amber-950/40 via-[#18181b] to-[#09090b]',
+                      border: 'border-amber-500/50 hover:border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]',
                       avatarBg: 'from-yellow-400 via-amber-500 to-orange-600',
-                      avatarText: 'text-[#1c1917] font-black',
-                      badge: 'bg-amber-500/20 text-yellow-300 border-amber-500/40 shadow-inner',
-                      accent: 'text-yellow-400',
-                      btn: 'bg-amber-500/20 border-amber-500/40 hover:bg-amber-500 hover:text-black hover:border-amber-400'
+                      avatarText: 'text-amber-950 font-black',
+                      badge: 'bg-amber-500/20 text-yellow-300 border-amber-500/40',
+                      accent: 'text-amber-400',
                     };
 
                     return (
-                      <div key={member.id} className="contents">
-                        {/* Mobile CEO Card */}
-                        <div className={`sm:hidden ${theme.cardBg} rounded-2xl p-4 border ${theme.border} shadow-xl relative overflow-hidden backdrop-blur-xl transition-all active:scale-[0.99]`}>
-                          <div className="flex items-center gap-3">
-                            <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${theme.avatarBg} border border-white/20 flex items-center justify-center overflow-hidden shrink-0 shadow-lg`}>
-                              <span className={`text-base font-black ${theme.avatarText} tracking-tighter`}>
+                      <div key={member.id} className={`flex flex-col justify-between ${theme.cardBg} rounded-[16px] sm:rounded-[20px] p-3 sm:p-5 border ${theme.border} shadow-xl hover:-translate-y-1 transition-all relative group overflow-hidden h-full min-h-[180px] sm:min-h-[220px] w-full`}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-3">
+                          <div className="flex items-center justify-between w-full sm:w-auto">
+                            <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br ${theme.avatarBg} border border-white/20 flex items-center justify-center shrink-0 shadow-md`}>
+                              <span className={`text-sm sm:text-base font-black ${theme.avatarText}`}>
                                 {member.full_name?.substring(0, 2).toUpperCase() || member.username?.substring(0, 2).toUpperCase()}
                               </span>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <h3 className="text-sm font-extrabold text-white tracking-tight truncate">{member.full_name || member.username}</h3>
-                                <CheckCircle2 className={`h-3.5 w-3.5 ${theme.accent} shrink-0`} />
-                              </div>
-                              <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${theme.badge}`}>
-                                Founder & CEO
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 border border-white/10">
-                              <div className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`}></div>
-                              <span className="text-[9px] font-bold text-gray-300 uppercase">{isOnline ? 'Active' : 'Offline'}</span>
+                            <div className="flex flex-col items-end gap-1 shrink-0 sm:hidden">
+                              <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-gray-500'}`}></div>
+                              {isOwnProfile && !isEditing && (
+                                <button
+                                  onClick={() => {
+                                    setEditingMember(member.id);
+                                    setEditName(member.full_name || '');
+                                    setEditSkills(member.skills || '');
+                                    setEditLocation(member.location || '');
+                                  }}
+                                  className="p-1 text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[9px]"
+                                  title="Edit Profile"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </button>
+                              )}
                             </div>
                           </div>
-                        </div>
-
-                        {/* Desktop CEO Card */}
-                        <div className={`hidden sm:flex ${theme.cardBg} rounded-[24px] p-6 border ${theme.border} shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex-col relative group overflow-hidden backdrop-blur-xl`}>
-                          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+                          <div className="flex-1 min-w-0 w-full sm:w-auto">
+                            <h3 className="text-xs sm:text-sm font-extrabold text-white truncate">{member.full_name || member.username}</h3>
+                            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${theme.badge} inline-block mt-0.5`}>
+                              Founder & CEO
+                            </span>
+                          </div>
+                          <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                            <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-gray-500'}`}></div>
                             {isOwnProfile && !isEditing && (
                               <button
                                 onClick={() => {
@@ -457,47 +462,67 @@ export default function ProjectMembersPage() {
                                   setEditSkills(member.skills || '');
                                   setEditLocation(member.location || '');
                                 }}
-                                className="p-1.5 text-gray-400 hover:text-white bg-white/5 border border-white/10 rounded-full transition-colors"
+                                className="p-1 text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[9px]"
+                                title="Edit Profile"
                               >
                                 <Edit2 className="h-3 w-3" />
                               </button>
                             )}
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 border border-white/10">
-                              <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`}></div>
-                              <span className="text-[10px] font-bold text-gray-300 uppercase">{isOnline ? 'Online' : 'Offline'}</span>
-                            </div>
                           </div>
-
-                          <div className="flex flex-col items-center mt-2 mb-5">
-                            <div className={`h-20 w-20 rounded-2xl bg-gradient-to-br ${theme.avatarBg} border-2 border-white/20 flex items-center justify-center overflow-hidden mb-3.5 relative shadow-xl`}>
-                              <span className={`text-2xl font-black ${theme.avatarText} tracking-tighter`}>
-                                {member.full_name?.substring(0, 2).toUpperCase() || member.username?.substring(0, 2).toUpperCase()}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <h3 className="text-base font-extrabold text-white tracking-tight">{member.full_name || member.username}</h3>
-                              <CheckCircle2 className={`h-4 w-4 ${theme.accent}`} />
-                            </div>
-                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${theme.badge}`}>
-                              Founder & CEO
-                            </span>
-                            <div className="flex items-center gap-1 mt-2 text-gray-400">
-                              <MapPin className="h-3 w-3 text-gray-500" />
-                              <span className="text-[11px] font-medium">{member.location || 'Hyderabad'}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap justify-center gap-1.5 mb-6">
-                            {skills.map((skill: string, i: number) => (
-                              <span key={i} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-[10px] font-semibold text-gray-300">
-                                {skill}
-                              </span>
-                            ))}
-                          </div>
-                          <button className={`w-full py-2.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500 hover:text-black rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2`}>
-                            Executive Directory <ChevronRight className="h-4 w-4" />
-                          </button>
                         </div>
+                        {isEditing ? (
+                          <div className="space-y-2 my-2 p-2 bg-black/40 border border-amber-500/30 rounded-xl">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              placeholder="Full Name"
+                              className="w-full bg-[#09090b] border border-amber-500/50 rounded px-2 py-1 text-xs text-white"
+                            />
+                            <input
+                              type="text"
+                              value={editLocation}
+                              onChange={(e) => setEditLocation(e.target.value)}
+                              placeholder="Location"
+                              className="w-full bg-[#09090b] border border-amber-500/50 rounded px-2 py-1 text-xs text-white"
+                            />
+                            <input
+                              type="text"
+                              value={editSkills}
+                              onChange={(e) => setEditSkills(e.target.value)}
+                              placeholder="Skills (comma separated)"
+                              className="w-full bg-[#09090b] border border-amber-500/50 rounded px-2 py-1 text-xs text-white"
+                            />
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={() => handleUpdateProfile(member.id)}
+                                className="flex-1 bg-amber-500 hover:bg-amber-400 text-black py-1 rounded-lg text-xs font-bold"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingMember(null)}
+                                className="px-3 bg-gray-800 text-gray-300 rounded-lg text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col justify-between flex-1 mt-1">
+                            <div className="flex items-center gap-1 text-gray-400 text-xs mb-3">
+                              <MapPin className="h-3 w-3 text-gray-500" />
+                              <span>{member.location || 'Hyderabad'}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-white/5">
+                              {skills.map((skill: string, i: number) => (
+                                <span key={i} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[9px] font-medium text-gray-300">
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -524,7 +549,7 @@ export default function ProjectMembersPage() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                       {membersInDept.map(member => {
                         const isOnline = onlineUsers.has(member.id);
                         const skills = member.skills ? member.skills.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
@@ -532,63 +557,82 @@ export default function ProjectMembersPage() {
                         const isEditing = isOwnProfile && editingMember === member.id;
 
                         let theme = {
-                          cardBg: 'bg-gradient-to-b from-[#1c1917]/90 via-[#18181b] to-[#09090b]',
-                          border: 'border-amber-500/30 hover:border-amber-500/70',
-                          avatarBg: 'from-amber-400 via-amber-500 to-orange-600',
-                          avatarText: 'text-amber-950 font-black',
-                          badge: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
-                          accent: 'text-amber-400',
-                          btn: 'hover:bg-amber-500 hover:border-amber-400'
+                          cardBg: 'bg-gradient-to-b from-indigo-950/40 via-[#18181b] to-[#09090b]',
+                          border: 'border-indigo-500/30 hover:border-indigo-400',
+                          avatarBg: 'from-indigo-500 via-purple-500 to-indigo-700',
+                          avatarText: 'text-white font-black',
+                          badge: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30',
+                          accent: 'text-indigo-400',
+                          btn: 'hover:bg-indigo-600 hover:border-indigo-500'
                         };
 
                         if (deptName === 'Marketing & Business') {
                           theme = {
-                            cardBg: 'bg-gradient-to-b from-lime-950/40 via-[#18181b] to-[#09090b]',
-                            border: 'border-lime-500/30 hover:border-lime-400',
-                            avatarBg: 'from-lime-500 via-emerald-500 to-green-600',
-                            avatarText: 'text-lime-950 font-black',
-                            badge: 'bg-lime-500/10 text-lime-300 border-lime-500/30',
-                            accent: 'text-lime-400',
-                            btn: 'hover:bg-lime-600 hover:border-lime-500'
+                            cardBg: 'bg-gradient-to-b from-purple-950/40 via-[#18181b] to-[#09090b]',
+                            border: 'border-purple-500/30 hover:border-purple-400',
+                            avatarBg: 'from-purple-500 via-pink-500 to-indigo-600',
+                            avatarText: 'text-white font-black',
+                            badge: 'bg-purple-500/10 text-purple-300 border-purple-500/30',
+                            accent: 'text-purple-400',
+                            btn: 'hover:bg-purple-600 hover:border-purple-500'
                           };
                         } else if (deptName === 'Innovation Lab') {
                           theme = {
-                            cardBg: 'bg-gradient-to-b from-emerald-950/40 via-[#18181b] to-[#09090b]',
-                            border: 'border-emerald-500/30 hover:border-emerald-400',
-                            avatarBg: 'from-emerald-600 via-teal-600 to-emerald-800',
-                            avatarText: 'text-emerald-100',
-                            badge: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
-                            accent: 'text-emerald-400',
-                            btn: 'hover:bg-emerald-600 hover:border-emerald-500'
+                            cardBg: 'bg-gradient-to-b from-cyan-950/40 via-[#18181b] to-[#09090b]',
+                            border: 'border-cyan-500/30 hover:border-cyan-400',
+                            avatarBg: 'from-cyan-500 via-teal-500 to-blue-600',
+                            avatarText: 'text-white font-black',
+                            badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
+                            accent: 'text-cyan-400',
+                            btn: 'hover:bg-cyan-600 hover:border-cyan-500'
                           };
                         } else if (deptName === 'Engineering Group') {
                           theme = {
-                            cardBg: 'bg-gradient-to-b from-slate-900/80 via-[#18181b] to-[#09090b]',
-                            border: 'border-slate-400/40 hover:border-slate-200',
-                            avatarBg: 'from-slate-200 via-slate-400 to-zinc-600',
-                            avatarText: 'text-slate-950 font-black',
-                            badge: 'bg-slate-400/10 text-slate-200 border-slate-400/30',
-                            accent: 'text-slate-300',
-                            btn: 'hover:bg-slate-200 hover:text-black hover:border-white'
+                            cardBg: 'bg-gradient-to-b from-blue-950/40 via-[#18181b] to-[#09090b]',
+                            border: 'border-blue-500/30 hover:border-blue-400',
+                            avatarBg: 'from-blue-500 via-indigo-500 to-slate-700',
+                            avatarText: 'text-white font-black',
+                            badge: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+                            accent: 'text-blue-400',
+                            btn: 'hover:bg-blue-600 hover:border-blue-500'
                           };
                         }
 
                         return (
-                          <div key={member.id} className={`sm:flex ${theme.cardBg} rounded-[20px] p-5 border ${theme.border} shadow-xl hover:-translate-y-1 transition-all flex-col relative group overflow-hidden`}>
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${theme.avatarBg} border border-white/20 flex items-center justify-center shrink-0 shadow-md`}>
-                                <span className={`text-base font-black ${theme.avatarText}`}>
-                                  {member.full_name?.substring(0, 2).toUpperCase() || member.username?.substring(0, 2).toUpperCase()}
-                                </span>
+                          <div key={member.id} className={`flex flex-col justify-between ${theme.cardBg} rounded-[16px] sm:rounded-[20px] p-3 sm:p-5 border ${theme.border} shadow-xl hover:-translate-y-1 transition-all relative group overflow-hidden h-full min-h-[180px] sm:min-h-[220px] w-full`}>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-3">
+                              <div className="flex items-center justify-between w-full sm:w-auto">
+                                <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br ${theme.avatarBg} border border-white/20 flex items-center justify-center shrink-0 shadow-md`}>
+                                  <span className={`text-sm sm:text-base font-black ${theme.avatarText}`}>
+                                    {member.full_name?.substring(0, 2).toUpperCase() || member.username?.substring(0, 2).toUpperCase()}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col items-end gap-1 shrink-0 sm:hidden">
+                                  <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-gray-500'}`}></div>
+                                  {isOwnProfile && !isEditing && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingMember(member.id);
+                                        setEditName(member.full_name || '');
+                                        setEditSkills(member.skills || '');
+                                        setEditLocation(member.location || '');
+                                      }}
+                                      className="p-1 text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[9px]"
+                                      title="Edit Profile"
+                                    >
+                                      <Edit2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-sm font-extrabold text-white truncate">{member.full_name || member.username}</h3>
-                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${theme.badge} inline-block mt-0.5`}>
+                              <div className="flex-1 min-w-0 w-full sm:w-auto">
+                                <h3 className="text-xs sm:text-sm font-extrabold text-white truncate">{member.full_name || member.username}</h3>
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${theme.badge} inline-block mt-0.5`}>
                                   {member.designation || 'Member'}
                                 </span>
                               </div>
-                              <div className="flex flex-col items-end gap-1 shrink-0">
-                                <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-gray-500'}`}></div>
+                              <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                                <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-gray-500'}`}></div>
                                 {isOwnProfile && !isEditing && (
                                   <button
                                     onClick={() => {
@@ -644,7 +688,7 @@ export default function ProjectMembersPage() {
                                 </div>
                               </div>
                             ) : (
-                              <>
+                              <div className="flex flex-col justify-between flex-1 mt-1">
                                 <div className="flex items-center gap-1 text-gray-400 text-xs mb-3">
                                   <MapPin className="h-3 w-3 text-gray-500" />
                                   <span>{member.location || 'Hyderabad'}</span>
@@ -656,7 +700,7 @@ export default function ProjectMembersPage() {
                                     </span>
                                   ))}
                                 </div>
-                              </>
+                              </div>
                             )}
                           </div>
                         );
@@ -665,17 +709,6 @@ export default function ProjectMembersPage() {
                   </div>
                 );
               })}
-              {/* Invite New Member Card */}
-              <div className="bg-[#18181b] rounded-[20px] p-6 border-2 border-dashed border-[#3f3f46] flex flex-col items-center justify-center text-center hover:bg-[#27272a] hover:border-indigo-500/50 transition-colors cursor-pointer group min-h-[220px]">
-                <div className="h-12 w-12 bg-[#27272a] rounded-full flex items-center justify-center text-indigo-400 mb-3 group-hover:scale-110 transition-transform shadow-inner">
-                  <UserPlus className="h-6 w-6" />
-                </div>
-                <h3 className="text-base font-bold text-white mb-1">Invite New Member</h3>
-                <p className="text-xs text-gray-500 mb-4 max-w-[200px]">Grow your team and build great things together</p>
-                <button className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center justify-center gap-2">
-                  <UserPlus className="h-3.5 w-3.5" /> Invite Member
-                </button>
-              </div>
           </div>
         )}
 
