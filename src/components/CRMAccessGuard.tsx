@@ -72,7 +72,7 @@ export function CRMAccessGuard({ children }: CRMAccessGuardProps) {
 
         <h1 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">Access Restricted</h1>
         <p className="text-gray-400 max-w-md mb-8 text-sm leading-relaxed">
-          The <span className="text-indigo-400 font-bold">CRM Pipeline</span> is restricted for your current designation. 
+          The <span className="text-indigo-400 font-bold">CRM</span> is restricted for your current designation. 
           You must request authorization from the workspace administrator to access these sales operations.
         </p>
 

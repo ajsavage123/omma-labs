@@ -7,12 +7,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake } from "lucide-react";
 
 import { useWorkspaceUsers } from '@/hooks/useWorkspaceUsers';
 import { useToast } from '@/hooks/useToast';
 
 import { useCRMData } from '@/contexts/CRMDataContext';
+import { useLeadScoring } from '@/hooks/useLeadScoring';
 import { formatUrl } from '../../utils/formatUrl';
 import { googleCalendarService } from '@/services/googleCalendarService';
 import { getTaskDueDate } from '@/utils/dateUtils';
@@ -88,7 +89,8 @@ export default function CRMPipeline() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const { leads, loading, refreshLeads } = useCRMData();
+  const { leads, activities, tasks, loading, refreshLeads } = useCRMData();
+  const scoredLeads = useLeadScoring(leads, activities, tasks);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -190,6 +192,7 @@ export default function CRMPipeline() {
   }, [users, user?.id]);
 
   const [filterSalesperson, setFilterSalesperson] = useState<string>("All");
+  const [filterSortBy, setFilterSortBy] = useState<string>("Score");
 
   const [linkedAccounts, setLinkedAccounts] = useState<GoogleAccount[]>([]);
   const [syncToGoogle, setSyncToGoogle] = useState(false);
@@ -617,11 +620,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     }
   }, [refreshLeads, toast]);
 
-  const unmappedLeads = useMemo(() => leads.filter(l => 
+  const unmappedLeads = useMemo(() => scoredLeads.filter(l => 
     !STAGES.some(s => s.key === l.status || s.aliases.includes(l.status)) &&
     (filterSalesperson === "All" || l.assigned_to === filterSalesperson) &&
     (!isSalesperson || l.assigned_to === user?.id)
-  ), [leads, filterSalesperson, isSalesperson, user?.id]);
+  ), [scoredLeads, filterSalesperson, isSalesperson, user?.id]);
 
   const handleAction = useCallback((type: 'call' | 'wa' | 'mail', detail: string) => {
     if (!detail || detail.trim() === '' || detail.toLowerCase() === 'none' || detail.toLowerCase() === 'n/a') return;
@@ -636,12 +639,12 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   }, []);
 
   const getLeadsForStage = useCallback((stage: typeof STAGES[0]) => {
-    return leads.filter(l => 
+    return scoredLeads.filter(l => 
       (l.status === stage.key || stage.aliases.includes(l.status)) &&
       (filterSalesperson === "All" || l.assigned_to === filterSalesperson) &&
       (!isSalesperson || l.assigned_to === user?.id)
     );
-  }, [leads, filterSalesperson, isSalesperson, user?.id]);
+  }, [scoredLeads, filterSalesperson, isSalesperson, user?.id]);
 
    
   const memoizedPipelineBoard = useMemo(() => (
@@ -652,10 +655,16 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             ? [...getLeadsForStage(stage), ...unmappedLeads]
             : getLeadsForStage(stage);
           
-          const stageLeads = rawLeads.filter(l => 
+          let stageLeads = rawLeads.filter(l => 
             (l.contact_person?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
             (l.company_name?.toLowerCase() || '').includes(searchQuery.toLowerCase())
           );
+          
+          if (filterSortBy === "Score") {
+             stageLeads = stageLeads.sort((a, b) => (b.propensityScore || 0) - (a.propensityScore || 0));
+          } else {
+             stageLeads = stageLeads.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          }
           
           const totalValue = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);
 
@@ -732,6 +741,18 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                             <p className="text-[10px] text-muted-foreground font-black tracking-wider uppercase break-words">
                               {lead.contact_person}
                             </p>
+                          )}
+                          {lead.propensityScore !== undefined && (
+                            <div className={`mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              lead.propensityScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' :
+                              lead.propensityScore >= 40 ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                              'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                            }`}>
+                              {lead.propensityScore >= 75 ? <Flame size={10} /> : 
+                               lead.propensityScore >= 40 ? <Zap size={10} /> : 
+                               <Snowflake size={10} />}
+                              Score: {lead.propensityScore}
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -964,7 +985,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         })}
       </div>
     </div>
-  ), [leads, searchQuery, unmappedLeads, showInfoFor, glowingLeadId, filterSalesperson, user, currentTime, getLeadsForStage, handleAction, togglePin, openEditModal, deleteLead, updateLeadStage, openNoteModal, openTaskModal, deleteTask, deleteRecentNote]);
+  ), [scoredLeads, searchQuery, unmappedLeads, showInfoFor, glowingLeadId, filterSalesperson, filterSortBy, user, currentTime, getLeadsForStage, handleAction, togglePin, openEditModal, deleteLead, updateLeadStage, openNoteModal, openTaskModal, deleteTask, deleteRecentNote]);
 
   if (loading) return (
     <div className="h-full flex items-center justify-center">
@@ -1043,6 +1064,19 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-4 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all w-48"
             />
+          </div>
+          <div className="flex items-center gap-2 bg-background border border-input rounded-xl px-3 py-1.5 shadow-sm">
+            <label htmlFor="crm-sort-filter" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer">Sort:</label>
+            <select 
+              id="crm-sort-filter"
+              name="sortFilter"
+              value={filterSortBy}
+              onChange={(e) => setFilterSortBy(e.target.value)}
+              className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-4"
+            >
+              <option value="Score" className="bg-background text-foreground">Score (High-Low)</option>
+              <option value="Newest" className="bg-background text-foreground">Date Added</option>
+            </select>
           </div>
           <Button 
             onClick={openAddModal}

@@ -194,7 +194,7 @@ export default function CRMLayout({ children }: LayoutProps) {
 
 
   return (
-    <div className="crm-root h-screen flex overflow-hidden relative">
+    <div className="crm-root fixed inset-0 w-screen h-screen h-[100dvh] max-h-[100dvh] flex overflow-hidden bg-background">
       {/* Mobile Backdrop */}
       {isMobile && sidebarOpen && (
         <div 
@@ -209,7 +209,7 @@ export default function CRMLayout({ children }: LayoutProps) {
           isMobile 
             ? `fixed inset-y-0 left-0 z-50 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
             : `${sidebarOpen ? "w-64" : "w-20"}`
-        } bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col h-full`}
+        } bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col h-full shrink-0`}
       >
         {/* Logo Section - TIGHT & CLEAN */}
         <div className="px-5 py-6 flex items-center justify-between">
@@ -284,17 +284,18 @@ export default function CRMLayout({ children }: LayoutProps) {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
-        {/* Top Navigation Bar */}
-        <header className="bg-card border-b border-border px-4 lg:px-6 py-3 flex items-center justify-between z-30">
-          <div className="flex items-center gap-4 flex-1">
+      {/* Main Content Area - Native Mobile App Fixed Viewport */}
+      <div className="flex-1 flex flex-col min-w-0 h-full max-h-full bg-background relative overflow-hidden">
+        {/* Top Navigation Bar - Fixed Header */}
+        <header className="bg-card border-b border-border px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between z-30 shrink-0 sticky top-0">
+          <div className="flex items-center gap-3 flex-1">
             {isMobile && (
               <button 
                 onClick={() => setSidebarOpen(true)}
-                className="p-2 -ml-2 hover:bg-background rounded-xl text-muted-foreground transition-colors"
+                className="p-2 -ml-1 hover:bg-background rounded-xl text-muted-foreground transition-colors"
+                aria-label="Toggle menu"
               >
-                <Menu size={24} />
+                <Menu size={22} />
               </button>
             )}
             <div className="relative flex-1 max-w-md group hidden sm:block">
@@ -305,6 +306,13 @@ export default function CRMLayout({ children }: LayoutProps) {
                 className="w-full pl-10 pr-4 py-2 bg-background/50 border border-input rounded-xl text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
+            {/* Mobile Header Title */}
+            {isMobile && (
+              <div className="flex items-center gap-2">
+                <OomaLogo size={22} />
+                <span className="text-sm font-bold text-foreground tracking-tight">OOMA CRM</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
@@ -314,7 +322,7 @@ export default function CRMLayout({ children }: LayoutProps) {
               <div className="flex bg-muted/50 p-1 rounded-xl mr-1 sm:mr-2">
                 <button
                   onClick={() => setCrmViewMode('mine')}
-                  className={`px-2 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+                  className={`px-2 sm:px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
                     crmViewMode === 'mine' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -322,7 +330,7 @@ export default function CRMLayout({ children }: LayoutProps) {
                 </button>
                 <button
                   onClick={() => setCrmViewMode('team')}
-                  className={`px-2 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+                  className={`px-2 sm:px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
                     crmViewMode === 'team' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -334,19 +342,19 @@ export default function CRMLayout({ children }: LayoutProps) {
             <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className={`p-2.5 rounded-xl transition-all duration-300 relative bell-btn ${notificationsOpen ? 'bg-primary/20 text-primary scale-105 shadow-inner' : 'hover:bg-background text-muted-foreground'}`}
+                className={`p-2 sm:p-2.5 rounded-xl transition-all duration-300 relative bell-btn ${notificationsOpen ? 'bg-primary/20 text-primary scale-105 shadow-inner' : 'hover:bg-background text-muted-foreground'}`}
                 aria-label="Notifications"
               >
-                <Bell size={20} className={`bell-icon transition-transform ${bellRinging ? 'bell-ringing text-primary' : tasks.length > 0 ? 'bell-oscillating text-primary' : ''}`} />
+                <Bell size={18} className={`bell-icon transition-transform ${bellRinging ? 'bell-ringing text-primary' : tasks.length > 0 ? 'bell-oscillating text-primary' : ''}`} />
                 {tasks.length > 0 && !notificationsOpen && (
-                  <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center bg-red-500 text-white font-black text-[9px] w-5 h-5 rounded-full border-2 border-card shadow-md animate-pulse">
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center bg-red-500 text-white font-black text-[9px] w-4 h-4 rounded-full border-2 border-card shadow-md animate-pulse">
                     {tasks.length}
                   </span>
                 )}
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-full mt-3 w-[300px] sm:w-96 bg-card/95 backdrop-blur-md border border-border/80 shadow-[0_10px_50px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-[100] flex flex-col max-h-[85vh] transition-all duration-300 animate-in">
+                <div className="absolute right-0 top-full mt-3 w-[290px] sm:w-96 bg-card/95 backdrop-blur-md border border-border/80 shadow-[0_10px_50px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-[100] flex flex-col max-h-[85vh] transition-all duration-300 animate-in">
                   <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between sticky top-0">
                     <h3 className="font-black text-sm text-foreground uppercase tracking-wider">Notifications</h3>
                     <div className="flex items-center gap-3">
@@ -445,20 +453,12 @@ export default function CRMLayout({ children }: LayoutProps) {
               <Home size={18} className="mr-2" />
               Exit CRM
             </Link>
-            {/* Mobile Only Search/Plus */}
-            <button className="sm:hidden p-2.5 hover:bg-background rounded-xl text-muted-foreground">
-              <Search size={20} />
-            </button>
           </div>
         </header>
 
-        {/* Page Container */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-background flex flex-col">
-          {!location.pathname.includes('/pipeline') && (
-            <div className="h-6 lg:h-8 w-full flex-shrink-0 block clear-both" id="crm-layout-spacer" />
-          )}
-          
-          <div className={location.pathname.includes('/pipeline') ? "flex-1 flex flex-col w-full h-full" : "px-6 lg:px-12 pb-20 max-w-7xl mx-auto w-full"}>
+        {/* Internal Scrollable Content Body - Locks viewport */}
+        <main className="flex-1 min-h-0 w-full overflow-y-auto overscroll-contain custom-scrollbar relative bg-background flex flex-col">
+          <div className={location.pathname.includes('/pipeline') ? "flex-1 flex flex-col w-full h-full" : "px-3 sm:px-6 lg:px-12 py-3 sm:py-6 pb-6 sm:pb-8 max-w-7xl mx-auto w-full flex-1"}>
             {children}
           </div>
         </main>

@@ -6,10 +6,15 @@ interface CRMDataContextType {
   leads: any[];
   tasks: any[];
   activities: any[];
+  allLeads: any[];
+  allTasks: any[];
+  allActivities: any[];
+  teamMembers: any[];
   loading: boolean;
   refreshLeads: () => Promise<void>;
   refreshTasks: () => Promise<void>;
   refreshActivities: () => Promise<void>;
+  refreshTeamMembers: () => Promise<void>;
   crmViewMode: 'mine' | 'team';
   setCrmViewMode: (mode: 'mine' | 'team') => void;
 }
@@ -21,6 +26,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [crmViewMode, setCrmViewMode] = useState<'mine' | 'team'>('mine');
 
@@ -45,12 +51,26 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   const userId = user?.id;
   const isAdmin = user?.role === 'admin';
 
+  const fetchTeamMembers = useCallback(async () => {
+    if (!workspaceId) return;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, full_name, role, designation, created_at')
+        .eq('workspace_id', workspaceId);
+      if (error) throw error;
+      setTeamMembers(data || []);
+    } catch (err) {
+      console.error("Error fetching team members:", err);
+    }
+  }, [workspaceId]);
+
   const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
     try {
       let query = supabase
         .from('crm_leads')
-        .select('*, assigned_user:assigned_to(full_name, username), crm_tasks(id, title, due_date, due_time, status, priority)')
+        .select('*, assigned_user:assigned_to(id, full_name, username), crm_tasks(id, title, due_date, due_time, status, priority)')
         .eq('workspace_id', workspaceId);
         
       if (!isAdmin) {
@@ -81,26 +101,15 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
         .select('*, crm_leads(company_name, contact_person, email, phone)')
         .eq('workspace_id', workspaceId);
 
-      if (!isAdmin) {
+      if (!isAdmin && typeof query.or === 'function') {
         query = query.or(`assigned_to.eq.${userId},created_by.eq.${userId}`);
       }
 
-      query = query.order('due_date', { ascending: true });
-
-      let { data, error } = await query;
-
-      // Fallback: If created_by column doesn't exist yet, retry with assigned_to only
-      if (error && !isAdmin) {
-        console.warn('[CRM] created_by column may not exist, falling back to assigned_to filter.');
-        const fallback = await supabase
-          .from('crm_tasks')
-          .select('*, crm_leads(company_name, contact_person, email, phone)')
-          .eq('workspace_id', workspaceId)
-          .eq('assigned_to', userId)
-          .order('due_date', { ascending: true });
-        data = fallback.data;
-        error = fallback.error;
+      if (typeof query.order === 'function') {
+        query = query.order('due_date', { ascending: true });
       }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setTasks(data || []);
@@ -115,12 +124,14 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       let query = supabase
         .from('crm_activities')
         .select('*, crm_leads!inner(company_name, contact_person, workspace_id, assigned_to)')
-        .eq('crm_leads.workspace_id', workspaceId)
-        .eq('activity_type', 'note')
-        .order('created_at', { ascending: false });
+        .eq('crm_leads.workspace_id', workspaceId);
 
-      if (!isAdmin) {
+      if (!isAdmin && typeof query.eq === 'function') {
         query = query.eq('crm_leads.assigned_to', userId);
+      }
+
+      if (typeof query.order === 'function') {
+        query = query.order('created_at', { ascending: false });
       }
       
       const { data, error } = await query;
@@ -139,12 +150,13 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       setLeads([]);
       setTasks([]);
       setActivities([]);
+      setTeamMembers([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    Promise.all([fetchLeads(), fetchTasks(), fetchActivities()]).finally(() => {
+    Promise.all([fetchLeads(), fetchTasks(), fetchActivities(), fetchTeamMembers()]).finally(() => {
       setLoading(false);
     });
 
@@ -231,6 +243,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
         fetchLeads();
         fetchTasks();
         fetchActivities();
+        fetchTeamMembers();
       }
     };
 
@@ -244,7 +257,30 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(fetchTasksTimeout);
       clearTimeout(fetchActivitiesTimeout);
     };
-  }, [workspaceId, fetchLeads, fetchTasks, fetchActivities]);
+  }, [workspaceId, fetchLeads, fetchTasks, fetchActivities, fetchTeamMembers]);
+
+  // In-memory lookup map for team members
+  const teamMembersMap = React.useMemo(() => {
+    const map = new Map<string, any>();
+    teamMembers.forEach(m => map.set(m.id, m));
+    return map;
+  }, [teamMembers]);
+
+  // Enrich tasks with assigned_user object
+  const enrichedAllTasks = React.useMemo(() => {
+    return tasks.map(t => ({
+      ...t,
+      assigned_user: t.assigned_user || (t.assigned_to ? teamMembersMap.get(t.assigned_to) : null)
+    }));
+  }, [tasks, teamMembersMap]);
+
+  // Enrich activities with user object
+  const enrichedAllActivities = React.useMemo(() => {
+    return activities.map(a => ({
+      ...a,
+      user: a.user || (a.user_id ? teamMembersMap.get(a.user_id) : null)
+    }));
+  }, [activities, teamMembersMap]);
 
   // Global filtering based on crmViewMode
   const filteredLeads = React.useMemo(() => {
@@ -254,26 +290,31 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   }, [leads, crmViewMode, isAdmin, userId]);
 
   const filteredTasks = React.useMemo(() => {
-    if (!isAdmin) return tasks;
-    if (crmViewMode === 'team') return tasks.filter(t => t.assigned_to !== userId);
-    return tasks.filter(t => t.assigned_to === userId || t.created_by === userId);
-  }, [tasks, crmViewMode, isAdmin, userId]);
+    if (!isAdmin) return enrichedAllTasks;
+    if (crmViewMode === 'team') return enrichedAllTasks.filter(t => t.assigned_to !== userId);
+    return enrichedAllTasks.filter(t => t.assigned_to === userId || t.created_by === userId);
+  }, [enrichedAllTasks, crmViewMode, isAdmin, userId]);
 
   const filteredActivities = React.useMemo(() => {
-    if (!isAdmin) return activities;
-    if (crmViewMode === 'team') return activities.filter(a => a.crm_leads?.assigned_to !== userId);
-    return activities.filter(a => a.crm_leads?.assigned_to === userId);
-  }, [activities, crmViewMode, isAdmin, userId]);
+    if (!isAdmin) return enrichedAllActivities;
+    if (crmViewMode === 'team') return enrichedAllActivities.filter(a => a.crm_leads?.assigned_to !== userId);
+    return enrichedAllActivities.filter(a => a.crm_leads?.assigned_to === userId);
+  }, [enrichedAllActivities, crmViewMode, isAdmin, userId]);
 
   return (
     <CRMDataContext.Provider value={{
       leads: filteredLeads,
       tasks: filteredTasks,
       activities: filteredActivities,
+      allLeads: leads,
+      allTasks: enrichedAllTasks,
+      allActivities: enrichedAllActivities,
+      teamMembers,
       loading,
       refreshLeads: fetchLeads,
       refreshTasks: fetchTasks,
       refreshActivities: fetchActivities,
+      refreshTeamMembers: fetchTeamMembers,
       crmViewMode,
       setCrmViewMode
     }}>

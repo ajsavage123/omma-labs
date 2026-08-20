@@ -5,10 +5,11 @@ import { useWorkspaceUsers } from "@/hooks/useWorkspaceUsers";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake } from "lucide-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
+import { useLeadScoring } from "@/hooks/useLeadScoring";
 import { formatUrl } from "../../utils/formatUrl";
 
 const STAGE_COLORS: Record<string, string> = {
@@ -30,7 +31,8 @@ export default function CRMLeads() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const { leads, loading, refreshLeads } = useCRMData();
+  const { leads, activities, tasks, loading, refreshLeads } = useCRMData();
+  const scoredLeads = useLeadScoring(leads, activities, tasks);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -73,6 +75,7 @@ export default function CRMLeads() {
   const [filterMinValue, setFilterMinValue] = useState("");
   const [filterDate, setFilterDate] = useState("All");
   const [filterSalesperson, setFilterSalesperson] = useState("All");
+  const [filterSortBy, setFilterSortBy] = useState("Newest");
 
   // Role check: admin sees all, all non-admins see only their own assigned leads
   const isAdmin = user?.role === 'admin';
@@ -416,7 +419,7 @@ export default function CRMLeads() {
     });
   };
 
-  const filteredLeads = leads.filter(l => {
+  const filteredLeads = scoredLeads.filter(l => {
     const q = searchQuery.toLowerCase().trim();
     
     const matchesSearch = !q || 
@@ -425,7 +428,10 @@ export default function CRMLeads() {
       (l.email || '').toLowerCase().includes(q) ||
       (l.phone || '').toLowerCase().includes(q) ||
       (l.status || '').toLowerCase().includes(q) ||
-      (l.service_interest || '').toLowerCase().includes(q);
+      (l.service_interest || '').toLowerCase().includes(q) ||
+      (q === 'unassigned' && !l.assigned_to) ||
+      (l.assigned_user?.full_name || '').toLowerCase().includes(q) ||
+      (l.assigned_user?.username || '').toLowerCase().includes(q);
 
     const matchesStatus = filterStatus === "All" || l.status === filterStatus;
     const matchesValue = !filterMinValue || (l.estimated_value || 0) >= parseInt(filterMinValue);
@@ -441,6 +447,11 @@ export default function CRMLeads() {
 
     return matchesSearch && matchesStatus && matchesValue && matchesDate && matchesSalesperson &&
       (!isSalesperson || l.assigned_to === user?.id); // Salespersons only see their own
+  }).sort((a, b) => {
+    if (filterSortBy === "Score (High-Low)") {
+      return (b.propensityScore || 0) - (a.propensityScore || 0);
+    }
+    return 0; // Default sorting is preserved from context
   });
 
   if (loading) return (
@@ -563,6 +574,14 @@ export default function CRMLeads() {
             <option value="Last 7 Days" className="bg-background text-foreground">7 Days</option>
             <option value="Last 30 Days" className="bg-background text-foreground">30 Days</option>
           </select>
+          <select 
+            value={filterSortBy}
+            onChange={(e) => setFilterSortBy(e.target.value)}
+            className="px-3 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none appearance-none font-bold cursor-pointer whitespace-nowrap"
+          >
+            <option value="Newest" className="bg-background text-foreground">Sort: Newest</option>
+            <option value="Score (High-Low)" className="bg-background text-foreground">Sort: Score</option>
+          </select>
         </div>
       </div>
 
@@ -577,6 +596,7 @@ export default function CRMLeads() {
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Email</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Phone</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Service</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Score</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Owner</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Links</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Status</th>
@@ -618,6 +638,20 @@ export default function CRMLeads() {
                         {lead.phone || <span className="text-muted-foreground opacity-30 italic">No phone</span>}
                       </td>
                       <td className="px-6 py-4 text-sm text-foreground font-medium">{lead.service_interest || '—'}</td>
+                      <td className="px-6 py-4 text-sm">
+                        {lead.propensityScore !== undefined && (
+                          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-bold ${
+                            lead.propensityScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                            lead.propensityScore >= 40 ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                            'bg-slate-500/10 text-slate-500 border-slate-500/20'
+                          }`}>
+                            {lead.propensityScore >= 75 ? <Flame size={12} /> : 
+                             lead.propensityScore >= 40 ? <Zap size={12} /> : 
+                             <Snowflake size={12} />}
+                            {lead.propensityScore}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-sm text-foreground">
                         {lead.assigned_user ? (
                            <div className="flex items-center gap-2">

@@ -9,7 +9,8 @@ import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
 import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book, Activity, CircleDollarSign, Calculator, MessageSquare } from 'lucide-react';
+import { DashboardIcon, LiveHQIcon, TeamChatIcon, ToolsIcon, TeamLibraryIcon, DocsLibraryIcon, CRMIcon, ClientContactsIcon, CommissionCalcIcon, AdminPanelIcon } from '@/components/icons';
+import { Plus, LogOut, Search, Menu, X, Trash2, History, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationCenterWidget from '@/components/NotificationCenterWidget';
 
@@ -188,33 +189,33 @@ export default function DashboardPage() {
       </div>
 
       <nav className="mt-4 px-3 space-y-1.5 overflow-y-auto scrollbar-hide">
-        <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group">
-          <LayoutDashboard className="mr-3 h-4 w-4" />
+        <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group hover:bg-indigo-500/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+          <DashboardIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Dashboard
         </Link>
-        <Link to="/office" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-cyan-400 bg-cyan-500/5 border border-cyan-500/10 rounded-xl hover:bg-cyan-500/10 transition-colors relative overflow-hidden group">
+        <Link to="/office" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-cyan-400 bg-cyan-500/5 border border-cyan-500/10 rounded-xl hover:bg-cyan-500/10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-          <Activity className="mr-3 h-4 w-4" />
+          <LiveHQIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Live HQ (Beta)
         </Link>
-        <button onClick={() => { setIsMobileMenuOpen(false); window.dispatchEvent(new CustomEvent('open_chat_widget')); }} className="flex items-center px-4 py-3 text-[13px] font-bold text-[#6366f1] bg-indigo-500/5 border border-indigo-500/10 rounded-xl hover:bg-indigo-500/10 transition-colors relative overflow-hidden group">
-          <MessageSquare className="mr-3 h-4 w-4" />
+        <button onClick={() => { setIsMobileMenuOpen(false); window.dispatchEvent(new CustomEvent('open_chat_widget')); }} className="flex items-center px-4 py-3 text-[13px] font-bold text-[#6366f1] bg-indigo-500/5 border border-indigo-500/10 rounded-xl hover:bg-indigo-500/10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group w-full">
+          <TeamChatIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Team Chat
         </button>
-        <Link to="/meetings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <GoogleMeetIcon size={16} className="mr-3" />
+        <Link to="/meetings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+          <GoogleMeetIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Meetings
         </Link>
-        <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <Wrench className="mr-3 h-4 w-4 text-emerald-500" />
+        <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+          <ToolsIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Tools Space
         </Link>
-        <Link to="/directory" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <Users className="mr-3 h-4 w-4 text-emerald-500" />
+        <Link to="/directory" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+          <TeamLibraryIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Team Library
         </Link>
-        <Link to="/library" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <Book className="mr-3 h-4 w-4 text-blue-400" />
+        <Link to="/library" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+          <DocsLibraryIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Docs Library
         </Link>
         {(() => {
@@ -263,15 +264,15 @@ export default function DashboardPage() {
             <Link 
               to="/crm" 
               onClick={handleCRMClick} 
-              className={`flex items-center px-4 py-3 text-[13px] font-bold rounded-xl transition-colors ${
+              className={`flex items-center px-4 py-3 text-[13px] font-bold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group ${
                 needsAccessRequest && accessStatus !== 'approved' 
                   ? 'text-gray-500 bg-white/[0.01] cursor-pointer' 
-                  : 'text-gray-400 hover:bg-white/[0.02] hover:text-white'
+                  : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'
               }`}
             >
-              <CircleDollarSign className={`mr-3 h-4 w-4 ${needsAccessRequest && accessStatus !== 'approved' ? 'text-gray-600' : 'text-emerald-400'}`} />
+              <CRMIcon size={25} className={`mr-3 text-gray-400 group-hover:scale-110 transition-transform ${needsAccessRequest && accessStatus !== 'approved' ? 'opacity-40' : ''}`} />
               <div className="flex flex-col">
-                <span>CRM Pipeline</span>
+                <span>CRM</span>
                 {needsAccessRequest && accessStatus === 'pending' && <span className="text-[8px] text-amber-500 uppercase">Request Pending</span>}
                 {needsAccessRequest && accessStatus === 'rejected' && <span className="text-[8px] text-red-500 uppercase">Access Denied</span>}
                 {needsAccessRequest && accessStatus === 'none' && <span className="text-[8px] text-indigo-400 uppercase">Locked • Click to Request</span>}
@@ -281,16 +282,16 @@ export default function DashboardPage() {
         })()}
         {user?.role === 'admin' && (
           <>
-            <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-              <Plus className="mr-3 h-4 w-4 text-amber-500" />
+            <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+              <ClientContactsIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
               Client Contacts
             </Link>
-            <Link to="/admin/calculator" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold font-purple-400 text-purple-400 hover:bg-purple-500/10 rounded-xl transition-colors">
-              <Calculator className="mr-3 h-4 w-4 text-purple-400" />
+            <Link to="/admin/calculator" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-purple-400 hover:bg-purple-500/10 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+              <CommissionCalcIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
               Commission Calculator
             </Link>
-            <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-              <Settings className="mr-3 h-4 w-4" />
+            <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+              <AdminPanelIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
               Admin Panel
             </Link>
           </>

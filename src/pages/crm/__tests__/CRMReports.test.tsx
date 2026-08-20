@@ -6,6 +6,9 @@ import { MemoryRouter } from 'react-router-dom';
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PieChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Pie: () => null,
+  Cell: () => null,
   Bar: () => null,
   XAxis: () => null,
   YAxis: () => null,
@@ -41,10 +44,10 @@ describe('CRMReports', () => {
     mockUseAuth.mockReturnValue({ user: { role: 'admin' } });
   });
 
-  it('returns null during loading', () => {
+  it('renders loading indicator during loading', () => {
     mockUseCRMData.mockReturnValue({ leads: [], loading: true });
-    const { container } = renderReports();
-    expect(container.innerHTML).toBe('');
+    renderReports();
+    expect(screen.getByText('Loading workspace analytics...')).toBeInTheDocument();
   });
 
   it('renders reports page title', () => {
@@ -65,7 +68,8 @@ describe('CRMReports', () => {
     });
     renderReports();
     // Won + Completed = 2, total = 4 → 50.0%
-    expect(screen.getByText('50.0%')).toBeInTheDocument();
+    const convRates = screen.getAllByText('50.0%');
+    expect(convRates.length).toBeGreaterThan(0);
   });
 
   it('computes average deal size from won leads only', () => {
@@ -129,7 +133,7 @@ describe('CRMReports', () => {
     });
     renderReports();
     // Total pipeline = 10000 + 20000 = 30000
-    expect(screen.getByText('₹30,000')).toBeInTheDocument();
+    expect(screen.getAllByText('₹30,000').length).toBeGreaterThanOrEqual(1);
   });
 
   it('handles null estimated_value gracefully', () => {
@@ -142,5 +146,34 @@ describe('CRMReports', () => {
     });
     // Should not throw
     renderReports();
+  });
+
+  it('renders all 5 navigation sections', () => {
+    mockUseCRMData.mockReturnValue({ leads: [], loading: false });
+    renderReports();
+    expect(screen.getAllByText('Pipeline & Revenue').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Sales Performance').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Activity Stream').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Leads Portfolio').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Revenue Tracker').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders all 6 KPI scorecards', () => {
+    mockUseCRMData.mockReturnValue({
+      leads: [
+        { id: '1', status: 'Won (Converted)', estimated_value: 10000 },
+        { id: '2', status: 'New Leads', estimated_value: 5000 },
+      ],
+      loading: false,
+    });
+    renderReports();
+    expect(screen.getByText('Total Leads')).toBeInTheDocument();
+    expect(screen.getAllByText('Won Revenue').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Conversion')).toBeInTheDocument();
+    expect(screen.getByText('Avg Deal')).toBeInTheDocument();
+    // "Lost Deals" appears in KPI card and in pipeline stage distribution 
+    const lostDealsLabels = screen.getAllByText('Lost Deals');
+    expect(lostDealsLabels.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Effort Index')).toBeInTheDocument();
   });
 });
