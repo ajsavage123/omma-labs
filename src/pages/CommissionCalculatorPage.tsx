@@ -212,7 +212,7 @@ export default function CommissionCalculatorPage() {
   const compBarW = Math.max(0, Math.min(100, result.companyPct));
 
   return (
-    <div className="min-h-screen bg-[#0a0f1c] text-gray-100 font-sans selection:bg-indigo-500/30 relative overflow-x-hidden">
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto bg-[#0a0f1c] text-gray-100 font-sans selection:bg-indigo-500/30 relative custom-scrollbar">
       {/* Background glow effects */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[150px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[20%] right-[-10%] w-[30%] h-[30%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />

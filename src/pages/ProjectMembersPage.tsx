@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminService } from '@/services/adminService';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import type { User } from '@/types';
-import { Search, Bell, Moon, UserPlus, Filter, LayoutGrid, CheckCircle2, MapPin, Briefcase, Network, Code, TrendingUp, ChevronRight, Star, Edit2, Check, X, Lightbulb } from 'lucide-react';
+import { Search, Bell, Moon, UserPlus, Filter, LayoutGrid, CheckCircle2, MapPin, Briefcase, Network, Code, TrendingUp, ChevronRight, ChevronLeft, Star, Edit2, Check, X, Lightbulb } from 'lucide-react';
 
 import { useToast } from '@/hooks/useToast';
 import { OomaLogo } from '@/components/OomaLogo';
@@ -11,6 +12,7 @@ import { OomaLogo } from '@/components/OomaLogo';
 import { queryCache } from '@/utils/cache';
 
 export default function ProjectMembersPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -178,11 +180,19 @@ export default function ProjectMembersPage() {
   );
 
   return (
-    <div className="flex-1 bg-[#09090b] text-white font-sans min-h-screen overflow-y-auto">
+    <div className="h-screen h-[100dvh] w-full bg-[#09090b] text-white font-sans overflow-y-auto custom-scrollbar">
       {/* Header with Ooma Logo and Company Name */}
       <header className="bg-[#09090b]/90 backdrop-blur-md border-b border-[#27272a] px-4 sm:px-8 py-3.5 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center sticky top-0 z-40">
         <div className="flex items-center gap-3 sm:gap-4 justify-between md:justify-start">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] rounded-xl text-gray-400 hover:text-white transition-all text-xs font-bold shrink-0 active:scale-95"
+              title="Back to Dashboard"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </button>
             <div className="p-2 sm:p-2.5 bg-[#18181b] border border-[#27272a] rounded-xl flex items-center justify-center shadow-lg hover:border-amber-500/50 transition-all shrink-0">
               <OomaLogo size={24} />
             </div>

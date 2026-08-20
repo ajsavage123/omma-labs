@@ -242,7 +242,7 @@ export default function ServiceMenuCardPage() {
   ) || [];
 
   return (
-    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans selection:bg-emerald-500/30 overflow-x-hidden">
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto bg-[#050505] text-gray-200 font-sans selection:bg-emerald-500/30 custom-scrollbar">
       {/* Background Ambience */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] bg-emerald-500/10 blur-[120px] rounded-full animate-pulse"></div>
@@ -253,9 +253,11 @@ export default function ServiceMenuCardPage() {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate('/ideas')} 
-            className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold transition-all active:scale-95"
+            title="Back to Tools Space"
           >
             <ChevronLeft size={20} />
+            <span className="hidden sm:inline">Tools Space</span>
           </button>
           <div className="flex flex-col">
             <h1 className="text-[14px] font-black uppercase text-white tracking-tight flex items-center gap-2">

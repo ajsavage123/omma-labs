@@ -457,7 +457,7 @@ export default function CRMLayout({ children }: LayoutProps) {
         </header>
 
         {/* Internal Scrollable Content Body - Locks viewport */}
-        <main className="flex-1 min-h-0 w-full overflow-y-auto overscroll-contain custom-scrollbar relative bg-background flex flex-col">
+        <main className="flex-1 min-h-0 w-full overflow-y-auto overscroll-y-contain custom-scrollbar relative bg-background flex flex-col [webkit-overflow-scrolling:touch]">
           <div className={location.pathname.includes('/pipeline') ? "flex-1 flex flex-col w-full h-full" : "px-3 sm:px-6 lg:px-12 py-3 sm:py-6 pb-6 sm:pb-8 max-w-7xl mx-auto w-full flex-1"}>
             {children}
           </div>

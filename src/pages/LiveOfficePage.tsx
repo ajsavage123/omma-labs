@@ -75,13 +75,18 @@ export default function LiveOfficePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f1c] text-white flex flex-col font-sans" onMouseMove={handleMouseMove} onMouseUp={() => setDraggingId(null)}>
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto bg-[#0a0f1c] text-white flex flex-col font-sans custom-scrollbar" onMouseMove={handleMouseMove} onMouseUp={() => setDraggingId(null)}>
 
       {/* ── Header ─────────────────────────────────────── */}
       <header className="px-8 py-5 border-b border-white/5 flex items-center justify-between bg-[#0a0f1c]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-6">
-          <Link to="/" className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all group">
+          <Link 
+            to="/" 
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group text-xs font-bold text-gray-400 hover:text-white"
+            title="Back to Dashboard"
+          >
             <ChevronLeft className="h-5 w-5 text-gray-400 group-hover:text-white" />
+            <span className="hidden sm:inline">Dashboard</span>
           </Link>
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-3">

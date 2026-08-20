@@ -136,9 +136,11 @@ export default function MeetingSchedulerPage() {
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => navigate('/')}
-                className="md:hidden p-2.5 bg-white/5 border border-white/10 rounded-2xl text-gray-400 active:scale-90 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-gray-400 hover:text-white active:scale-95 transition-all text-xs font-bold"
+                title="Back to Dashboard"
               >
                 <ChevronLeft className="h-5 w-5" />
+                <span className="hidden sm:inline">Dashboard</span>
               </button>
               <div>
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-3 md:gap-4">

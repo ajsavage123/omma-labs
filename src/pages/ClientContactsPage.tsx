@@ -101,13 +101,18 @@ export default function ClientContactsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0f1c] flex flex-col font-sans text-gray-200 overflow-x-hidden relative">
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto bg-[#0a0f1c] flex flex-col font-sans text-gray-200 custom-scrollbar relative">
       {/* Background glow effects */}
       <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/10 blur-[150px] rounded-full pointer-events-none z-0"></div>
 
       <header className="sticky top-0 z-40 bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 h-16 flex items-center justify-between px-4">
-        <button onClick={() => navigate('/')} className="p-2.5 bg-white/5 rounded-2xl border border-white/10 text-gray-400 active:scale-90 transition-all">
+        <button 
+          onClick={() => navigate('/')} 
+          className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold active:scale-90 transition-all"
+          title="Back to Dashboard"
+        >
           <ChevronLeft className="h-5 w-5" />
+          <span className="hidden sm:inline">Dashboard</span>
         </button>
         
         <div className="flex flex-col items-center">

@@ -83,13 +83,18 @@ export default function LibraryPage() {
   const filteredDocs = docs.filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-[#0a0f1c] flex flex-col font-sans text-gray-200 selection:bg-indigo-500/30 overflow-hidden relative">
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto bg-[#0a0f1c] flex flex-col font-sans text-gray-200 selection:bg-indigo-500/30 custom-scrollbar relative">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[150px] rounded-full pointer-events-none"></div>
 
       <header className="fixed top-0 left-0 right-0 z-[60] bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 h-16 shrink-0 transition-all flex items-center justify-between px-4">
         <div className="flex items-center">
-          <button onClick={() => navigate('/')} className="p-2.5 bg-white/5 rounded-2xl border border-white/10 text-gray-400 active:scale-90 transition-all">
+          <button 
+            onClick={() => navigate('/')} 
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold active:scale-90 transition-all"
+            title="Back to Dashboard"
+          >
             <ChevronLeft className="h-5 w-5" />
+            <span className="hidden sm:inline">Dashboard</span>
           </button>
         </div>
         

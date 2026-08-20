@@ -104,14 +104,19 @@ export default function IdeaVaultPage() {
   const filteredIdeas = allIdeas.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-[#050505] flex flex-col font-sans text-gray-200 overflow-x-hidden relative">
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto bg-[#050505] flex flex-col font-sans text-gray-200 custom-scrollbar relative">
       {/* Background glow effects */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
       <div className="absolute bottom-[10%] right-[-10%] w-[30%] h-[30%] bg-cyan-500/10 blur-[100px] rounded-full pointer-events-none z-0"></div>
 
       <header className="sticky top-0 z-40 bg-[#0c0c0e]/90 backdrop-blur-2xl border-b border-white/5 h-16 flex items-center justify-between px-6">
-        <button onClick={() => navigate('/')} className="p-2.5 bg-white/5 rounded-2xl border border-white/10 text-gray-400 hover:text-white active:scale-95 transition-all">
+        <button 
+          onClick={() => navigate('/')} 
+          className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white text-xs font-bold active:scale-95 transition-all"
+          title="Back to Dashboard"
+        >
           <ChevronLeft className="h-5 w-5" />
+          <span className="hidden sm:inline">Dashboard</span>
         </button>
         
         <div className="flex flex-col items-center">

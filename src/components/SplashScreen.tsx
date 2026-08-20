@@ -15,25 +15,17 @@ export const SplashScreen: React.FC = () => {
     };
 
     const timer = setTimeout(() => {
-      minTimePassed = true;
-      checkReady();
+      setIsVisible(false);
     }, 2200);
 
     const handleAppReady = () => {
-      appReady = true;
-      checkReady();
+      setIsVisible(false);
     };
 
     window.addEventListener('app-ready', handleAppReady);
 
-    // Fallback: forcefully hide after 10 seconds just in case app-ready is never fired
-    const fallbackTimer = setTimeout(() => {
-      setIsVisible(false);
-    }, 10000);
-
     return () => {
       clearTimeout(timer);
-      clearTimeout(fallbackTimer);
       window.removeEventListener('app-ready', handleAppReady);
     };
   }, []);
@@ -44,8 +36,8 @@ export const SplashScreen: React.FC = () => {
         <motion.div
           key="splash-screen"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeInOut" } }}
-          className="fixed inset-0 z-[9999] bg-[#0a0f1c] flex flex-col items-center justify-center"
+          exit={{ opacity: 0, transition: { duration: 0.6, ease: "easeInOut" } }}
+          className="fixed inset-0 z-[9999] bg-[#0a0f1c] flex flex-col items-center justify-center pointer-events-auto"
         >
           {/* Logo Container with pulse animation */}
           <motion.div

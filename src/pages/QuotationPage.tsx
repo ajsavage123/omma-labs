@@ -453,14 +453,20 @@ export default function QuotationPage() {
   const removeBtnStyle: React.CSSProperties = { position: 'absolute', top: 6, right: 6, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(192,57,43,0.08)', border: 'none', borderRadius: 6, color: '#c0392b', cursor: 'pointer', fontSize: 12, padding: 0 };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#f7f6f2', fontFamily: "'Outfit', sans-serif", color: '#1a1a2e' }}>
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto flex flex-col custom-scrollbar" style={{ background: '#f7f6f2', fontFamily: "'Outfit', sans-serif", color: '#1a1a2e' }}>
       <style>{printStyles}</style>
 
       {/* ── TOP BAR ── */}
       <div className="no-print flex items-center justify-between shrink-0 px-5 py-3 md:px-10 md:py-4" style={{ background: '#1a1a2e', color: '#fff' }}>
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/ideas')} className="p-2 rounded-lg transition-all" style={{ background: 'rgba(255,255,255,0.1)' }}>
+          <button 
+            onClick={() => navigate('/ideas')} 
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-300 hover:text-white transition-all text-xs font-bold active:scale-95" 
+            style={{ background: 'rgba(255,255,255,0.1)' }}
+            title="Back to Tools Space"
+          >
             <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
+            <span className="hidden sm:inline">Tools Space</span>
           </button>
           <div className="flex items-center gap-2.5 ml-1 md:ml-2">
             <div className="w-6 h-6 md:w-7 md:h-7">
