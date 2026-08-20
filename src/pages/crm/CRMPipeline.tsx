@@ -1015,28 +1015,39 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           background-clip: content-box !important;
         }
       `}</style>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2 sticky top-0 z-20 bg-background/80 backdrop-blur-md p-4 lg:p-4 border-b border-border shadow-sm">
-        <div>
-          <h1 className="text-xl lg:text-3xl font-bold text-foreground leading-none">Pipeline</h1>
-          {unmappedLeads.length > 0 && (
-            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-1">
-              ⚠ {unmappedLeads.length} unmapped
-            </p>
-          )}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 mb-2 sticky top-0 z-20 bg-background/90 backdrop-blur-md p-2.5 sm:p-4 border-b border-border shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-foreground leading-none">Pipeline</h1>
+            {unmappedLeads.length > 0 && (
+              <p className="text-[9px] sm:text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-0.5">
+                ⚠ {unmappedLeads.length} unmapped
+              </p>
+            )}
+          </div>
+          <Button 
+            onClick={openAddModal}
+            size="sm"
+            className="sm:hidden bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 h-7 shadow-md flex items-center gap-1"
+          >
+            <Plus size={14} /> Add Lead
+          </Button>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+
+        {/* Compact Horizontal Controls Bar for Mobile & Desktop */}
+        <div className="flex items-center gap-1.5 sm:gap-3 w-full sm:w-auto overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
           {/* Admin-only: Salesperson filter dropdown */}
           {isAdmin && (
-            <div className="flex items-center gap-2 bg-background border border-input rounded-xl px-3 py-1.5 shadow-sm">
-              <label htmlFor="crm-salesperson-filter" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer">Filter:</label>
+            <div className="flex items-center gap-1 bg-background border border-input rounded-xl px-2.5 py-1 shadow-sm shrink-0">
+              <label htmlFor="crm-salesperson-filter" className="text-[9px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer">Filter:</label>
               <select 
                 id="crm-salesperson-filter"
                 name="salespersonFilter"
                 value={filterSalesperson}
                 onChange={(e) => setFilterSalesperson(e.target.value)}
-                className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-4"
+                className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-3 max-w-[110px] sm:max-w-none truncate"
               >
-                <option value="All" className="bg-background text-foreground">All Salespersons</option>
+                <option value="All" className="bg-background text-foreground">All Sales</option>
                 {workspaceUsers.map(u => (
                   <option key={u.id} value={u.id} className="bg-background text-foreground">
                     {u.full_name || u.username} {u.id === user?.id ? '(Me)' : ''}
@@ -1045,42 +1056,48 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               </select>
             </div>
           )}
+
           {/* Business & Marketing: show My Leads badge */}
           {isSalesperson && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">My Leads</span>
+            <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-xl shrink-0">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">My Leads</span>
             </div>
           )}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+
+          {/* Compact Search Input */}
+          <div className="relative flex-1 min-w-[120px] sm:w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={13} />
             <input 
               id="crm-pipeline-search"
               name="searchQuery"
               aria-label="Search in pipeline"
               type="text"
-              placeholder="Search in pipeline..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all w-48"
+              className="w-full pl-8 pr-2.5 py-1 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all h-7 sm:h-auto"
             />
           </div>
-          <div className="flex items-center gap-2 bg-background border border-input rounded-xl px-3 py-1.5 shadow-sm">
-            <label htmlFor="crm-sort-filter" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer">Sort:</label>
+
+          {/* Compact Sort Dropdown */}
+          <div className="flex items-center gap-1 bg-background border border-input rounded-xl px-2.5 py-1 shadow-sm shrink-0">
+            <label htmlFor="crm-sort-filter" className="text-[9px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer">Sort:</label>
             <select 
               id="crm-sort-filter"
               name="sortFilter"
               value={filterSortBy}
               onChange={(e) => setFilterSortBy(e.target.value)}
-              className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-4"
+              className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-3"
             >
-              <option value="Score" className="bg-background text-foreground">Score (High-Low)</option>
-              <option value="Newest" className="bg-background text-foreground">Date Added</option>
+              <option value="Score" className="bg-background text-foreground">Score</option>
+              <option value="Newest" className="bg-background text-foreground">Date</option>
             </select>
           </div>
+
           <Button 
             onClick={openAddModal}
-            className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 animate-pulse-subtle"
+            className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 animate-pulse-subtle shrink-0"
           >
             <Plus size={18} className="mr-2" />
             Add New Lead
