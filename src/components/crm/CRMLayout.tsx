@@ -69,7 +69,7 @@ export default function CRMLayout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { tasks: globalTasks, refreshTasks, crmViewMode, setCrmViewMode } = useCRMData();
+  const { tasks: globalTasks, refreshTasks, crmViewMode, setCrmViewMode, teamMembers, selectedSalesRepId, setSelectedSalesRepId } = useCRMData();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('crm_notifications_muted') === 'true');
   const [bellRinging, setBellRinging] = useState(false);
@@ -286,58 +286,83 @@ export default function CRMLayout({ children }: LayoutProps) {
 
       {/* Main Content Area - Native Mobile App Fixed Viewport */}
       <div className="flex-1 flex flex-col min-w-0 h-full max-h-full bg-background relative overflow-hidden">
-        {/* Top Navigation Bar - Fixed Header */}
-        <header className="bg-card border-b border-border px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between z-30 shrink-0 sticky top-0">
-          <div className="flex items-center gap-3 flex-1">
-            {isMobile && (
-              <button 
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 -ml-1 hover:bg-background rounded-xl text-muted-foreground transition-colors"
-                aria-label="Toggle menu"
-              >
-                <Menu size={22} />
-              </button>
-            )}
-            <div className="relative flex-1 max-w-md group hidden sm:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
-              <input
-                type="search"
-                placeholder="Search anything..."
-                className="w-full pl-10 pr-4 py-2 bg-background/50 border border-input rounded-xl text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-              />
+        {/* Top Navigation Bar - Responsive Sticky Header */}
+        <header className="bg-card border-b border-border px-3 sm:px-6 py-2 sm:py-3 z-30 shrink-0 sticky top-0 shadow-sm">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            {/* Left: Menu & Title/Search */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              {isMobile && (
+                <button 
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-1.5 -ml-1 hover:bg-background rounded-xl text-muted-foreground transition-colors shrink-0"
+                  aria-label="Toggle menu"
+                >
+                  <Menu size={20} />
+                </button>
+              )}
+              <div className="relative flex-1 max-w-md group hidden sm:block">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
+                <input
+                  type="search"
+                  placeholder="Search anything..."
+                  className="w-full pl-9 pr-4 py-1.5 bg-background/50 border border-input rounded-xl text-xs sm:text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              </div>
+              {/* Mobile Header Title */}
+              {isMobile && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <OomaLogo size={20} />
+                  <span className="text-xs font-bold text-foreground tracking-tight uppercase">CRM ENGINE</span>
+                </div>
+              )}
             </div>
-            {/* Mobile Header Title */}
-            {isMobile && (
-              <div className="flex items-center gap-2">
-                <OomaLogo size={22} />
-                <span className="text-sm font-bold text-foreground tracking-tight">OOMA CRM</span>
-              </div>
-            )}
-          </div>
 
-          <div className="flex items-center gap-2 lg:gap-4">
-            
-            {/* Global Admin Data Toggle */}
-            {isAdmin && (
-              <div className="flex bg-muted/50 p-1 rounded-xl mr-1 sm:mr-2">
-                <button
-                  onClick={() => setCrmViewMode('mine')}
-                  className={`px-2 sm:px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
-                    crmViewMode === 'mine' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  My CRM
-                </button>
-                <button
-                  onClick={() => setCrmViewMode('team')}
-                  className={`px-2 sm:px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
-                    crmViewMode === 'team' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Team CRM
-                </button>
-              </div>
-            )}
+            {/* Right Actions: Admin Filter (Desktop) + Bell + Exit */}
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+              {/* Desktop Global Salesperson Control */}
+              {isAdmin && (
+                <div className="hidden sm:flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50">
+                  <button
+                    onClick={() => setCrmViewMode('mine')}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      crmViewMode === 'mine' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title="Filter to My CRM data"
+                  >
+                    My CRM
+                  </button>
+                  <button
+                    onClick={() => setCrmViewMode('team')}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      crmViewMode === 'team' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title="Filter to Team CRM data"
+                  >
+                    Team CRM
+                  </button>
+
+                  {crmViewMode === 'team' && (
+                    <div className="ml-1 border-l border-border/60 pl-1.5 flex items-center gap-1">
+                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-wider hidden md:inline">Rep:</span>
+                      <select
+                        value={selectedSalesRepId}
+                        onChange={(e) => setSelectedSalesRepId(e.target.value)}
+                        className="text-xs font-bold text-foreground bg-background border border-input rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer max-w-[160px] truncate shadow-sm"
+                        title="Select Sales Representative"
+                      >
+                        <option value="all" className="bg-background text-foreground dark:bg-slate-900 dark:text-white font-bold">
+                          All Team Members
+                        </option>
+                        {teamMembers.map(m => (
+                          <option key={m.id} value={m.id} className="bg-background text-foreground dark:bg-slate-900 dark:text-white font-bold">
+                            {m.full_name || m.username} {m.id === user?.id ? '(Me)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
 
             <div className="relative" ref={dropdownRef}>
               <button 
@@ -454,6 +479,51 @@ export default function CRMLayout({ children }: LayoutProps) {
               Exit CRM
             </Link>
           </div>
+        </div>
+
+          {/* Mobile Dedicated Filter Sub-Bar (When Admin) */}
+          {isAdmin && (
+            <div className="sm:hidden mt-2 pt-2 border-t border-border/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 shrink-0">
+                <button
+                  onClick={() => setCrmViewMode('mine')}
+                  className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-all ${
+                    crmViewMode === 'mine' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
+                  }`}
+                >
+                  My CRM
+                </button>
+                <button
+                  onClick={() => setCrmViewMode('team')}
+                  className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-all ${
+                    crmViewMode === 'team' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
+                  }`}
+                >
+                  Team CRM
+                </button>
+              </div>
+
+              {crmViewMode === 'team' && (
+                <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
+                  <span className="text-[9px] font-black text-muted-foreground uppercase shrink-0">Rep:</span>
+                  <select
+                    value={selectedSalesRepId}
+                    onChange={(e) => setSelectedSalesRepId(e.target.value)}
+                    className="text-[11px] font-bold text-foreground bg-background border border-input rounded-lg px-2 py-1 focus:outline-none cursor-pointer w-full max-w-[170px] truncate shadow-sm"
+                  >
+                    <option value="all" className="bg-background text-foreground dark:bg-slate-900 dark:text-white font-bold">
+                      All Team Members
+                    </option>
+                    {teamMembers.map(m => (
+                      <option key={m.id} value={m.id} className="bg-background text-foreground dark:bg-slate-900 dark:text-white font-bold">
+                        {m.full_name || m.username} {m.id === user?.id ? '(Me)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
         </header>
 
         {/* Internal Scrollable Content Body - Locks viewport */}

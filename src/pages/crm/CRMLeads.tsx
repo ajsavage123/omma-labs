@@ -5,13 +5,14 @@ import { useWorkspaceUsers } from "@/hooks/useWorkspaceUsers";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake } from "lucide-react";
+import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake, AlertTriangle } from "lucide-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { useLeadScoring } from "@/hooks/useLeadScoring";
 import { formatUrl } from "../../utils/formatUrl";
-import { DataErrorBanner } from "@/components/DataErrorBanner";
+import CRMDuplicateLeadsModal from "@/components/crm/CRMDuplicateLeadsModal";
+import { findDuplicateLeads } from "@/utils/crmDuplicateFinder";
 
 const STAGE_COLORS: Record<string, string> = {
   'New Leads': 'bg-blue-500',
@@ -32,7 +33,7 @@ export default function CRMLeads() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const { leads, activities, tasks, loading, refreshLeads } = useCRMData();
+  const { leads, allLeads, activities, tasks, loading, refreshLeads, crmViewMode } = useCRMData();
   const scoredLeads = useLeadScoring(leads, activities, tasks);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,6 +41,13 @@ export default function CRMLeads() {
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
+
+  // Duplicate leads state (respects active My CRM vs Team CRM toggle)
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const duplicateAnalysis = React.useMemo(() => {
+    const activeLeadsScope = crmViewMode === 'mine' ? leads : (allLeads || leads);
+    return findDuplicateLeads(activeLeadsScope || []);
+  }, [crmViewMode, leads, allLeads]);
   
   // Advanced Deletion State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -75,7 +83,6 @@ export default function CRMLeads() {
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterMinValue, setFilterMinValue] = useState("");
   const [filterDate, setFilterDate] = useState("All");
-  const [filterSalesperson, setFilterSalesperson] = useState("All");
   const [filterSortBy, setFilterSortBy] = useState("Newest");
 
   // Role check: admin sees all, all non-admins see only their own assigned leads
@@ -437,8 +444,6 @@ export default function CRMLeads() {
     const matchesStatus = filterStatus === "All" || l.status === filterStatus;
     const matchesValue = !filterMinValue || (l.estimated_value || 0) >= parseInt(filterMinValue);
     
-    const matchesSalesperson = filterSalesperson === "All" || l.assigned_to === filterSalesperson;
-    
     let matchesDate = true;
     if (filterDate === "Last 7 Days") {
       matchesDate = new Date(l.created_at) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -446,7 +451,7 @@ export default function CRMLeads() {
       matchesDate = new Date(l.created_at) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    return matchesSearch && matchesStatus && matchesValue && matchesDate && matchesSalesperson &&
+    return matchesSearch && matchesStatus && matchesValue && matchesDate &&
       (!isSalesperson || l.assigned_to === user?.id); // Salespersons only see their own
   }).sort((a, b) => {
     if (filterSortBy === "Score (High-Low)") {
@@ -463,49 +468,37 @@ export default function CRMLeads() {
 
   return (
     <div className="space-y-6">
-      {loading === false && leads.length === 0 && (
-        <DataErrorBanner 
-          message="No CRM leads loaded or database query returned 0 records." 
-          onRetry={refreshLeads} 
-        />
-      )}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground leading-tight">Leads</h1>
           <p className="text-xs text-muted-foreground hidden sm:block">Manage all your sales leads</p>
         </div>
-        <Button 
-          onClick={openAddModal}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
-        >
-          <Plus size={18} className="mr-1 sm:mr-2" />
-          <span className="hidden sm:inline">Add Lead</span>
-          <span className="sm:hidden">Add</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {duplicateAnalysis.totalGroupCount > 0 && (
+            <Button
+              onClick={() => setIsDuplicateModalOpen(true)}
+              variant="outline"
+              className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold text-xs gap-1.5 shadow-sm"
+            >
+              <AlertTriangle size={15} />
+              <span>Duplicates ({duplicateAnalysis.totalGroupCount})</span>
+            </Button>
+          )}
+          <Button 
+            onClick={openAddModal}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+          >
+            <Plus size={18} className="mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Add Lead</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        </div>
       </div>
 
       {/* Action Bar: Owner filter + bulk actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
-          {/* Admin-only: Owner filter */}
-          {isAdmin && (
-            <div className="flex items-center gap-1.5 bg-background border border-input rounded-xl px-2.5 py-1.5 shadow-sm whitespace-nowrap">
-              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest hidden sm:inline">Owner:</span>
-              <select 
-                value={filterSalesperson}
-                onChange={(e) => setFilterSalesperson(e.target.value)}
-                className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-3"
-              >
-                <option value="All" className="bg-background text-foreground">All</option>
-                {workspaceUsers.map(u => (
-                  <option key={u.id} value={u.id} className="bg-background text-foreground">
-                    {u.full_name || u.username} {u.id === user?.id ? '(Me)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {/* Business & Marketing: show My Leads badge */}
+          {/* Salesperson / Partner Badge */}
           {isSalesperson && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl whitespace-nowrap">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -1159,6 +1152,12 @@ export default function CRMLeads() {
           </div>
         </div>
       )}
+
+      {/* Duplicate Leads Manager Modal */}
+      <CRMDuplicateLeadsModal
+        isOpen={isDuplicateModalOpen}
+        onClose={() => setIsDuplicateModalOpen(false)}
+      />
 
     </div>
   );

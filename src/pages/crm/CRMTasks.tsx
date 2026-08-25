@@ -18,7 +18,7 @@ type GoogleAccount = { email: string; name: string; expiresAt: number; [key: str
 export default function CRMTasks() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { tasks, loading, refreshTasks, refreshLeads } = useCRMData();
+  const { tasks, loading, refreshTasks, refreshLeads, teamMembers, selectedSalesRepId, crmViewMode } = useCRMData();
   const [leads, setLeads] = useState<CRMLead[]>([]);
   const [activeTab, setActiveTab] = useState("today");
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
@@ -294,12 +294,22 @@ export default function CRMTasks() {
     </div>
   );
 
+  const activeRep = (teamMembers || []).find(m => m.id === selectedSalesRepId);
+  const filterLabel = crmViewMode === 'mine' ? 'My Tasks' : 
+    selectedSalesRepId === 'all' ? 'All Team Tasks' : 
+    activeRep ? `${activeRep.full_name || activeRep.username}` : 'Team Tasks';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Tasks</h1>
-          <p className="text-sm text-muted-foreground font-medium">Manage your follow-ups and to-dos</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Tasks</h1>
+            <span className="px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black rounded-full uppercase tracking-wider">
+              {filterLabel}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground font-medium">Manage follow-ups and to-dos ({tasks.length} total tasks)</p>
         </div>
         <Button 
           onClick={() => {

@@ -9,7 +9,6 @@ import CRMNotes from './CRMNotes';
 import CRMProjects from './CRMProjects';
 import CRMReports from './CRMReports';
 import CRMSettings from './CRMSettings';
-import SupabaseQuotaHealth from '@/components/admin/SupabaseQuotaHealth';
 
 export default function CRMApp() {
   return (
@@ -24,7 +23,6 @@ export default function CRMApp() {
         <Route path="projects" element={<CRMProjects />} />
         <Route path="reports" element={<CRMReports />} />
         <Route path="settings" element={<CRMSettings />} />
-        <Route path="quota" element={<SupabaseQuotaHealth />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Routes>
     </CRMLayout>

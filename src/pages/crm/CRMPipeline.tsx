@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake, AlertTriangle } from "lucide-react";
 
 import { useWorkspaceUsers } from '@/hooks/useWorkspaceUsers';
 import { useToast } from '@/hooks/useToast';
@@ -17,6 +17,8 @@ import { useLeadScoring } from '@/hooks/useLeadScoring';
 import { formatUrl } from '../../utils/formatUrl';
 import { googleCalendarService } from '@/services/googleCalendarService';
 import { getTaskDueDate } from '@/utils/dateUtils';
+import CRMDuplicateLeadsModal from '@/components/crm/CRMDuplicateLeadsModal';
+import { findDuplicateLeads } from '@/utils/crmDuplicateFinder';
 
 const STAGES = [
   { 
@@ -89,11 +91,18 @@ export default function CRMPipeline() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const { leads, activities, tasks, loading, refreshLeads } = useCRMData();
+  const { leads, allLeads, activities, tasks, loading, refreshLeads, crmViewMode } = useCRMData();
   const scoredLeads = useLeadScoring(leads, activities, tasks);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Duplicate leads state (respects active My CRM vs Team CRM toggle)
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const duplicateAnalysis = useMemo(() => {
+    const activeLeadsScope = crmViewMode === 'mine' ? leads : (allLeads || leads);
+    return findDuplicateLeads(activeLeadsScope || []);
+  }, [crmViewMode, leads, allLeads]);
 
   useEffect(() => {
     const hasPendingTasks = leads.some(lead => 
@@ -346,9 +355,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     e.preventDefault();
     setTaskSubmitting(true);
     try {
-      const timeParts = taskFormData.scheduled_time.split(':').map(Number);
-      let hours = timeParts[0];
-      const minutes = timeParts[1];
+      const timeStr = taskFormData.scheduled_time || '10:00';
+      const timeParts = timeStr.split(':').map(Number);
+      let hours = isNaN(timeParts[0]) ? 10 : timeParts[0];
+      const minutes = isNaN(timeParts[1]) ? 0 : timeParts[1];
       if (taskFormData.scheduled_ampm === 'PM' && hours < 12) hours += 12;
       if (taskFormData.scheduled_ampm === 'AM' && hours === 12) hours = 0;
       
@@ -593,7 +603,6 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       }
 
       toast.success(`Moved to ${STAGES[nextIndex].name}`);
-      refreshLeads();
     } catch (error: any) {
       toast.error("Failed to update stage");
       console.error("[PIPELINE MOVE ERROR] Details:", {
@@ -716,6 +725,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                         <button 
                           onClick={() => updateLeadStage(lead.id, lead.status, 'backward')}
                           disabled={sIdx === 0}
+                          title="Move backward"
                           className={`p-2 bg-background/95 backdrop-blur-md rounded-full border-2 border-border shadow-2xl pointer-events-auto transition-all active:scale-75 ${sIdx === 0 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
                         >
                           <ChevronLeft size={20} />
@@ -723,6 +733,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                         <button 
                           onClick={() => updateLeadStage(lead.id, lead.status, 'forward')}
                           disabled={sIdx === STAGES.length - 1}
+                          title="Move forward"
                           className={`p-2 bg-background/95 backdrop-blur-md rounded-full border-2 border-border shadow-2xl pointer-events-auto transition-all active:scale-75 ${sIdx === STAGES.length - 1 ? 'opacity-0 cursor-default' : 'hover:text-primary text-foreground'}`}
                         >
                           <ChevronRight size={20} />
@@ -1025,13 +1036,26 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               </p>
             )}
           </div>
-          <Button 
-            onClick={openAddModal}
-            size="sm"
-            className="sm:hidden bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 h-7 shadow-md flex items-center gap-1"
-          >
-            <Plus size={14} /> Add Lead
-          </Button>
+          <div className="flex items-center gap-2">
+            {duplicateAnalysis.totalGroupCount > 0 && (
+              <Button
+                onClick={() => setIsDuplicateModalOpen(true)}
+                variant="outline"
+                size="sm"
+                className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold text-xs gap-1 py-1 px-2.5 h-7 shadow-sm"
+              >
+                <AlertTriangle size={13} />
+                <span>Duplicates ({duplicateAnalysis.totalGroupCount})</span>
+              </Button>
+            )}
+            <Button 
+              onClick={openAddModal}
+              size="sm"
+              className="sm:hidden bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 h-7 shadow-md flex items-center gap-1"
+            >
+              <Plus size={14} /> Add Lead
+            </Button>
+          </div>
         </div>
 
         {/* Compact Horizontal Controls Bar for Mobile & Desktop */}
@@ -1595,8 +1619,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           </div>
         </div>
       )}
-      {/* Toast Notifications */}
-      
+      {/* Duplicate Leads Manager Modal */}
+      <CRMDuplicateLeadsModal
+        isOpen={isDuplicateModalOpen}
+        onClose={() => setIsDuplicateModalOpen(false)}
+      />
     </div>
   );
 }

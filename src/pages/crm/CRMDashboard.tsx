@@ -4,9 +4,15 @@ import { Loader2, TrendingUp, Clock, AlertCircle, Briefcase, IndianRupee, CheckC
 import { useCRMData } from "@/contexts/CRMDataContext";
 
 export default function CRMDashboard() {
-  const { leads, tasks, loading } = useCRMData();
+  const { leads, tasks, loading, crmViewMode, selectedSalesRepId, teamMembers } = useCRMData();
 
-  // Leads and tasks are ALREADY filtered by the global crmViewMode!
+  // Active salesperson label computation
+  const activeRep = (teamMembers || []).find(m => m.id === selectedSalesRepId);
+  const filterLabel = crmViewMode === 'mine' ? 'My CRM (Personal)' : 
+    selectedSalesRepId === 'all' ? 'All Team Members' : 
+    activeRep ? `${activeRep.full_name || activeRep.username}` : 'Team View';
+
+  // Leads and tasks are ALREADY filtered by the global crmViewMode & selectedSalesRepId!
   const displayLeads = leads;
   const displayTasks = tasks;
 
@@ -68,8 +74,13 @@ export default function CRMDashboard() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-black text-foreground tracking-tight">Sales Dashboard</h1>
-          <p className="text-sm text-muted-foreground font-medium">Overview of your workspace performance</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl lg:text-3xl font-black text-foreground tracking-tight">Sales Dashboard</h1>
+            <span className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black rounded-full uppercase tracking-wider">
+              {filterLabel}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground font-medium">Overview of workspace performance ({displayLeads.length} leads, {displayTasks.length} tasks)</p>
         </div>
       </div>
 

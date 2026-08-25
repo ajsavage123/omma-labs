@@ -29,8 +29,18 @@ export default function CRMReports() {
   const rawTasks = crmData?.allTasks || crmData?.tasks || [];
   const teamMembers = crmData?.teamMembers || [];
 
-  // Filter States
-  const [selectedSalesRep, setSelectedSalesRep] = useState<string>("all");
+  // Sync filter with global CRMDataContext
+  const globalSelectedSalesRepId = crmData?.selectedSalesRepId || 'all';
+  const setSelectedSalesRepId = crmData?.setSelectedSalesRepId;
+  const crmViewMode = crmData?.crmViewMode || 'mine';
+
+  const selectedSalesRep = crmViewMode === 'mine' ? (user?.id || 'all') : globalSelectedSalesRepId;
+  const setSelectedSalesRep = (val: string) => {
+    if (setSelectedSalesRepId) {
+      setSelectedSalesRepId(val);
+    }
+  };
+
   const [timeframe, setTimeframe] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"pipeline" | "performance" | "activity" | "leads" | "revenue">("pipeline");
 
@@ -551,25 +561,6 @@ export default function CRMReports() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-            {/* Sales Person Filter - Clean Dropdown showing ONLY names */}
-            <div className="flex items-center gap-1.5 bg-background border border-border rounded-xl px-3 py-2 text-xs shadow-xs flex-1 min-w-[140px] sm:flex-initial">
-              <Users className="w-4 h-4 text-primary shrink-0" />
-              <select 
-                value={selectedSalesRep} 
-                onChange={(e) => {
-                  setSelectedSalesRep(e.target.value);
-                  scrollToTop();
-                }}
-                className="bg-transparent text-foreground font-bold border-none focus:outline-none cursor-pointer w-full text-xs truncate"
-              >
-                <option value="all" className="bg-card text-foreground py-1">All Sales Reps</option>
-                <option value="unassigned" className="bg-card text-foreground py-1">Unassigned Leads</option>
-                {salesPersons.map(sp => (
-                  <option key={sp.id} value={sp.id} className="bg-card text-foreground py-1">{sp.name}</option>
-                ))}
-              </select>
-            </div>
-
             {/* Timeframe Filter */}
             <div className="flex items-center gap-1.5 bg-background border border-border rounded-xl px-3 py-2 text-xs shadow-xs flex-1 min-w-[120px] sm:flex-initial">
               <Calendar className="w-4 h-4 text-primary shrink-0" />

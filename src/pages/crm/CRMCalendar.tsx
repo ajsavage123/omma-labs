@@ -10,10 +10,15 @@ const daysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth()
 const firstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
 export default function CRMCalendar() {
-  const { tasks, loading } = useCRMData();
+  const { tasks, loading, teamMembers, selectedSalesRepId, crmViewMode } = useCRMData();
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
+
+  const activeRep = (teamMembers || []).find(m => m.id === selectedSalesRepId);
+  const filterLabel = crmViewMode === 'mine' ? 'My Calendar' : 
+    selectedSalesRepId === 'all' ? 'All Team Calendar' : 
+    activeRep ? `${activeRep.full_name || activeRep.username}` : 'Team Calendar';
 
   // Google Calendar Integration states
   const [clientId, setClientId] = useState(googleCalendarService.getClientId());
@@ -138,8 +143,13 @@ export default function CRMCalendar() {
     <div className="space-y-4 lg:space-y-6">
       
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Calendar</h1>
-        <p className="text-sm text-muted-foreground font-medium">View your tasks and follow-ups</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Calendar</h1>
+          <span className="px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black rounded-full uppercase tracking-wider">
+            {filterLabel}
+          </span>
+        </div>
+        <p className="text-sm text-muted-foreground font-medium">View scheduled tasks and follow-ups</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

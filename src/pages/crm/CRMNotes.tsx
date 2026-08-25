@@ -22,7 +22,7 @@ interface ParsedNote {
 }
 
 export default function CRMNotes() {
-  const { activities: notes, leads, loading, refreshActivities, refreshLeads } = useCRMData();
+  const { activities: notes, leads, loading, refreshActivities, refreshLeads, teamMembers, selectedSalesRepId, crmViewMode } = useCRMData();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -290,13 +290,23 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     );
   }
 
+  const activeRep = (teamMembers || []).find(m => m.id === selectedSalesRepId);
+  const filterLabel = crmViewMode === 'mine' ? 'My Notes' : 
+    selectedSalesRepId === 'all' ? 'All Team Notes' : 
+    activeRep ? `${activeRep.full_name || activeRep.username}` : 'Team Notes';
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight mb-1">Interaction Hub</h1>
-          <p className="text-muted-foreground">High-fidelity client conversation logs and history timeline.</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-foreground tracking-tight mb-1">Interaction Hub</h1>
+            <span className="px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black rounded-full uppercase tracking-wider">
+              {filterLabel}
+            </span>
+          </div>
+          <p className="text-muted-foreground">High-fidelity client conversation logs and history timeline ({notes.length} total logs).</p>
         </div>
         <Button 
           onClick={() => openLogModal(selectedLeadId)}

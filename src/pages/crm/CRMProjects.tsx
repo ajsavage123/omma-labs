@@ -8,9 +8,14 @@ const statusColors: Record<string, string> = {
 };
 
 export default function CRMProjects() {
-  const { leads, loading } = useCRMData();
+  const { leads, loading, teamMembers, selectedSalesRepId, crmViewMode } = useCRMData();
 
   if (loading) return null;
+
+  const activeRep = teamMembers.find(m => m.id === selectedSalesRepId);
+  const filterLabel = crmViewMode === 'mine' ? 'My Projects' : 
+    selectedSalesRepId === 'all' ? 'All Team Projects' : 
+    activeRep ? `${activeRep.full_name || activeRep.username}` : 'Team Projects';
 
   const clients = leads
     .filter(project => ['Won (Converted)', 'Onboarding', 'Completed'].includes(project.status));
@@ -18,8 +23,13 @@ export default function CRMProjects() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground mb-1">Onboarding Projects</h1>
-        <p className="text-muted-foreground">Active client onboarding workflows</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold text-foreground mb-1">Onboarding Projects</h1>
+          <span className="px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black rounded-full uppercase tracking-wider">
+            {filterLabel}
+          </span>
+        </div>
+        <p className="text-muted-foreground">Active client onboarding workflows ({clients.length} clients)</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

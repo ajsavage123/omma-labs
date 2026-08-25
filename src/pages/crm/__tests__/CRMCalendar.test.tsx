@@ -87,7 +87,7 @@ describe('CRMCalendar', () => {
   it('renders calendar header and weekday labels', () => {
     renderCalendar();
     expect(screen.getByText('Calendar')).toBeInTheDocument();
-    expect(screen.getByText('View your tasks and follow-ups')).toBeInTheDocument();
+    expect(screen.getByText(/tasks and follow-ups/i)).toBeInTheDocument();
     // Weekday labels
     expect(screen.getAllByText('S').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('M').length).toBeGreaterThanOrEqual(1);

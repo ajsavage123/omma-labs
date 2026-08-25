@@ -126,17 +126,16 @@ describe('CRMLeads', () => {
     expect(screen.getByText('Delete Leads')).toBeInTheDocument();
   });
 
-  it('shows Owner filter for admin users', () => {
+  it('does not render duplicate local Owner filter in page body', () => {
     renderLeads();
-    expect(screen.getByText('Owner:')).toBeInTheDocument();
+    expect(screen.queryByText('Owner:')).not.toBeInTheDocument();
   });
 
-  it('hides Owner filter for non-admin users and shows My Leads badge', () => {
+  it('shows My Leads badge for salesperson users', () => {
     mockUser.mockReturnValue({
       user: { id: 'user-2', workspace_id: 'ws-1', role: 'partner', designation: 'Business Strategy & Marketing Team' },
     });
     renderLeads();
-    expect(screen.queryByText('Owner:')).not.toBeInTheDocument();
     expect(screen.getByText('My Leads')).toBeInTheDocument();
   });
 

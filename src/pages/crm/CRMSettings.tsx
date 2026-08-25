@@ -1,7 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Building, Shield, Bell } from 'lucide-react';
 
-import SupabaseQuotaHealth from '@/components/admin/SupabaseQuotaHealth';
 import { pushNotificationService } from '@/services/pushNotificationService';
 import { notificationService } from '@/utils/notificationService';
 import { useState } from 'react';
@@ -88,8 +87,7 @@ export default function CRMSettings() {
         ))}
       </div>
 
-      {/* Supabase Quota & Workspace Health Monitor (Admin Only) */}
-      <SupabaseQuotaHealth />
+
 
       {/* Push Notifications Configuration */}
       <div className="bg-[#111116] border border-white/5 rounded-2xl p-6 space-y-4">
