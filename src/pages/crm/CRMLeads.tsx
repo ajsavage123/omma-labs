@@ -5,7 +5,7 @@ import { useWorkspaceUsers } from "@/hooks/useWorkspaceUsers";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake, AlertTriangle } from "lucide-react";
+import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake, AlertTriangle, CheckSquare, History, RotateCcw, FileSpreadsheet, Layers } from "lucide-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
@@ -42,6 +42,72 @@ export default function CRMLeads() {
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
 
+  // Multi-Select Leads State & Helper Functions
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+
+  // Traditional CRM Import History & View Tabs State
+  const [isImportHistoryOpen, setIsImportHistoryOpen] = useState(false);
+  const [rollingBackBatchId, setRollingBackBatchId] = useState<string | null>(null);
+  const [activeViewTab, setActiveViewTab] = useState<'all' | 'mine' | 'recent_imports' | 'active'>('all');
+
+  // Compute Import Batches from workspace leads
+  const importBatches = React.useMemo(() => {
+    const batchesMap = new Map<string, {
+      batchId: string;
+      filename: string;
+      importedAt: string;
+      leadsCount: number;
+      leadIds: string[];
+    }>();
+
+    (allLeads || []).forEach(l => {
+      const batchId = l.custom_data?.import_batch_id || (l.source && l.source.includes('CSV') ? `legacy_${l.source}` : null);
+      if (!batchId) return;
+
+      if (!batchesMap.has(batchId)) {
+        batchesMap.set(batchId, {
+          batchId,
+          filename: l.custom_data?.import_filename || l.source || 'CSV Import',
+          importedAt: l.custom_data?.imported_at || l.created_at,
+          leadsCount: 0,
+          leadIds: []
+        });
+      }
+
+      const b = batchesMap.get(batchId)!;
+      b.leadsCount++;
+      b.leadIds.push(l.id);
+    });
+
+    return Array.from(batchesMap.values()).sort((a, b) => 
+      new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()
+    );
+  }, [allLeads]);
+
+  const handleRollbackImportBatch = async (batchId: string, filename: string, leadIds: string[]) => {
+    if (!window.confirm(`Undo and Rollback Import Batch "${filename}"?\n\nThis will permanently delete all ${leadIds.length} lead(s) created during this import batch without touching your other leads.`)) {
+      return;
+    }
+
+    setRollingBackBatchId(batchId);
+    try {
+      const batchSize = 200;
+      for (let i = 0; i < leadIds.length; i += batchSize) {
+        const batch = leadIds.slice(i, i + batchSize);
+        const { error } = await supabase.from('crm_leads').delete().in('id', batch);
+        if (error) throw error;
+      }
+      toast.success(`Rolled back import "${filename}". ${leadIds.length} lead(s) deleted.`);
+      setSelectedLeadIds([]);
+      refreshLeads();
+    } catch (err: any) {
+      toast.error("Failed to rollback import batch");
+      console.error(err);
+    } finally {
+      setRollingBackBatchId(null);
+    }
+  };
+
   // Duplicate leads state (respects active My CRM vs Team CRM toggle)
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const duplicateAnalysis = React.useMemo(() => {
@@ -51,7 +117,7 @@ export default function CRMLeads() {
   
   // Advanced Deletion State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<'all' | 'mine' | 'partner'>('mine');
+  const [deleteTarget, setDeleteTarget] = useState<'all' | 'mine' | 'partner' | 'selected' | 'new_imported'>('selected');
   const [deleteTargetPartnerId, setDeleteTargetPartnerId] = useState('');
   const { users } = useWorkspaceUsers();
   
@@ -234,30 +300,88 @@ export default function CRMLeads() {
     }
   };
 
+  // Multi-Select Helpers
+  const toggleSelectLead = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedLeadIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const selectNewImportedLeads = () => {
+    // Select leads matching CSV source or in 'New Leads' stage
+    const newImported = filteredLeads.filter(l => 
+      (l.source && l.source.toLowerCase().includes('csv')) || l.status === 'New Leads'
+    );
+    const ids = newImported.map(l => l.id);
+    if (ids.length === 0) {
+      toast.info("No newly imported or 'New Leads' stage records found in current view");
+      return;
+    }
+    setSelectedLeadIds(ids);
+    toast.success(`Selected ${ids.length} newly imported / new lead(s)`);
+  };
+
+  const clearSelection = () => {
+    setSelectedLeadIds([]);
+  };
+
   const confirmAdvancedDelete = async () => {
     try {
       setSubmitting(true);
       
-      let query = supabase.from('crm_leads').delete();
-      
-      if (isAdmin) {
-        if (deleteTarget === 'all') {
-          query = query.eq('workspace_id', user.workspace_id);
-        } else if (deleteTarget === 'partner') {
-          if (!deleteTargetPartnerId) return toast.error("Please select a partner first.");
-          query = query.eq('assigned_to', deleteTargetPartnerId);
-        } else if (deleteTarget === 'mine') {
+      if (deleteTarget === 'selected') {
+        if (selectedLeadIds.length === 0) {
+          toast.error("No leads selected for deletion.");
+          return;
+        }
+        const batchSize = 200;
+        for (let i = 0; i < selectedLeadIds.length; i += batchSize) {
+          const batch = selectedLeadIds.slice(i, i + batchSize);
+          const { error } = await supabase.from('crm_leads').delete().in('id', batch);
+          if (error) throw error;
+        }
+        toast.success(`Successfully deleted ${selectedLeadIds.length} selected lead(s)`);
+        setSelectedLeadIds([]);
+      } else if (deleteTarget === 'new_imported') {
+        const targetLeads = filteredLeads.filter(l => 
+          (l.source && l.source.toLowerCase().includes('csv')) || l.status === 'New Leads'
+        );
+        const targetIds = targetLeads.map(l => l.id);
+        if (targetIds.length === 0) {
+          toast.info("No newly imported leads found to delete");
+          return;
+        }
+        const batchSize = 200;
+        for (let i = 0; i < targetIds.length; i += batchSize) {
+          const batch = targetIds.slice(i, i + batchSize);
+          const { error } = await supabase.from('crm_leads').delete().in('id', batch);
+          if (error) throw error;
+        }
+        toast.success(`Successfully deleted ${targetIds.length} newly imported lead(s)`);
+        setSelectedLeadIds([]);
+      } else {
+        let query = supabase.from('crm_leads').delete();
+        
+        if (isAdmin) {
+          if (deleteTarget === 'all') {
+            query = query.eq('workspace_id', user.workspace_id);
+          } else if (deleteTarget === 'partner') {
+            if (!deleteTargetPartnerId) return toast.error("Please select a partner first.");
+            query = query.eq('assigned_to', deleteTargetPartnerId);
+          } else if (deleteTarget === 'mine') {
+            query = query.eq('assigned_to', user?.id);
+          }
+        } else {
           query = query.eq('assigned_to', user?.id);
         }
-      } else {
-        // Partners can only delete their own leads
-        query = query.eq('assigned_to', user?.id);
-      }
 
-      const { error } = await query;
-      if (error) throw error;
+        const { error } = await query;
+        if (error) throw error;
+        toast.success("Leads deleted successfully");
+        setSelectedLeadIds([]);
+      }
       
-      toast.success("Leads deleted successfully");
       setIsDeleteModalOpen(false);
       refreshLeads();
     } catch (error) {
@@ -304,6 +428,10 @@ export default function CRMLeads() {
     const file = e.target.files?.[0];
     if (!file) return;
     setImporting(true);
+
+    const importBatchId = `batch_${Date.now()}`;
+    const importFilename = file.name;
+    const importTimestamp = new Date().toISOString();
     
     Papa.parse(file, {
       header: true,
@@ -332,24 +460,21 @@ export default function CRMLeads() {
             const website = getField(['website', 'url', 'link', 'website link', 'website url', 'website_url', 'web url', 'weblink']);
             const businessType = getField(['business category', 'category', 'business type', 'business_type', 'industry', 'type']);
 
-            // Prioritise explicit map link headers to avoid matching text address headers
             let location = getField([
               'google map link', 'google maps link', 'google maps url', 'google map url', 
               'maps url', 'map url', 'maps link', 'map link', 'external_link',
               'google maps', 'google map'
             ]);
-            // Fallback to general location/address headers if no explicit link header was found
             if (!location) {
               location = getField(['location', 'address', 'map', 'maps', 'location link', 'address link']);
             }
 
             const service = getField(['service', 'service interest', 'interest', 'service_interest']);
-            const source = getField(['source', 'lead source']) || 'CSV Import';
+            const source = getField(['source', 'lead source']) || `CSV Import (${importFilename})`;
             const notes = getField(['notes', 'comment', 'description']);
             const paymentStatus = getField(['payment status', 'payment_status']) || 'Pending';
             const amountPaid = parseFloat(getField(['amount paid', 'amount_paid'])?.replace(/[^0-9.]/g, '') || '0');
             
-            // Clean names and apply fallback (ensure neither contact_person nor company_name stays blank or "Unknown Name")
             name = name ? name.trim() : '';
             company = company ? company.trim() : '';
             if (company && !name) {
@@ -361,7 +486,6 @@ export default function CRMLeads() {
             if (!name) name = 'Unknown Contact';
             if (!company) company = 'Unknown Company';
 
-            // Resolve assigned owner/salesperson from CSV or default to currently logged-in user
             const csvOwner = getField(['owner', 'salesperson', 'assigned to', 'assigned_to', 'assignee', 'agent', 'staff', 'creator']);
             let assignedUserId = user?.id || null;
             if (csvOwner) {
@@ -375,8 +499,12 @@ export default function CRMLeads() {
               }
             }
 
-            // Collect all other keys into custom_data (only keys that were not actually matched and mapped)
-            const customData: Record<string, any> = {};
+            const customData: Record<string, any> = {
+              import_batch_id: importBatchId,
+              import_filename: importFilename,
+              imported_at: importTimestamp
+            };
+
             Object.keys(row).forEach(k => {
               const cleanedK = k.toLowerCase().trim();
               if (!matchedKeys.includes(cleanedK)) {
@@ -395,7 +523,7 @@ export default function CRMLeads() {
               website: website || null,
               external_link: location || null,
               business_type: businessType || null,
-              service_interest: service || null, // Map service correctly or leave blank
+              service_interest: service || null,
               source: source,
               notes: notes || null,
               payment_status: paymentStatus,
@@ -406,15 +534,55 @@ export default function CRMLeads() {
             };
           });
 
-          // Batch insert to prevent exceeding Supabase free tier payload limits
+          // Pre-Import Deduplication: Filter out records that already exist in DB or within CSV file
+          const existingEmails = new Set(
+            (allLeads || []).map(l => (l.email || '').trim().toLowerCase()).filter(e => e && e !== 'none' && e.includes('@'))
+          );
+          const existingPhones = new Set(
+            (allLeads || []).map(l => (l.phone || '').replace(/\D/g, '').slice(-10)).filter(p => p.length >= 7)
+          );
+
+          const uniqueLeadsToInsert: typeof newLeads = [];
+          const seenCsvEmails = new Set<string>();
+          const seenCsvPhones = new Set<string>();
+          let skippedDuplicatesCount = 0;
+
+          for (const lead of newLeads) {
+            const normEmail = (lead.email || '').trim().toLowerCase();
+            const normPhone = (lead.phone || '').replace(/\D/g, '').slice(-10);
+
+            const isDuplicateEmail = Boolean(normEmail && normEmail.includes('@') && (existingEmails.has(normEmail) || seenCsvEmails.has(normEmail)));
+            const isDuplicatePhone = Boolean(normPhone && normPhone.length >= 7 && (existingPhones.has(normPhone) || seenCsvPhones.has(normPhone)));
+
+            if (isDuplicateEmail || isDuplicatePhone) {
+              skippedDuplicatesCount++;
+              continue;
+            }
+
+            if (normEmail && normEmail.includes('@')) seenCsvEmails.add(normEmail);
+            if (normPhone && normPhone.length >= 7) seenCsvPhones.add(normPhone);
+            uniqueLeadsToInsert.push(lead);
+          }
+
+          if (uniqueLeadsToInsert.length === 0) {
+            toast.info(`Import skipped: All ${newLeads.length} leads in the file already exist in your workspace database.`);
+            return;
+          }
+
+          // Batch insert unique leads
           const batchSize = 500;
-          for (let i = 0; i < newLeads.length; i += batchSize) {
-            const batch = newLeads.slice(i, i + batchSize);
+          for (let i = 0; i < uniqueLeadsToInsert.length; i += batchSize) {
+            const batch = uniqueLeadsToInsert.slice(i, i + batchSize);
             const { error } = await supabase.from('crm_leads').insert(batch);
             if (error) throw error;
           }
           
-          toast.success(`Successfully imported ${newLeads.length} leads`);
+          if (skippedDuplicatesCount > 0) {
+            toast.success(`Successfully imported ${uniqueLeadsToInsert.length} new lead(s). (${skippedDuplicatesCount} duplicate(s) automatically skipped)`);
+          } else {
+            toast.success(`Successfully imported ${uniqueLeadsToInsert.length} lead(s)`);
+          }
+
           refreshLeads();
         } catch (error) {
           toast.error("Failed to import leads. Check CSV format.");
@@ -441,23 +609,44 @@ export default function CRMLeads() {
       (l.assigned_user?.full_name || '').toLowerCase().includes(q) ||
       (l.assigned_user?.username || '').toLowerCase().includes(q);
 
-    const matchesStatus = filterStatus === "All" || l.status === filterStatus;
-    const matchesValue = !filterMinValue || (l.estimated_value || 0) >= parseInt(filterMinValue);
+    const leadStatus = (l.status || '').toLowerCase();
+    const targetStatus = filterStatus.toLowerCase();
+    const matchesStatus = filterStatus === "All" || 
+      leadStatus === targetStatus ||
+      (targetStatus.includes('new') && leadStatus.includes('new')) ||
+      (targetStatus.includes('won') && leadStatus.includes('won'));
+
+    const minVal = parseFloat(filterMinValue);
+    const matchesValue = isNaN(minVal) || (l.estimated_value || 0) >= minVal;
     
     let matchesDate = true;
     if (filterDate === "Last 7 Days") {
-      matchesDate = new Date(l.created_at) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      matchesDate = Boolean(l.created_at) && new Date(l.created_at).getTime() >= (Date.now() - 7 * 24 * 60 * 60 * 1000);
     } else if (filterDate === "Last 30 Days") {
-      matchesDate = new Date(l.created_at) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      matchesDate = Boolean(l.created_at) && new Date(l.created_at).getTime() >= (Date.now() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    return matchesSearch && matchesStatus && matchesValue && matchesDate &&
-      (!isSalesperson || l.assigned_to === user?.id); // Salespersons only see their own
+    let matchesTab = true;
+    if (activeViewTab === 'mine') {
+      matchesTab = l.assigned_to === user?.id;
+    } else if (activeViewTab === 'recent_imports') {
+      matchesTab = Boolean(
+        l.custom_data?.import_batch_id || 
+        (l.source && l.source.toLowerCase().includes('csv'))
+      );
+    } else if (activeViewTab === 'active') {
+      matchesTab = !['won', 'won (converted)', 'lost', 'not interested'].includes(leadStatus);
+    }
+
+    return matchesSearch && matchesStatus && matchesValue && matchesDate && matchesTab &&
+      (!isSalesperson || l.assigned_to === user?.id);
   }).sort((a, b) => {
     if (filterSortBy === "Score (High-Low)") {
       return (b.propensityScore || 0) - (a.propensityScore || 0);
+    } else if (filterSortBy === "Newest") {
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     }
-    return 0; // Default sorting is preserved from context
+    return 0;
   });
 
   if (loading) return (
@@ -512,30 +701,123 @@ export default function CRMLeads() {
             variant="outline"
             onClick={() => document.getElementById('csv-upload')?.click()}
             disabled={importing}
-            className="border-primary/20 hover:bg-primary/10 text-primary transition-all px-2.5 sm:px-4 h-9"
+            className="border-primary/20 hover:bg-primary/10 text-primary transition-all px-2.5 sm:px-4 h-9 font-semibold text-xs"
           >
-            {importing ? <Loader2 size={14} className="animate-spin sm:mr-2" /> : <Download size={14} className="sm:mr-2" />}
-            <span className="hidden sm:inline">Import</span>
+            {importing ? <Loader2 size={14} className="animate-spin sm:mr-1.5" /> : <Download size={14} className="sm:mr-1.5" />}
+            <span className="hidden sm:inline">Import CSV</span>
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => setIsImportHistoryOpen(true)}
+            className="border-primary/20 hover:bg-primary/10 text-primary transition-all px-2.5 sm:px-4 h-9 font-semibold text-xs gap-1.5"
+          >
+            <History size={14} />
+            <span className="hidden sm:inline">Import History</span>
+            {importBatches.length > 0 && (
+              <span className="px-1.5 py-0.2 bg-primary/20 text-primary rounded-full text-[10px] font-bold">
+                {importBatches.length}
+              </span>
+            )}
           </Button>
           <Button 
             variant="outline"
             onClick={handleExportCSV}
-            className="border-primary/20 hover:bg-primary/10 text-primary transition-all px-2.5 sm:px-4 h-9"
+            className="border-primary/20 hover:bg-primary/10 text-primary transition-all px-2.5 sm:px-4 h-9 font-semibold text-xs"
           >
-            <Upload size={14} className="sm:mr-2" />
+            <Upload size={14} className="sm:mr-1.5" />
             <span className="hidden sm:inline">Export</span>
           </Button>
           <Button 
             variant="outline"
             onClick={() => setIsDeleteModalOpen(true)}
             disabled={submitting}
-            className="border-rose-500/20 hover:bg-rose-500/10 text-rose-500 transition-all px-2.5 sm:px-4 h-9"
+            className="border-rose-500/20 hover:bg-rose-500/10 text-rose-500 transition-all px-2.5 sm:px-4 h-9 font-semibold text-xs"
           >
-            <Trash2 size={14} className="sm:mr-2" />
+            <Trash2 size={14} className="sm:mr-1.5" />
             <span className="hidden sm:inline">Delete Leads</span>
           </Button>
         </div>
       </div>
+
+      {/* Traditional CRM View Tabs */}
+      <div className="flex items-center gap-1.5 border-b border-border pb-2 overflow-x-auto custom-scrollbar">
+        <button
+          onClick={() => setActiveViewTab('all')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeViewTab === 'all'
+              ? 'bg-primary text-primary-foreground shadow-xs'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          <Layers size={13} /> All Leads
+        </button>
+        <button
+          onClick={() => setActiveViewTab('mine')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeViewTab === 'mine'
+              ? 'bg-primary text-primary-foreground shadow-xs'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          My Assigned
+        </button>
+        <button
+          onClick={() => setActiveViewTab('recent_imports')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeViewTab === 'recent_imports'
+              ? 'bg-primary text-primary-foreground shadow-xs'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          <FileSpreadsheet size={13} /> Recent CSV Imports
+        </button>
+        <button
+          onClick={() => setActiveViewTab('active')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeViewTab === 'active'
+              ? 'bg-primary text-primary-foreground shadow-xs'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          <Zap size={13} /> Active Pipeline
+        </button>
+      </div>
+
+      {/* Enterprise Bulk Action Bar (Visible ONLY when 1+ rows are checked) */}
+      {selectedLeadIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-primary/10 border border-primary/30 rounded-2xl shadow-md animate-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2.5">
+            <span className="h-6 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+              {selectedLeadIds.length} Selected
+            </span>
+            <span className="text-xs font-medium text-muted-foreground hidden sm:inline">
+              Selected rows in current view
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+              className="h-8 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Deselect All
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                setDeleteTarget('selected');
+                setIsDeleteModalOpen(true);
+              }}
+              className="h-8 text-xs font-bold gap-1.5 bg-rose-500 hover:bg-rose-600 text-white shadow-xs"
+            >
+              <Trash2 size={13} /> Delete Selected ({selectedLeadIds.length})
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Search + Compact Filters Row */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
@@ -585,13 +867,87 @@ export default function CRMLeads() {
         </div>
       </div>
 
+      {/* Multi-Select Quick Selection Toolbar & Sticky Actions Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-card border border-border rounded-2xl shadow-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={selectNewImportedLeads}
+            className="h-8 text-xs font-bold gap-1.5 border-primary/30 text-primary hover:bg-primary/10 transition-all"
+          >
+            <Download size={13} /> Select Newly Imported Leads
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (selectedLeadIds.length === filteredLeads.length) {
+                setSelectedLeadIds([]);
+              } else {
+                setSelectedLeadIds(filteredLeads.map(l => l.id));
+              }
+            }}
+            className="h-8 text-xs font-bold gap-1.5"
+          >
+            <CheckSquare size={13} />
+            {selectedLeadIds.length === filteredLeads.length && filteredLeads.length > 0
+              ? "Deselect All"
+              : `Select All (${filteredLeads.length})`}
+          </Button>
+          {selectedLeadIds.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+              className="h-8 text-xs text-muted-foreground hover:text-foreground font-semibold"
+            >
+              Clear ({selectedLeadIds.length})
+            </Button>
+          )}
+        </div>
+
+        {selectedLeadIds.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/20">
+              {selectedLeadIds.length} Selected
+            </span>
+            <Button
+              size="sm"
+              onClick={() => {
+                setDeleteTarget('selected');
+                setIsDeleteModalOpen(true);
+              }}
+              className="h-8 text-xs font-bold gap-1.5 bg-rose-500 hover:bg-rose-600 text-white shadow-xs"
+            >
+              <Trash2 size={13} /> Delete Selected ({selectedLeadIds.length})
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* Leads Table */}
       <Card className="bg-card border-border overflow-hidden rounded-2xl shadow-xl">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-background/50">
-                <th className="w-10"></th>
+                <th className="w-10 pl-3 py-4 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedLeadIds(filteredLeads.map(l => l.id));
+                      } else {
+                        setSelectedLeadIds([]);
+                      }
+                    }}
+                    className="rounded border-input text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    title="Select All Leads"
+                  />
+                </th>
+                <th className="w-8"></th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Company & Contact</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Email</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Phone</th>
@@ -610,10 +966,20 @@ export default function CRMLeads() {
                 return (
                   <React.Fragment key={lead.id}>
                     <tr 
-                      className="border-b border-border hover:bg-background/40 transition-colors cursor-pointer"
+                      className={`border-b border-border transition-colors cursor-pointer ${
+                        selectedLeadIds.includes(lead.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-background/40'
+                      }`}
                       onClick={() => setExpandedRowId(isExpanded ? null : lead.id)}
                     >
-                      <td className="pl-4 text-center">
+                      <td className="pl-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedLeadIds.includes(lead.id)}
+                          onChange={(e) => toggleSelectLead(lead.id, e as any)}
+                          className="rounded border-input text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                        />
+                      </td>
+                      <td className="pr-2 text-center">
                         {isExpanded ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
                       </td>
                        <td className="px-4 lg:px-6 py-4 min-w-[280px] break-words">
@@ -1070,12 +1436,50 @@ export default function CRMLeads() {
             </div>
             
             <div className="space-y-4 mb-6">
-              {isAdmin ? (
-                <>
-                  <p className="text-sm text-muted-foreground mb-2">Select which leads you would like to permanently delete:</p>
-                  
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
+              <p className="text-sm text-muted-foreground mb-2">Select which leads you would like to permanently delete:</p>
+              
+              <div className="space-y-2.5">
+                {/* Option 1: Delete Checked / Selected Leads */}
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors">
+                  <input 
+                    type="radio" 
+                    name="deleteTarget" 
+                    checked={deleteTarget === 'selected'} 
+                    onChange={() => setDeleteTarget('selected')}
+                    className="text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-bold text-foreground block">
+                      Delete Checked / Selected Leads ({selectedLeadIds.length})
+                    </span>
+                    <span className="text-xs text-muted-foreground block">
+                      Deletes only the {selectedLeadIds.length} lead(s) you individually checked.
+                    </span>
+                  </div>
+                </label>
+
+                {/* Option 2: Delete Newly Imported / CSV Leads */}
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 cursor-pointer hover:bg-amber-500/10 transition-colors">
+                  <input 
+                    type="radio" 
+                    name="deleteTarget" 
+                    checked={deleteTarget === 'new_imported'} 
+                    onChange={() => setDeleteTarget('new_imported')}
+                    className="text-amber-500 focus:ring-amber-500 h-4 w-4"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-bold text-amber-700 dark:text-amber-300 block">
+                      Delete Newly Imported / CSV Leads
+                    </span>
+                    <span className="text-xs text-amber-600/80 dark:text-amber-400/80 block">
+                      Safely deletes CSV imports and "New Leads" without touching active leads in progress.
+                    </span>
+                  </div>
+                </label>
+
+                {isAdmin ? (
+                  <>
+                    <label className="flex items-center gap-3 p-3 rounded-xl border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
                       <input 
                         type="radio" 
                         name="deleteTarget" 
@@ -1083,10 +1487,10 @@ export default function CRMLeads() {
                         onChange={() => setDeleteTarget('mine')}
                         className="text-primary focus:ring-primary h-4 w-4"
                       />
-                      <span className="text-sm font-medium">Delete Only My Leads</span>
+                      <span className="text-sm font-medium">Delete Only My Assigned Leads</span>
                     </label>
 
-                    <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
+                    <label className="flex items-center gap-3 p-3 rounded-xl border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
                       <input 
                         type="radio" 
                         name="deleteTarget" 
@@ -1111,7 +1515,7 @@ export default function CRMLeads() {
                       </div>
                     </label>
 
-                    <label className="flex items-center gap-3 p-3 rounded-lg border border-rose-500/30 bg-rose-500/5 cursor-pointer hover:bg-rose-500/10 transition-colors">
+                    <label className="flex items-center gap-3 p-3 rounded-xl border border-rose-500/30 bg-rose-500/5 cursor-pointer hover:bg-rose-500/10 transition-colors">
                       <input 
                         type="radio" 
                         name="deleteTarget" 
@@ -1121,18 +1525,26 @@ export default function CRMLeads() {
                       />
                       <div className="flex-1">
                         <span className="text-sm font-bold text-rose-500">Delete ALL Workspace Leads</span>
-                        <span className="text-xs text-rose-500/80 block">Warning: This deletes everyone's leads permanently.</span>
+                        <span className="text-xs text-rose-500/80 block">Warning: Permanently wipes all workspace leads.</span>
                       </div>
                     </label>
-                  </div>
-                </>
-              ) : (
-                <div className="p-4 rounded-lg border border-rose-500/30 bg-rose-500/5 text-rose-500 text-sm">
-                  <p className="font-bold mb-1">Warning!</p>
-                  <p>You are about to permanently delete <strong>all of your own leads</strong>. This action cannot be undone.</p>
-                  <p className="mt-2 text-xs opacity-80">(Note: Security rules prevent you from deleting leads created by others).</p>
-                </div>
-              )}
+                  </>
+                ) : (
+                  <label className="flex items-center gap-3 p-3 rounded-xl border border-rose-500/30 bg-rose-500/5 cursor-pointer hover:bg-rose-500/10 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="deleteTarget" 
+                      checked={deleteTarget === 'mine'} 
+                      onChange={() => setDeleteTarget('mine')}
+                      className="text-rose-500 focus:ring-rose-500 h-4 w-4"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-bold text-rose-500">Delete All My Leads</span>
+                      <span className="text-xs text-rose-500/80 block">Warning: Permanently deletes all leads assigned to you.</span>
+                    </div>
+                  </label>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
@@ -1149,6 +1561,98 @@ export default function CRMLeads() {
                 Confirm Delete
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Traditional CRM Import History & Rollback Modal */}
+      {isImportHistoryOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-2xl rounded-2xl shadow-2xl border border-border p-6 max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 text-primary rounded-xl border border-primary/20">
+                  <History size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Import History & Rollback</h2>
+                  <p className="text-xs text-muted-foreground">
+                    View past CSV import batches and rollback any batch without affecting other leads
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsImportHistoryOpen(false)}
+                className="rounded-xl h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <X size={18} />
+              </Button>
+            </div>
+
+            {/* Import Batches List */}
+            <div className="py-4 overflow-y-auto flex-1 space-y-3 custom-scrollbar">
+              {importBatches.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground space-y-2">
+                  <FileSpreadsheet size={36} className="mx-auto opacity-40" />
+                  <p className="text-sm font-semibold">No CSV Import History Found</p>
+                  <p className="text-xs max-w-sm mx-auto">
+                    When you import CSV lead files, each batch is automatically logged here so you can undo any import in 1 click.
+                  </p>
+                </div>
+              ) : (
+                importBatches.map(batch => (
+                  <div 
+                    key={batch.batchId} 
+                    className="bg-background border border-border/80 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs hover:border-border transition-colors"
+                  >
+                    <div className="space-y-1 truncate">
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet size={16} className="text-primary shrink-0" />
+                        <span className="text-sm font-bold text-foreground truncate">{batch.filename}</span>
+                        <span className="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-md text-[10px] font-bold shrink-0">
+                          {batch.leadsCount} lead(s)
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Imported on {new Date(batch.importedAt).toLocaleString()}
+                      </p>
+                    </div>
+
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={rollingBackBatchId === batch.batchId}
+                      onClick={() => handleRollbackImportBatch(batch.batchId, batch.filename, batch.leadIds)}
+                      className="h-8 text-xs font-bold gap-1.5 shrink-0 bg-rose-500 hover:bg-rose-600 text-white shadow-xs"
+                    >
+                      {rollingBackBatchId === batch.batchId ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <RotateCcw size={13} />
+                      )}
+                      Undo Import ({batch.leadsCount})
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-4 border-t border-border flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsImportHistoryOpen(false)}
+                className="h-8 text-xs font-medium px-4"
+              >
+                Close
+              </Button>
+            </div>
+
           </div>
         </div>
       )}

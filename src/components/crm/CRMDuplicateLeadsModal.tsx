@@ -174,8 +174,7 @@ export default function CRMDuplicateLeadsModal({ isOpen, onClose }: CRMDuplicate
                         <Button
                           onClick={() => handleOpenMergeModal(group.leads)}
                           size="sm"
-                          variant="outline"
-                          className="h-7 text-xs font-semibold gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+                          className="h-7 text-xs font-bold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
                         >
                           <GitMerge size={13} /> Select & Merge Fields
                         </Button>

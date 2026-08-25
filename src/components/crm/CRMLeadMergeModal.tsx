@@ -220,7 +220,7 @@ export default function CRMLeadMergeModal({ isOpen, onClose, leadA, leadB }: CRM
             onClick={handleExecuteMerge}
             disabled={submitting}
             size="sm"
-            className="h-8 text-xs font-semibold px-4 gap-1.5"
+            className="h-8 text-xs font-bold px-4 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs transition-all"
           >
             <GitMerge size={14} />
             {submitting ? 'Merging...' : 'Merge & Save Lead'}

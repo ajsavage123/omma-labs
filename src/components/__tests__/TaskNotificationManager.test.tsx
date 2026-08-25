@@ -64,8 +64,8 @@ describe('TaskNotificationManager & Scheduling Notifications Workflow', () => {
 
     render(<TaskNotificationManager />);
 
-    // Advance fake timers by 100 seconds so diffMs becomes +20s (inside <= 30s window)
-    vi.advanceTimersByTime(100000);
+    // Advance fake timers by 125 seconds so current time passes the due time (diffMs <= 0)
+    vi.advanceTimersByTime(125000);
 
     expect(notificationService.showNotification).toHaveBeenCalledWith(
       '📋 Task Due: Call Client Immediately',

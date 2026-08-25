@@ -36,7 +36,11 @@ let broadcastCallback: ((payload: any) => void) | null = null;
 const mockChannel = {
   on: vi.fn((type: string, filter: any, callback?: any) => {
     if (type === 'broadcast') {
-      broadcastCallback = callback || filter;
+      const eventName = typeof filter === 'object' ? filter.event : filter;
+      const cb = typeof filter === 'function' ? filter : callback;
+      if (eventName === 'broadcast_chat_message' || !broadcastCallback) {
+        broadcastCallback = cb;
+      }
     }
     return mockChannel;
   }),
