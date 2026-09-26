@@ -7,10 +7,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake, AlertTriangle } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake, MoreHorizontal, ArrowUpDown, ChevronDown, Info } from "lucide-react";
 
 import { useWorkspaceUsers } from '@/hooks/useWorkspaceUsers';
 import { useToast } from '@/hooks/useToast';
+import { useIsMobile } from '@/hooks/useMobile';
 
 import { useCRMData } from '@/contexts/CRMDataContext';
 import { useLeadScoring } from '@/hooks/useLeadScoring';
@@ -86,6 +87,26 @@ const STAGES = [
     aliases: ['Won', 'WON', 'Converted', 'CONVERTED']
   },
 ];
+
+// Extract a human-readable location from external_link (plain address text,
+// or a Google Maps URL with the address encoded in it).
+const getLeadLocation = (lead: Record<string, any>): string => {
+  const raw = (lead.external_link || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const url = new URL(raw);
+      const q = url.searchParams.get('q') || url.searchParams.get('query') || url.searchParams.get('destination');
+      if (q) return q.replace(/\+/g, ' ');
+      const m = raw.match(/\/maps\/(?:search|place)\/([^/@?]+)/);
+      if (m) return decodeURIComponent(m[1]).replace(/\+/g, ' ');
+      return '';
+    } catch {
+      return '';
+    }
+  }
+  return raw;
+};
 
 
 export default function CRMPipeline() {
@@ -202,7 +223,6 @@ export default function CRMPipeline() {
     return list;
   }, [users, user?.id]);
 
-  const [filterSalesperson, setFilterSalesperson] = useState<string>("All");
   const [filterSortBy, setFilterSortBy] = useState<string>("Score");
 
   const [linkedAccounts, setLinkedAccounts] = useState<GoogleAccount[]>([]);
@@ -234,6 +254,9 @@ export default function CRMPipeline() {
   // Role check: admin sees all, non-admins see only their own leads
   const isAdmin = user?.role === 'admin';
   const isSalesperson = !isAdmin;
+  // Render one layout at a time (avoids duplicate DOM and keeps the mobile
+  // single-stage view light). Below 768px we show the optimized mobile view.
+  const isMobileViewport = useIsMobile();
   const [glowingLeadId] = useState<string | null>(null);
 
   // Lead Form State
@@ -249,6 +272,11 @@ export default function CRMPipeline() {
     external_link: '',
     assigned_to: ''
   });
+
+  const [activeMoreMenuLeadId, setActiveMoreMenuLeadId] = useState<string | null>(null);
+  const [showPipelineInfo, setShowPipelineInfo] = useState<boolean>(false);
+  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
+  const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
 
 
 
@@ -633,11 +661,12 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     }
   }, [refreshLeads, toast]);
 
+  // Rep scoping (all reps vs one rep) is handled globally by CRMDataContext,
+  // driven by the Team CRM / rep selector in the layout header.
   const unmappedLeads = useMemo(() => scoredLeads.filter(l => 
     !STAGES.some(s => s.key === l.status || s.aliases.includes(l.status)) &&
-    (filterSalesperson === "All" || l.assigned_to === filterSalesperson) &&
     (!isSalesperson || l.assigned_to === user?.id)
-  ), [scoredLeads, filterSalesperson, isSalesperson, user?.id]);
+  ), [scoredLeads, isSalesperson, user?.id]);
 
   const handleAction = useCallback((type: 'call' | 'wa' | 'mail', detail?: string) => {
     if (!detail || detail.trim() === '' || detail.toLowerCase() === 'none' || detail.toLowerCase() === 'n/a') return;
@@ -654,14 +683,48 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   const getLeadsForStage = useCallback((stage: typeof STAGES[0]) => {
     return scoredLeads.filter(l => 
       (l.status === stage.key || stage.aliases.includes(l.status)) &&
-      (filterSalesperson === "All" || l.assigned_to === filterSalesperson) &&
       (!isSalesperson || l.assigned_to === user?.id)
     );
-  }, [scoredLeads, filterSalesperson, isSalesperson, user?.id]);
+  }, [scoredLeads, isSalesperson, user?.id]);
+
+  // ---- Mobile single-stage helpers (optimized mobile layout) ----
+  const getMobileStageLeads = useCallback((stage: typeof STAGES[0]) => {
+    const raw = stage.key === 'New Leads'
+      ? [...getLeadsForStage(stage), ...unmappedLeads]
+      : getLeadsForStage(stage);
+    const q = searchQuery.toLowerCase();
+    if (!q) return raw;
+    return raw.filter(l => {
+      const resolvedCompany = resolveLeadCompanyName(l);
+      const resolvedContact = resolveLeadContactPerson(l);
+      return (resolvedContact.toLowerCase() || '').includes(q) ||
+        (resolvedCompany.toLowerCase() || '').includes(q) ||
+        (l.contact_person?.toLowerCase() || '').includes(q) ||
+        (l.company_name?.toLowerCase() || '').includes(q);
+    });
+  }, [getLeadsForStage, unmappedLeads, searchQuery]);
+
+  const activeMobileStage = useMemo(
+    () => STAGES.find(s => s.key === mobileActiveStage) || STAGES[0],
+    [mobileActiveStage]
+  );
+  const mobileStageLeads = useMemo(() => {
+    let list = getMobileStageLeads(activeMobileStage);
+    list = filterSortBy === "Score"
+      ? [...list].sort((a, b) => (b.propensityScore || 0) - (a.propensityScore || 0))
+      : [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return list;
+  }, [getMobileStageLeads, activeMobileStage, filterSortBy]);
+  const mobileTotalValue = useMemo(
+    () => mobileStageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0),
+    [mobileStageLeads]
+  );
+
+  const closeMoreMenu = useCallback(() => setActiveMoreMenuLeadId(null), []);
 
    
   const memoizedPipelineBoard = useMemo(() => (
-    <div className="flex-1 overflow-x-auto pb-4 sm:pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto snap-x snap-mandatory">
+    <div className="hidden md:flex flex-1 overflow-x-auto pb-4 sm:pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto snap-x snap-mandatory">
       <div className="flex gap-2.5 sm:gap-4 lg:gap-6 h-full min-w-max pb-4 px-2 sm:px-4">
         {STAGES.map((stage, sIdx) => {
           const rawLeads = sIdx === 0 
@@ -1013,7 +1076,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         })}
       </div>
     </div>
-  ), [scoredLeads, searchQuery, unmappedLeads, showInfoFor, glowingLeadId, filterSalesperson, filterSortBy, user, currentTime, getLeadsForStage, handleAction, togglePin, openEditModal, deleteLead, updateLeadStage, openNoteModal, openTaskModal, deleteTask, deleteRecentNote]);
+  ), [scoredLeads, searchQuery, unmappedLeads, showInfoFor, glowingLeadId, filterSortBy, user, currentTime, getLeadsForStage, handleAction, togglePin, openEditModal, deleteLead, updateLeadStage, openNoteModal, openTaskModal, deleteTask, deleteRecentNote]);
 
   if (loading) return (
     <div className="h-full flex items-center justify-center">
@@ -1043,141 +1106,511 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           background-clip: content-box !important;
         }
       `}</style>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-1.5 sm:mb-2 sticky top-0 z-20 bg-background/90 backdrop-blur-md p-2 sm:p-4 border-b border-border shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base sm:text-2xl lg:text-3xl font-bold text-foreground leading-none">Pipeline</h1>
-            {unmappedLeads.length > 0 && (
-              <p className="text-[9px] sm:text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-0.5">
-                ⚠ {unmappedLeads.length} unmapped
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {duplicateAnalysis.totalGroupCount > 0 && (
-              <Button
-                onClick={() => setIsDuplicateModalOpen(true)}
-                variant="outline"
-                size="sm"
-                className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold text-xs gap-1 py-1 px-2.5 h-7 shadow-sm"
-              >
-                <AlertTriangle size={13} />
-                <span>Duplicates ({duplicateAnalysis.totalGroupCount})</span>
-              </Button>
-            )}
-            <Button 
-              onClick={openAddModal}
-              size="sm"
-              className="sm:hidden bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 h-7 shadow-md flex items-center gap-1"
-            >
-              <Plus size={14} /> Add Lead
-            </Button>
-          </div>
-        </div>
-
-        {/* Compact Horizontal Controls Bar for Mobile & Desktop */}
-        <div className="flex items-center gap-1.5 sm:gap-3 w-full sm:w-auto overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
-          {/* Admin-only: Salesperson filter dropdown */}
-          {isAdmin && (
-            <div className="flex items-center gap-1 bg-background border border-input rounded-xl px-2.5 py-1 shadow-sm shrink-0">
-              <label htmlFor="crm-salesperson-filter" className="text-[9px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer">Filter:</label>
-              <select 
-                id="crm-salesperson-filter"
-                name="salespersonFilter"
-                value={filterSalesperson}
-                onChange={(e) => setFilterSalesperson(e.target.value)}
-                className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-3 max-w-[110px] sm:max-w-none truncate"
-              >
-                <option value="All" className="bg-background text-foreground">All Sales</option>
-                {workspaceUsers.map(u => (
-                  <option key={u.id} value={u.id} className="bg-background text-foreground">
-                    {u.full_name || u.username} {u.id === user?.id ? '(Me)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Business & Marketing: show My Leads badge */}
-          {isSalesperson && (
-            <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-xl shrink-0">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">My Leads</span>
-            </div>
-          )}
-
-          {/* Compact Search Input */}
-          <div className="relative flex-1 min-w-[120px] sm:w-48">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={13} />
-            <input 
-              id="crm-pipeline-search"
-              name="searchQuery"
-              aria-label="Search in pipeline"
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-2.5 py-1 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all h-7 sm:h-auto"
-            />
-          </div>
-
-          {/* Compact Sort Dropdown */}
-          <div className="flex items-center gap-1 bg-background border border-input rounded-xl px-2.5 py-1 shadow-sm shrink-0">
-            <label htmlFor="crm-sort-filter" className="text-[9px] font-black text-muted-foreground uppercase tracking-widest cursor-pointer">Sort:</label>
-            <select 
-              id="crm-sort-filter"
-              name="sortFilter"
-              value={filterSortBy}
-              onChange={(e) => setFilterSortBy(e.target.value)}
-              className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-3"
-            >
-              <option value="Score" className="bg-background text-foreground">Score</option>
-              <option value="Newest" className="bg-background text-foreground">Date</option>
-            </select>
-          </div>
-
-          <Button 
-            onClick={openAddModal}
-            className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 animate-pulse-subtle shrink-0"
+      {/* ===== COMPACT HEADER ROW: Pipeline + unmapped + duplicates + Add Lead in ONE row ===== */}
+      <div className="flex items-center justify-between gap-2 mb-1.5 sticky top-0 z-30 bg-background/95 backdrop-blur-md px-3 py-2 border-b border-border shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-foreground leading-none shrink-0">Pipeline</h1>
+          <button
+            onClick={() => setShowPipelineInfo(true)}
+            className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+            title="About pipeline stages"
           >
-            <Plus size={18} className="mr-2" />
-            Add New Lead
-          </Button>
+            <Info size={15} />
+          </button>
+          {unmappedLeads.length > 0 && (
+            <span className="text-[9px] sm:text-[10px] text-amber-500 font-bold uppercase tracking-widest truncate">
+              ⚠ {unmappedLeads.length} Unmapped
+            </span>
+          )}
+          {duplicateAnalysis.totalGroupCount > 0 && (
+            <button
+              onClick={() => setIsDuplicateModalOpen(true)}
+              className="text-[9px] sm:text-[10px] text-amber-400 font-bold uppercase tracking-widest hover:text-amber-300 truncate shrink-0"
+            >
+              • Duplicates ({duplicateAnalysis.totalGroupCount})
+            </button>
+          )}
+        </div>
+        <Button
+          onClick={openAddModal}
+          size="sm"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 sm:px-3 h-7 sm:h-8 shadow-md flex items-center gap-1 shrink-0"
+        >
+          <Plus size={14} />
+          <span className="md:hidden">Lead</span>
+          <span className="hidden md:inline">Add New Lead</span>
+        </Button>
+      </div>
+
+      {/* ===== COMPACT FILTER / SEARCH / SORT ROW (mobile) ===== */}
+      <div className="flex items-center gap-1.5 px-3 py-1.5 md:mb-2">
+        {/* Business & Marketing: show My Leads badge */}
+        {isSalesperson && (
+          <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-xl shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">My Leads</span>
+          </div>
+        )}
+
+        {/* Compact Search Input */}
+        <div className="relative flex-1 min-w-[80px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={13} />
+          <input
+            id="crm-pipeline-search"
+            name="searchQuery"
+            aria-label="Search in pipeline"
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-2.5 py-1 bg-background border border-input rounded-xl text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all h-7"
+          />
+        </div>
+
+        {/* Compact Sort Dropdown */}
+        <div className="flex items-center gap-1 bg-background border border-input rounded-xl px-2 py-1 shadow-sm shrink-0">
+          <ArrowUpDown size={12} className="text-muted-foreground" />
+          <select
+            id="crm-sort-filter"
+            name="sortFilter"
+            value={filterSortBy}
+            onChange={(e) => setFilterSortBy(e.target.value)}
+            className="text-xs font-bold text-foreground bg-transparent focus:outline-none appearance-none cursor-pointer pr-1"
+          >
+            <option value="Score" className="bg-background text-foreground">Score</option>
+            <option value="Newest" className="bg-background text-foreground">Date</option>
+          </select>
         </div>
       </div>
 
-      {/* Mobile Stage Quick-Jump Tabs */}
-      <div className="flex md:hidden items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1.5 -mt-2">
-        {STAGES.map((s) => {
-          const count = scoredLeads.filter(l => (l.status === s.key || s.aliases.includes(l.status))).length;
-          const isActive = mobileActiveStage === s.key;
-          return (
-            <button
-              key={s.key}
-              onClick={() => {
-                setMobileActiveStage(s.key);
-                const el = document.getElementById(`pipeline-col-${s.key}`);
-                if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 active:scale-95 ${
-                isActive
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted/40 text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <span>{s.name}</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                isActive ? 'bg-white/20 text-white' : 'bg-background/80 text-muted-foreground'
-              }`}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
+      {/* Pipeline stages info sheet (mobile header info icon) */}
+      {showPipelineInfo && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowPipelineInfo(false)}>
+          <div className="bg-card border-t sm:border-2 border-border rounded-t-[2rem] sm:rounded-[2rem] w-full max-w-md shadow-2xl p-5 max-h-[80vh] overflow-y-auto custom-scrollbar" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-black text-foreground tracking-tight">Pipeline Stages</h3>
+              <button onClick={() => setShowPipelineInfo(false)} className="p-2 hover:bg-background rounded-xl text-muted-foreground"><X size={18} /></button>
+            </div>
+            <div className="space-y-2.5">
+              {STAGES.map((s) => (
+                <div key={s.key} className="flex items-start gap-2.5">
+                  <span className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 bg-gradient-to-br ${s.color}`} />
+                  <div>
+                    <p className={`text-xs font-black ${s.textColor} uppercase tracking-wider`}>{s.name}</p>
+                    <p className="text-[11px] text-muted-foreground leading-snug">{s.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isMobileViewport && (<>
+      {/* ===== MOBILE: Single-Stage Selector (dropdown) ===== */}
+      <div className="md:hidden px-3 pt-1 pb-2 relative">
+        <button
+          onClick={() => setStageDropdownOpen(o => !o)}
+          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl text-sm font-black uppercase tracking-wider text-white shadow-lg bg-gradient-to-r ${activeMobileStage.color} active:scale-[0.99] transition-transform`}
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="truncate">{activeMobileStage.name}</span>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 font-black">
+              {mobileStageLeads.length}
+            </span>
+          </span>
+          <ChevronDown size={16} className={`shrink-0 transition-transform ${stageDropdownOpen ? 'rotate-180' : ''}`} />
+        </button>
+        <div className="flex items-center justify-between mt-1.5 px-1">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+            ₹{(mobileTotalValue || 0).toLocaleString()}
+          </span>
+          <button
+            onClick={() => {
+              const idx = STAGES.findIndex(s => s.key === activeMobileStage.key);
+              const next = STAGES[idx + 1];
+              if (next) setMobileActiveStage(next.key);
+            }}
+            disabled={STAGES.findIndex(s => s.key === activeMobileStage.key) >= STAGES.length - 1}
+            className="text-[10px] font-black text-primary uppercase tracking-widest disabled:opacity-30 flex items-center gap-0.5 active:scale-95 transition-transform"
+          >
+            Next Stage <ChevronRight size={12} />
+          </button>
+        </div>
+
+        {stageDropdownOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setStageDropdownOpen(false)} />
+            <div className="absolute left-3 right-3 top-full z-50 mx-0 mt-1 p-1.5 bg-card border-2 border-border rounded-2xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+              {STAGES.map((s) => {
+                const count = getMobileStageLeads(s).length;
+                const isActive = s.key === activeMobileStage.key;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => {
+                      setMobileActiveStage(s.key);
+                      setStageDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+                      isActive ? 'bg-primary/15 text-primary' : 'text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 bg-gradient-to-br ${s.color}`} />
+                      <span className="truncate">{s.name}</span>
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 ${
+                      isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Pipeline Board */}
-      {memoizedPipelineBoard}
+      {/* ===== MOBILE: Full-width compact lead cards (one stage at a time) ===== */}
+      <div className="md:hidden flex-1 overflow-y-auto custom-scrollbar px-3 pb-24">
+        {mobileStageLeads.length === 0 && (
+          <div className="border-2 border-dashed border-border/30 rounded-3xl p-10 text-center bg-background/5 mt-2">
+            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-50">Empty Stage</p>
+          </div>
+        )}
+        <div className="space-y-2.5">
+          {mobileStageLeads.map((lead) => {
+            const hasPhone = !!lead.phone && lead.phone.trim() !== '' && lead.phone.toLowerCase() !== 'none' && lead.phone.toLowerCase() !== 'n/a';
+            const hasEmail = !!lead.email && lead.email.trim() !== '' && lead.email.toLowerCase() !== 'none' && lead.email.toLowerCase() !== 'n/a';
+            const location = getLeadLocation(lead);
+            const leadStageIdx = STAGES.findIndex(s => s.key === lead.status || s.aliases.includes(lead.status));
+            const highlightClass = getLeadHighlightClass(lead);
+            const isExpanded = expandedLeadId === lead.id;
+            const isMoreOpen = activeMoreMenuLeadId === lead.id;
+            const company = resolveLeadCompanyName(lead);
+            const contact = resolveLeadContactPerson(lead);
+
+            return (
+              <Card
+                key={lead.id}
+                className={`bg-card/90 border-2 border-border border-t-4 rounded-2xl p-3 shadow-md relative overflow-hidden ${highlightClass}`}
+              >
+                {/* Stage-colored top accent */}
+                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${activeMobileStage.color}`} />
+
+                <button
+                  onClick={() => setExpandedLeadId(isExpanded ? null : lead.id)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-bold text-foreground text-[15px] leading-snug truncate">{company}</h4>
+                      {contact && contact !== company && contact !== 'Unknown Contact' && (
+                        <p className="text-[11px] text-muted-foreground font-semibold truncate">{contact}</p>
+                      )}
+                    </div>
+                    <ChevronRight size={16} className={`text-muted-foreground shrink-0 mt-1 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                  </div>
+
+                  {/* Key info: business type + service interest (imported CSV fields) */}
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {lead.business_type && (
+                      <span className="px-1.5 py-0.5 bg-indigo-600/10 border border-indigo-500/25 text-indigo-400 text-[9px] font-black rounded uppercase tracking-wider">
+                        {lead.business_type}
+                      </span>
+                    )}
+                    {lead.service_interest && (
+                      <span className="px-1.5 py-0.5 bg-primary/10 border border-primary/25 text-primary text-[9px] font-black rounded uppercase tracking-wider">
+                        {lead.service_interest}
+                      </span>
+                    )}
+                  </div>
+                  {location && (
+                    <p className="text-[11px] text-muted-foreground/80 truncate mt-0.5">{location}</p>
+                  )}
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    {lead.propensityScore !== undefined && (
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                        lead.propensityScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                        lead.propensityScore >= 40 ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                        'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                      }`}>
+                        {lead.propensityScore >= 75 ? <Flame size={10} /> :
+                         lead.propensityScore >= 40 ? <Zap size={10} /> :
+                         <Snowflake size={10} />}
+                        Score: {lead.propensityScore}
+                      </span>
+                    )}
+                    {(lead.estimated_value || 0) > 0 && (
+                      <span className={`text-[10px] font-black ${activeMobileStage.textColor}`}>₹{(lead.estimated_value || 0).toLocaleString()}</span>
+                    )}
+                  </div>
+                </button>
+
+                {/* Inline quick-action icons (website / maps) */}
+                {(lead.website || lead.external_link) && (
+                  <div className="flex items-center gap-1.5 mt-2">
+                    {lead.website && (
+                      <a href={formatUrl(lead.website)} target="_blank" rel="noopener noreferrer"
+                         className="p-1.5 bg-indigo-600/10 border border-indigo-500/25 text-indigo-500 rounded-lg hover:bg-indigo-600 hover:text-white transition-all active:scale-90"
+                         title="Visit Website">
+                        <Globe size={14} />
+                      </a>
+                    )}
+                    {lead.external_link && (
+                      <a href={formatUrl(lead.external_link)} target="_blank" rel="noopener noreferrer"
+                         className="p-1.5 bg-rose-600/10 border border-rose-500/25 text-rose-500 rounded-lg hover:bg-rose-600 hover:text-white transition-all active:scale-90"
+                         title="Google Maps">
+                        <MapPin size={14} />
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Contact actions: Call / WhatsApp / Mail (desktop parity) */}
+                <div className="flex items-center gap-2 mt-2.5">
+                  <button
+                    disabled={!hasPhone}
+                    onClick={() => handleAction('call', lead.phone)}
+                    className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+                      hasPhone ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'opacity-30 bg-muted text-muted-foreground cursor-not-allowed'
+                    }`}
+                  >
+                    <Phone size={13} />
+                    <span className="text-[11px] font-bold">Call</span>
+                  </button>
+                  <button
+                    disabled={!hasPhone}
+                    onClick={() => handleAction('wa', lead.phone)}
+                    className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+                      hasPhone ? 'bg-[#25D366] hover:bg-[#22c35e] text-white' : 'opacity-30 bg-muted text-muted-foreground cursor-not-allowed'
+                    }`}
+                  >
+                    <MessageCircle size={13} />
+                    <span className="text-[11px] font-bold">WhatsApp</span>
+                  </button>
+                  <button
+                    disabled={!hasEmail}
+                    onClick={() => handleAction('mail', lead.email)}
+                    className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+                      hasEmail ? 'bg-[#EA4335] hover:bg-[#d93025] text-white' : 'opacity-30 bg-muted text-muted-foreground cursor-not-allowed'
+                    }`}
+                    title={hasEmail ? 'Send Email' : 'Email address not available'}
+                  >
+                    <Mail size={13} />
+                    <span className="text-[11px] font-bold">Mail</span>
+                  </button>
+                </div>
+
+                {/* Workflow actions: Log Note / Schedule Action / More */}
+                <div className="flex items-center gap-2 mt-1.5">
+                  <button
+                    onClick={() => openNoteModal(lead)}
+                    className="flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 bg-background border border-border text-muted-foreground hover:bg-muted/50 transition-all active:scale-95"
+                  >
+                    <Clipboard size={13} />
+                    <span className="text-[11px] font-bold">Log Note</span>
+                  </button>
+                  <button
+                    onClick={() => openTaskModal(lead)}
+                    className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 bg-gradient-to-r ${activeMobileStage.color} text-white transition-all active:scale-95`}
+                  >
+                    <Plus size={13} />
+                    <span className="text-[11px] font-bold">Schedule</span>
+                  </button>
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setActiveMoreMenuLeadId(isMoreOpen ? null : lead.id); }}
+                      className={`h-[34px] px-2.5 rounded-xl border transition-all active:scale-95 flex items-center justify-center ${
+                        isMoreOpen ? 'bg-primary/15 border-primary/40 text-primary' : 'bg-background border-border text-muted-foreground'
+                      }`}
+                      title="More actions"
+                    >
+                      <MoreHorizontal size={15} />
+                      <span className="text-[11px] font-bold">More</span>
+                    </button>
+                    {isMoreOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={closeMoreMenu} />
+                        <div className="absolute right-0 bottom-full mb-2 z-50 w-44 p-1.5 bg-card border-2 border-border rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+                          {[
+                            { icon: <Edit2 size={14} />, label: 'Edit Lead', onClick: () => { closeMoreMenu(); openEditModal(lead); } },
+                            { icon: <Pin size={14} />, label: lead.is_pinned ? 'Unpin' : 'Pin to Top', onClick: () => { closeMoreMenu(); togglePin(lead.id, !!lead.is_pinned); } },
+                            { icon: <ChevronLeft size={14} />, label: 'Move Back', disabled: STAGES.findIndex(s => s.key === activeMobileStage.key) === 0, onClick: () => { closeMoreMenu(); updateLeadStage(lead.id, lead.status, 'backward'); } },
+                            { icon: <ChevronRight size={14} />, label: 'Move Forward', disabled: STAGES.findIndex(s => s.key === activeMobileStage.key) >= STAGES.length - 1, onClick: () => { closeMoreMenu(); updateLeadStage(lead.id, lead.status, 'forward'); } },
+                            { icon: <Trash2 size={14} />, label: 'Delete', danger: true, onClick: () => { closeMoreMenu(); deleteLead(lead.id); } },
+                          ].filter(Boolean).map((item: any, i: number) => (
+                            <button
+                              key={i}
+                              disabled={item.disabled}
+                              onClick={item.onClick}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors text-left disabled:opacity-30 disabled:cursor-not-allowed ${
+                                item.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-foreground hover:bg-muted/50'
+                              }`}
+                            >
+                              {item.icon} {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expanded details (tap card to reveal) */}
+                {isExpanded && (
+                  <div className="mt-2.5 pt-2.5 border-t border-border/50 space-y-2">
+                    {lead.business_type && (
+                      <p className="text-[11px] text-muted-foreground"><span className="font-bold uppercase tracking-wider text-[9px]">Type:</span> {lead.business_type}</p>
+                    )}
+                    {hasEmail && (
+                      <p className="text-[11px] text-muted-foreground truncate"><span className="font-bold uppercase tracking-wider text-[9px]">Email:</span> {lead.email}</p>
+                    )}
+                    {hasPhone && (
+                      <p className="text-[11px] text-muted-foreground"><span className="font-bold uppercase tracking-wider text-[9px]">Phone:</span> {lead.phone}</p>
+                    )}
+                    {lead.assigned_user && (
+                      <p className="text-[11px] text-muted-foreground"><span className="font-bold uppercase tracking-wider text-[9px]">Owner:</span> {lead.assigned_user.full_name || lead.assigned_user.username}</p>
+                    )}
+                    {lead.source && (
+                      <p className="text-[11px] text-muted-foreground truncate"><span className="font-bold uppercase tracking-wider text-[9px]">Source:</span> {lead.source}</p>
+                    )}
+                    {Number(lead.budget || 0) > 0 && (
+                      <p className="text-[11px] text-muted-foreground"><span className="font-bold uppercase tracking-wider text-[9px]">Budget:</span> ₹{Number(lead.budget || 0).toLocaleString()}</p>
+                    )}
+                    {lead.payment_status && (
+                      <p className="text-[11px] text-muted-foreground"><span className="font-bold uppercase tracking-wider text-[9px]">Payment:</span> {lead.payment_status}</p>
+                    )}
+                    {lead.follow_up_date && (
+                      <p className="text-[11px] text-muted-foreground"><span className="font-bold uppercase tracking-wider text-[9px]">Follow-Up:</span> {new Date(lead.follow_up_date).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
+                    )}
+                    {lead.tags && (
+                      <p className="text-[11px] text-muted-foreground truncate"><span className="font-bold uppercase tracking-wider text-[9px]">Tags:</span> {lead.tags}</p>
+                    )}
+                    {lead.custom_data && Object.entries(lead.custom_data).filter(([k, v]) =>
+                      !['import_batch_id', 'import_filename', 'imported_at'].includes(k) && v !== null && String(v).trim() !== ''
+                    ).length > 0 && (
+                      <div className="p-2 bg-background border border-border/60 rounded-xl space-y-1">
+                        <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Imported Data</p>
+                        {Object.entries(lead.custom_data)
+                          .filter(([k, v]) => !['import_batch_id', 'import_filename', 'imported_at'].includes(k) && v !== null && String(v).trim() !== '')
+                          .map(([k, v]) => (
+                            <div key={k} className="flex items-start justify-between gap-2 text-[10px]">
+                              <span className="text-muted-foreground font-semibold truncate max-w-[45%]">{k}</span>
+                              <span className="text-foreground font-bold text-right break-words max-w-[55%]">{String(v)}</span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+
+                    {/* Next scheduled action */}
+                    {lead.crm_tasks?.filter((t: Record<string, any>) => t.status === 'Pending').length > 0 && (
+                      <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                        <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Upcoming Action</p>
+                        {lead.crm_tasks
+                          .filter((t: Record<string, any>) => t.status === 'Pending')
+                          .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+                          .slice(0, 1)
+                          .map((task: Record<string, any>) => (
+                            <div key={task.id} className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Clock size={11} className="text-amber-500 shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-bold text-foreground truncate">{task.title}</p>
+                                  <p className="text-[9px] text-muted-foreground font-semibold uppercase">
+                                    {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                    {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <a
+                                  href={googleCalendarService.generateGoogleCalendarLink(task)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded-lg text-[9px] font-black uppercase tracking-wider active:scale-95 transition-transform"
+                                  title="Add to Google Calendar"
+                                >
+                                  <Calendar size={10} /> Add
+                                </a>
+                                <a
+                                  href={googleCalendarService.generateGmailComposeLink(
+                                    task,
+                                    lead.email || '',
+                                    googleCalendarService.generateGoogleCalendarLink(task)
+                                  )}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 px-2 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-[9px] font-black uppercase tracking-wider active:scale-95 transition-transform"
+                                  title="Compose Gmail invitation"
+                                >
+                                  <Mail size={10} /> Invite
+                                </a>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                  className="p-1.5 hover:bg-red-500/10 rounded-lg text-muted-foreground hover:text-red-500 shrink-0"
+                                  title="Delete Action"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+
+                    {/* Recent note (with delete — desktop parity) */}
+                    {lead.notes && (
+                      <div className="p-2 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                            <Clipboard size={10} /> Recent Note
+                          </p>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteRecentNote(lead); }}
+                            className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            title="Delete Note"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed max-h-[75px] overflow-y-auto custom-scrollbar whitespace-pre-wrap">
+                          {lead.notes.split('\n\n---\n\n')[0].trim()}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Stage movement (parity with desktop hover arrows) */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => updateLeadStage(lead.id, lead.status, 'backward')}
+                        disabled={leadStageIdx <= 0}
+                        className="px-2 py-2.5 bg-background border border-border rounded-xl font-black text-[10px] uppercase tracking-wider text-muted-foreground transition-all active:scale-95 flex items-center justify-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft size={12} /> Move Back
+                      </button>
+                      <button
+                        onClick={() => updateLeadStage(lead.id, lead.status, 'forward')}
+                        disabled={leadStageIdx >= STAGES.length - 1}
+                        className={`px-2 py-2.5 bg-gradient-to-r ${activeMobileStage.color} text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg transition-all active:scale-95 flex items-center justify-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed`}
+                      >
+                        Move Forward <ChevronRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      </>)}
+
+      {/* Pipeline Board (desktop / tablet) — only mounted above the mobile breakpoint */}
+      {!isMobileViewport && memoizedPipelineBoard}
 
       {/* Add Lead Modal */}
       {isModalOpen && (
