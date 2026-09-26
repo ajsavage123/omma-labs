@@ -38,12 +38,19 @@ vi.mock('@/contexts/CRMDataContext', () => ({
 
 import CRMSalesPlan from '../CRMSalesPlan';
 
-const renderSalesPlan = () => {
-  return render(
+const renderSalesPlan = (expandAll = true) => {
+  const utils = render(
     <MemoryRouter>
       <CRMSalesPlan />
     </MemoryRouter>
   );
+  if (expandAll) {
+    const expandBtn = screen.queryByText('Expand All');
+    if (expandBtn) {
+      fireEvent.click(expandBtn);
+    }
+  }
+  return utils;
 };
 
 describe('CRMSalesPlan (7-Day Sales To-Do)', () => {
@@ -90,7 +97,7 @@ describe('CRMSalesPlan (7-Day Sales To-Do)', () => {
   it('renders all Day 1 through Day 7 navigation and matrix rows', async () => {
     renderSalesPlan();
     for (let day = 1; day <= 7; day++) {
-      expect(screen.getAllByText(new RegExp(`Day ${day}`)).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(new RegExp(`Day ${day}`, 'i')).length).toBeGreaterThanOrEqual(1);
     }
   });
 
