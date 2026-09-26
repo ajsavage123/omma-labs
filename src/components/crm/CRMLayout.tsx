@@ -545,14 +545,14 @@ export default function CRMLayout({ children }: LayoutProps) {
           </div>
         </div>
 
-          {/* Mobile & Tablet Dedicated Filter Sub-Bar (When Admin on screens < lg) */}
+          {/* Mobile Admin Quick Filter (Compact single line inside header when on small screens) */}
           {isAdmin && (
-            <div className="lg:hidden mt-2 pt-2 border-t border-border/50 flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 shrink-0">
+            <div className="lg:hidden flex items-center justify-between gap-1.5 pt-1 mt-1 border-t border-border/40">
+              <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50">
                 <button
                   onClick={() => setCrmViewMode('mine')}
                   className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-all ${
-                    crmViewMode === 'mine' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
+                    crmViewMode === 'mine' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground'
                   }`}
                 >
                   My CRM
@@ -560,7 +560,7 @@ export default function CRMLayout({ children }: LayoutProps) {
                 <button
                   onClick={() => setCrmViewMode('team')}
                   className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-all ${
-                    crmViewMode === 'team' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
+                    crmViewMode === 'team' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground'
                   }`}
                 >
                   Team CRM
@@ -568,12 +568,12 @@ export default function CRMLayout({ children }: LayoutProps) {
               </div>
 
               {crmViewMode === 'team' && (
-                <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
+                <div className="flex items-center gap-1 min-w-0">
                   <span className="text-[9px] font-black text-muted-foreground uppercase shrink-0">Rep:</span>
                   <select
                     value={selectedSalesRepId}
                     onChange={(e) => setSelectedSalesRepId(e.target.value)}
-                    className="text-[11px] font-bold text-foreground bg-background border border-input rounded-lg px-2 py-1 focus:outline-none cursor-pointer w-full max-w-[170px] truncate shadow-sm"
+                    className="text-[10px] font-bold text-foreground bg-background border border-input rounded-lg px-2 py-0.5 focus:outline-none cursor-pointer max-w-[150px] truncate shadow-xs"
                   >
                     <option value="all" className="bg-background text-foreground dark:bg-slate-900 dark:text-white font-bold">
                       All Team Members

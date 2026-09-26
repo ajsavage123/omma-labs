@@ -39,10 +39,11 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
-  Info,
-  ChevronDown,
   HelpCircle,
-  Check
+  Check,
+  Table as TableIcon,
+  ListTodo,
+  ArrowRight
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCRMData } from '@/contexts/CRMDataContext';
@@ -60,62 +61,78 @@ import CRMPortfolioShareModal from '@/components/crm/CRMPortfolioShareModal';
 import CRMWeeklyReportModal from '@/components/crm/CRMWeeklyReportModal';
 import { toast } from 'sonner';
 
-// Solid High-Contrast Day Themes (Clean, readable, zero awkward neon shades)
+// Solid High-Contrast Day Themes
 const DAY_THEMES: Record<number, {
   name: string;
+  shortName: string;
   borderColor: string;
+  badgeBg: string;
   pillActiveBg: string;
-  taskBadgeBg: string;
   stepIcon: string;
+  accentText: string;
 }> = {
   1: {
-    name: 'Day 1: Local Discovery',
+    name: 'Local Discovery & Search',
+    shortName: 'Local Discovery',
     borderColor: 'border-emerald-600',
+    badgeBg: 'bg-emerald-600 text-white',
     pillActiveBg: 'bg-emerald-600 text-white shadow-md',
-    taskBadgeBg: 'bg-emerald-700 text-white font-bold',
     stepIcon: '🔍',
+    accentText: 'text-emerald-400',
   },
   2: {
-    name: 'Day 2: Digital & Directories',
+    name: 'Digital Directories & Lists',
+    shortName: 'Digital & Lists',
     borderColor: 'border-purple-600',
+    badgeBg: 'bg-purple-600 text-white',
     pillActiveBg: 'bg-purple-600 text-white shadow-md',
-    taskBadgeBg: 'bg-purple-700 text-white font-bold',
     stepIcon: '🌐',
+    accentText: 'text-purple-400',
   },
   3: {
-    name: 'Day 3: Deep Research',
+    name: 'Deep Research & Lead Scoring',
+    shortName: 'Research & Scoring',
     borderColor: 'border-blue-600',
+    badgeBg: 'bg-blue-600 text-white',
     pillActiveBg: 'bg-blue-600 text-white shadow-md',
-    taskBadgeBg: 'bg-blue-700 text-white font-bold',
     stepIcon: '🎯',
+    accentText: 'text-blue-400',
   },
   4: {
-    name: 'Day 4: Direct Outreach',
+    name: 'Direct Outreach & Cold Calling',
+    shortName: 'Direct Outreach',
     borderColor: 'border-amber-600',
+    badgeBg: 'bg-amber-600 text-white',
     pillActiveBg: 'bg-amber-600 text-white shadow-md',
-    taskBadgeBg: 'bg-amber-700 text-white font-bold',
     stepIcon: '📞',
+    accentText: 'text-amber-400',
   },
   5: {
-    name: 'Day 5: Discovery Meetings',
+    name: 'Discovery Meetings & Demos',
+    shortName: 'Meetings & Demos',
     borderColor: 'border-indigo-600',
+    badgeBg: 'bg-indigo-600 text-white',
     pillActiveBg: 'bg-indigo-600 text-white shadow-md',
-    taskBadgeBg: 'bg-indigo-700 text-white font-bold',
     stepIcon: '🤝',
+    accentText: 'text-indigo-400',
   },
   6: {
-    name: 'Day 6: Portfolio & Proposals',
+    name: 'Portfolio & Formal Proposals',
+    shortName: 'Portfolio & Quote',
     borderColor: 'border-rose-600',
+    badgeBg: 'bg-rose-600 text-white',
     pillActiveBg: 'bg-rose-600 text-white shadow-md',
-    taskBadgeBg: 'bg-rose-700 text-white font-bold',
     stepIcon: '📄',
+    accentText: 'text-rose-400',
   },
   7: {
-    name: 'Day 7: Audit & Wrap-Up',
+    name: 'Audit, Reporting & Wrap-Up',
+    shortName: 'Audit & Review',
     borderColor: 'border-amber-500',
+    badgeBg: 'bg-amber-600 text-white',
     pillActiveBg: 'bg-amber-600 text-white shadow-md',
-    taskBadgeBg: 'bg-amber-700 text-white font-bold',
     stepIcon: '🏆',
+    accentText: 'text-amber-400',
   }
 };
 
@@ -124,6 +141,9 @@ export default function CRMSalesPlan() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const { teamMembers, refreshLeads, refreshActivities, refreshTasks } = useCRMData();
+
+  // View Mode: 'table' (Organized 7-Day Table Matrix) | 'day' (Day-by-Day focused checklist)
+  const [viewMode, setViewMode] = useState<'table' | 'day'>('table');
 
   // Cycle navigation state
   const [cycleOffsetWeeks, setCycleOffsetWeeks] = useState<number>(0);
@@ -134,7 +154,7 @@ export default function CRMSalesPlan() {
     return cycleOffsetWeeks === 0 ? cycleInfo.currentDayNumber : 1;
   });
 
-  // Guide accordion toggle for clarity
+  // Guide accordion toggle
   const [showGuide, setShowGuide] = useState<boolean>(false);
 
   // Role and Target User View
@@ -226,14 +246,12 @@ export default function CRMSalesPlan() {
   // Task toggle handler
   const handleToggleTask = async (dayNumber: number, taskId: string) => {
     if (!user?.workspace_id || !targetUserId) return;
-    // If manager is viewing another rep, prevent accidental toggling
     if (isManagerAuditMode && targetUserId !== user.id) {
-      toast.info("Manager Audit Mode: You are viewing rep progress. Toggle your own tasks in 'My Daily To-Do'.");
+      toast.info("Manager Audit Mode: You are viewing rep progress. Toggle your own tasks in 'My Plan'.");
       return;
     }
 
     const currentVal = !!progressMap[taskId];
-    // Optimistic UI update
     setProgressMap(prev => ({ ...prev, [taskId]: !currentVal }));
 
     try {
@@ -246,10 +264,9 @@ export default function CRMSalesPlan() {
         currentVal
       );
       if (result) {
-        toast.success("Task completed!");
+        toast.success("Task updated!");
       }
     } catch {
-      // Revert on error
       setProgressMap(prev => ({ ...prev, [taskId]: currentVal }));
       toast.error("Could not update task");
     }
@@ -354,14 +371,14 @@ export default function CRMSalesPlan() {
     }
   };
 
-  // Active day plan details
+  // Active day plan details for Day Focus view
   const currentDayPlan = useMemo(() => {
     return SEVEN_DAY_SALES_PLAN.find(d => d.dayNumber === selectedDayNumber) || SEVEN_DAY_SALES_PLAN[0];
   }, [selectedDayNumber]);
 
   const activeTheme = DAY_THEMES[selectedDayNumber] || DAY_THEMES[1];
 
-  // Render Tool Icon dynamically with crisp white icons
+  // Render Tool Icon dynamically
   const renderToolIcon = (iconName: string) => {
     switch (iconName) {
       case 'map-pin': return <MapPin className="w-3.5 h-3.5 text-white shrink-0" />;
@@ -393,545 +410,682 @@ export default function CRMSalesPlan() {
     }
   };
 
-  // High contrast solid button styles (Zero awkward neon shades, 100% readable text)
+  // High contrast button styles
   const getToolButtonStyle = (tool: PlanTool) => {
     if (tool.name.includes('Hot')) {
-      return 'bg-red-600 hover:bg-red-700 text-white font-bold border border-red-500 shadow-sm';
+      return 'bg-red-600 hover:bg-red-700 text-white font-bold border border-red-500 shadow-xs';
     }
     if (tool.name.includes('Warm')) {
-      return 'bg-amber-600 hover:bg-amber-700 text-white font-bold border border-amber-500 shadow-sm';
+      return 'bg-amber-600 hover:bg-amber-700 text-white font-bold border border-amber-500 shadow-xs';
     }
     if (tool.name.includes('Cold')) {
-      return 'bg-sky-600 hover:bg-sky-700 text-white font-bold border border-sky-500 shadow-sm';
+      return 'bg-sky-600 hover:bg-sky-700 text-white font-bold border border-sky-500 shadow-xs';
     }
     if (tool.name.includes('WhatsApp')) {
-      return 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold border border-emerald-500 shadow-sm';
+      return 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold border border-emerald-500 shadow-xs';
     }
     if (tool.name.includes('Phone') || tool.name.includes('Call')) {
-      return 'bg-blue-600 hover:bg-blue-700 text-white font-bold border border-blue-500 shadow-sm';
+      return 'bg-blue-600 hover:bg-blue-700 text-white font-bold border border-blue-500 shadow-xs';
     }
     if (tool.name.includes('CRM') || tool.primary) {
-      return 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold border border-indigo-500 shadow-sm';
+      return 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold border border-indigo-500 shadow-xs';
     }
-    return 'bg-slate-800 hover:bg-slate-700 text-white font-bold border border-slate-600 shadow-sm';
+    return 'bg-slate-800 hover:bg-slate-700 text-white font-bold border border-slate-700 shadow-xs';
   };
 
   return (
-    <div className="space-y-3 sm:space-y-6 pb-4 sm:pb-16 animate-in fade-in duration-200">
-      {/* Solid High-Contrast Header Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-md">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
-                <CalendarCheck2 className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-lg sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
-                    7-Day Sales To-Do
-                  </h1>
-                  <Badge className="bg-indigo-600 text-white font-bold text-[10px] sm:text-xs px-2 py-0.5 border-none hidden sm:inline-flex">
-                    Repeating Cycle
-                  </Badge>
-                </div>
-                <p className="text-xs sm:text-sm text-slate-300 font-medium mt-0.5">
-                  Actionable weekly sales cadence with direct action tools & database proof
-                </p>
-              </div>
-            </div>
-
-            {/* Quick explanation toggle */}
-            <div className="pt-1.5 sm:pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowGuide(!showGuide)}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded-xl transition"
-              >
-                <HelpCircle className="w-4 h-4 text-emerald-400" />
-                <span>How to use this 7-Day Plan?</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showGuide ? 'rotate-180' : ''}`} />
-              </button>
+    <div className="space-y-2.5 sm:space-y-4 pb-8 animate-in fade-in duration-200 w-full max-w-full min-w-0">
+      
+      {/* ─── 1. COMPACT UNIFIED CONTROL TOOLBAR ─── */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+        
+        {/* Left: Title + Week Cycle Stepper + Progress Pill */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <CalendarCheck2 className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-black text-white tracking-tight uppercase whitespace-nowrap">
+                7-Day Sales Plan
+              </h1>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 hidden sm:inline">
+                Weekly Cadence
+              </span>
             </div>
           </div>
 
-          {/* Cycle Navigation and Mode Switcher */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Cycle Week Stepper */}
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-white hover:bg-slate-800 rounded-lg"
-                onClick={() => setCycleOffsetWeeks(prev => prev - 1)}
-                title="Previous Week Cycle"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <div className="px-3 text-center">
-                <span className="text-xs font-bold text-white block whitespace-nowrap">
-                  {cycleInfo.displayLabel}
-                </span>
-                {cycleInfo.isCurrentCycle ? (
-                  <span className="text-[10px] text-emerald-400 font-bold">Active Week</span>
-                ) : (
-                  <span className="text-[10px] text-slate-400">Past/Future</span>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-white hover:bg-slate-800 rounded-lg"
-                onClick={() => setCycleOffsetWeeks(prev => prev + 1)}
-                title="Next Week Cycle"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {/* Manager / Admin Audit Toggle */}
-            {isAdmin && (
-              <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsManagerAuditMode(false);
-                    setTargetUserId(user?.id || '');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    !isManagerAuditMode
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  My To-Do
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsManagerAuditMode(true);
-                    if (teamMembers.length > 0 && targetUserId === user?.id) {
-                      setTargetUserId(teamMembers[0]?.id || user?.id);
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
-                    isManagerAuditMode
-                      ? 'bg-amber-600 text-white shadow'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  Manager Audit
-                </button>
-              </div>
-            )}
-
-            {/* Sync Database Button */}
+          {/* Week Stepper */}
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 shrink-0 ml-auto sm:ml-2">
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-10 w-10 bg-slate-800 border-slate-700 text-white hover:bg-slate-700 rounded-xl shadow-sm"
-              onClick={() => {
-                loadPlanData();
-                refreshLeads();
-                refreshActivities();
-                refreshTasks();
-                toast.success("Synchronized with CRM database");
-              }}
-              title="Sync with CRM Database"
+              className="h-6 w-6 text-slate-300 hover:text-white hover:bg-slate-800 rounded"
+              onClick={() => setCycleOffsetWeeks(prev => prev - 1)}
+              title="Previous Week"
             >
-              <RefreshCw className={`w-4 h-4 ${loadingProgress || loadingMetrics ? 'animate-spin text-indigo-400' : ''}`} />
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+            <span className="text-[11px] font-bold text-white px-2 whitespace-nowrap">
+              {cycleInfo.displayLabel}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-slate-300 hover:text-white hover:bg-slate-800 rounded"
+              onClick={() => setCycleOffsetWeeks(prev => prev + 1)}
+              title="Next Week"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </div>
+
+          {/* Progress Indicator */}
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[11px] font-bold text-slate-300 shrink-0">
+            <span className="text-emerald-400 font-black">{completedTasksCount}/{allTasks.length}</span>
+            <span className="text-slate-400 text-[10px]">({progressPercent}%)</span>
+          </div>
+        </div>
+
+        {/* Right: View Mode Switcher + Manager Audit Toggle + Sync & Guide */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+          
+          {/* View Mode Toggle: Table vs Day Checklist */}
+          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'table'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <TableIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">7-Day Matrix Table</span>
+              <span className="sm:hidden">Table</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('day')}
+              className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'day'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <ListTodo className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Day Checklist</span>
+              <span className="sm:hidden">Day View</span>
+            </button>
+          </div>
+
+          {/* Admin / Manager Audit Toggle */}
+          {isAdmin && (
+            <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManagerAuditMode(false);
+                  setTargetUserId(user?.id || '');
+                }}
+                className={`px-2 py-1 rounded text-[11px] font-bold transition ${
+                  !isManagerAuditMode
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                My Plan
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManagerAuditMode(true);
+                  if (teamMembers.length > 0 && targetUserId === user?.id) {
+                    setTargetUserId(teamMembers[0]?.id || user?.id);
+                  }
+                }}
+                className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition ${
+                  isManagerAuditMode
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Audit Reps</span>
+              </button>
+            </div>
+          )}
+
+          {/* Guide Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowGuide(!showGuide)}
+            className="h-7 px-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-950 border border-slate-800 rounded-lg gap-1"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden md:inline">Guide</span>
+          </Button>
+
+          {/* Sync DB Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 bg-slate-950 border border-slate-800 text-slate-300 hover:text-white rounded-lg"
+            onClick={() => {
+              loadPlanData();
+              refreshLeads();
+              refreshActivities();
+              refreshTasks();
+              toast.success("Synchronized with CRM database");
+            }}
+            title="Sync with CRM Database"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingProgress || loadingMetrics ? 'animate-spin text-indigo-400' : ''}`} />
+          </Button>
         </div>
       </div>
 
-      {/* Collapsible Solid Visual Guide */}
+      {/* ─── 2. COMPACT SINGLE-LINE KPI STATS BAR ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-xs">
+          <div className="min-w-0">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block truncate">Weekly Progress</span>
+            <div className="text-sm sm:text-base font-black text-white">{progressPercent}% <span className="text-[10px] text-slate-400 font-normal">({completedTasksCount}/{allTasks.length})</span></div>
+          </div>
+          <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-xs">
+          <div className="min-w-0">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block truncate">Leads Created</span>
+            <div className="text-sm sm:text-base font-black text-emerald-400">{actualMetrics.leadsCreatedCount} <span className="text-[10px] text-slate-400 font-normal">({actualMetrics.hotLeadsCount}🔥 {actualMetrics.warmLeadsCount}☀️)</span></div>
+          </div>
+          <UserPlus className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-xs">
+          <div className="min-w-0">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block truncate">Outreach Logged</span>
+            <div className="text-sm sm:text-base font-black text-blue-400">{actualMetrics.activitiesCount} <span className="text-[10px] text-slate-400 font-normal">({actualMetrics.callsCount}📞 {actualMetrics.whatsAppCount}💬)</span></div>
+          </div>
+          <Phone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-xs">
+          <div className="min-w-0">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block truncate">Meetings & Deals</span>
+            <div className="text-sm sm:text-base font-black text-purple-400">{actualMetrics.meetingsBookedCount} Mtgs <span className="text-[10px] text-slate-400 font-normal">/ {actualMetrics.dealsProgressedCount} Won</span></div>
+          </div>
+          <Award className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+        </div>
+      </div>
+
+      {/* Collapsible Quick Guide */}
       {showGuide && (
-        <Card className="p-3 sm:p-5 bg-slate-900 border border-slate-800 rounded-xl sm:rounded-2xl shadow-md space-y-3 sm:space-y-4 animate-in slide-in-from-top-3">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-400" />
-              <h3 className="text-sm sm:text-base font-black text-white">
-                Understanding Your 7-Day Sales Roadmap
-              </h3>
+        <Card className="p-3 sm:p-4 bg-slate-900 border border-slate-800 rounded-xl shadow-md space-y-2 animate-in slide-in-from-top-2">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-1.5 text-xs font-black text-white">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>7-Day Sales Operating Rhythm</span>
             </div>
-            <span className="text-xs text-slate-300 font-bold">Simple 7-Step Cadence</span>
+            <span className="text-[10px] text-slate-400">Step-by-Step System</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
             {[
-              { step: 'Day 1', label: 'Local Search', icon: '🔍', color: 'bg-emerald-900/60 border-emerald-600 text-white' },
-              { step: 'Day 2', label: 'B2B Lists', icon: '🌐', color: 'bg-purple-900/60 border-purple-600 text-white' },
-              { step: 'Day 3', label: 'Qualify Hot/Warm', icon: '🎯', color: 'bg-blue-900/60 border-blue-600 text-white' },
-              { step: 'Day 4', label: 'Calls & WhatsApp', icon: '📞', color: 'bg-amber-900/60 border-amber-600 text-white' },
-              { step: 'Day 5', label: 'Demos & Meetings', icon: '🤝', color: 'bg-indigo-900/60 border-indigo-600 text-white' },
-              { step: 'Day 6', label: 'Portfolio & Quote', icon: '📄', color: 'bg-rose-900/60 border-rose-600 text-white' },
-              { step: 'Day 7', label: 'Report & Manager', icon: '🏆', color: 'bg-slate-800 border-amber-500 text-white' },
+              { day: 'Day 1', label: 'Local Maps', icon: '🔍' },
+              { day: 'Day 2', label: 'B2B Lists', icon: '🌐' },
+              { day: 'Day 3', label: 'Qualify Hot/Warm', icon: '🎯' },
+              { day: 'Day 4', label: 'Direct Calls & WA', icon: '📞' },
+              { day: 'Day 5', label: 'Demos & Meetings', icon: '🤝' },
+              { day: 'Day 6', label: 'Quote & Portfolio', icon: '📄' },
+              { day: 'Day 7', label: 'Audit & Report', icon: '🏆' },
             ].map(item => (
-              <div key={item.step} className={`p-2.5 rounded-xl border ${item.color} text-center space-y-1`}>
-                <div className="text-lg">{item.icon}</div>
-                <div className="text-[11px] font-black">{item.step}</div>
-                <div className="text-[10px] text-slate-200 font-bold leading-tight">{item.label}</div>
+              <div key={item.day} className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-center">
+                <div className="text-sm">{item.icon}</div>
+                <div className="text-[10px] font-black text-white">{item.day}</div>
+                <div className="text-[9px] text-slate-300 truncate">{item.label}</div>
               </div>
             ))}
           </div>
         </Card>
       )}
 
-      {/* Manager Audit Bar (Shown only in manager mode) */}
+      {/* Manager Audit Selector Banner */}
       {isManagerAuditMode && (
-        <Card className="p-4 bg-slate-900 border border-amber-600/60 rounded-2xl animate-in slide-in-from-top-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold">
-                <UserCheck className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-xs font-black uppercase tracking-wider text-amber-400 block">Auditing Sales Rep:</span>
-                <p className="text-[11px] text-slate-300">Select team member to audit checkmarks against DB proof</p>
-              </div>
-              <select
-                value={targetUserId}
-                onChange={e => setTargetUserId(e.target.value)}
-                className="ml-2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:ring-2 focus:ring-amber-500 shadow-sm"
-              >
-                {teamMembers.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.full_name || m.username} ({m.designation || m.role})
-                  </option>
-                ))}
-              </select>
+        <div className="p-2.5 bg-slate-900 border border-amber-600/60 rounded-xl flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-amber-600 text-white flex items-center justify-center font-bold text-xs">
+              <UserCheck className="w-3.5 h-3.5" />
             </div>
+            <span className="text-xs font-black uppercase tracking-wider text-amber-400">Auditing Rep:</span>
+            <select
+              value={targetUserId}
+              onChange={e => setTargetUserId(e.target.value)}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:ring-1 focus:ring-amber-500"
+            >
+              {teamMembers.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.full_name || m.username} ({m.designation || m.role})
+                </option>
+              ))}
+            </select>
+          </div>
+          <span className="text-[10px] text-slate-300 font-medium hidden md:inline">
+            Comparing checklist progress against actual database leads, calls & meetings.
+          </span>
+        </div>
+      )}
 
-            <div className="flex items-center gap-2 text-xs text-slate-200 font-medium">
-              <Info className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Manager mode verifies actual database activity against rep checklist checkmarks.</span>
+      {/* ─── 3. VIEW MODE: 7-DAY ORGANIZED MATRIX TABLE ─── */}
+      {viewMode === 'table' && (
+        <Card className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-md">
+          <div className="px-3 py-2.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+            <div className="flex items-center gap-2">
+              <TableIcon className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+                7-Day Structured Schedule & Execution Matrix
+              </h2>
             </div>
+            <span className="text-[10px] text-slate-400 font-medium">Click task to toggle • Launch direct tools</span>
+          </div>
+
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse min-w-[750px]">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-950/80 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <th className="py-2.5 px-3 w-[160px]">Day & Cadence</th>
+                  <th className="py-2.5 px-3">Structured Tasks & Objectives</th>
+                  <th className="py-2.5 px-3 w-[150px]">Target Metric</th>
+                  <th className="py-2.5 px-3 w-[220px]">Direct Action Launchers</th>
+                  <th className="py-2.5 px-3 w-[100px] text-center">Focus</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 text-xs">
+                {SEVEN_DAY_SALES_PLAN.map(day => {
+                  const theme = DAY_THEMES[day.dayNumber] || DAY_THEMES[1];
+                  const isToday = cycleInfo.isCurrentCycle && cycleInfo.currentDayNumber === day.dayNumber;
+                  const dayTasks = day.tasks;
+                  const dayDoneCount = dayTasks.filter(t => progressMap[t.id]).length;
+                  const isDayFullyDone = dayDoneCount === dayTasks.length;
+
+                  return (
+                    <tr 
+                      key={day.dayNumber} 
+                      className={`hover:bg-slate-800/40 transition-colors ${
+                        isToday ? 'bg-indigo-950/20' : ''
+                      }`}
+                    >
+                      {/* Column 1: Day & Cadence Name */}
+                      <td className="py-3 px-3 align-top">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">{theme.stepIcon}</span>
+                            <span className="font-black text-white text-xs uppercase tracking-tight">
+                              Day {day.dayNumber}
+                            </span>
+                            {isToday && (
+                              <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-slate-950 font-black text-[9px]">
+                                TODAY
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] font-bold text-slate-300 leading-tight">
+                            {theme.shortName}
+                          </p>
+                          <div className="flex items-center gap-1 text-[10px] text-slate-400 pt-1">
+                            <span className={isDayFullyDone ? 'text-emerald-400 font-bold' : ''}>
+                              {dayDoneCount}/{dayTasks.length} Done
+                            </span>
+                            {isDayFullyDone && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Column 2: Structured Tasks & Checkboxes */}
+                      <td className="py-3 px-3 align-top">
+                        <div className="space-y-2">
+                          {dayTasks.map((task, tIdx) => {
+                            const isDone = !!progressMap[task.id];
+                            return (
+                              <div 
+                                key={task.id} 
+                                className={`p-2 rounded-lg border transition-all flex items-start gap-2.5 ${
+                                  isDone 
+                                    ? 'bg-slate-950/60 border-slate-800 opacity-80' 
+                                    : 'bg-slate-950 border-slate-800/80 hover:border-slate-700'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleTask(day.dayNumber, task.id)}
+                                  className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${
+                                    isDone
+                                      ? 'bg-emerald-600 border-emerald-500 text-white'
+                                      : 'bg-slate-800 border-slate-600 hover:border-indigo-400 text-transparent'
+                                  }`}
+                                  title={isDone ? "Mark as pending" : "Mark as completed"}
+                                >
+                                  <Check className={`w-3 h-3 stroke-[3] ${isDone ? 'opacity-100' : 'opacity-0'}`} />
+                                </button>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-black text-indigo-400 shrink-0">#{tIdx + 1}</span>
+                                    <h4 className={`text-xs font-bold leading-tight ${isDone ? 'line-through text-slate-400' : 'text-white'}`}>
+                                      {task.title}
+                                    </h4>
+                                  </div>
+                                  <p className="text-[11px] text-slate-300 font-medium mt-0.5 leading-snug">
+                                    {task.objective}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </td>
+
+                      {/* Column 3: Target Metric */}
+                      <td className="py-3 px-3 align-top">
+                        <div className="space-y-1.5">
+                          {dayTasks.map(task => (
+                            task.targetMetric ? (
+                              <div key={task.id} className="text-[10px] font-bold text-slate-200 bg-slate-950 border border-slate-800 px-2 py-1 rounded">
+                                {task.targetMetric.replace('Target: ', '')}
+                              </div>
+                            ) : null
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* Column 4: Direct Action Launchers */}
+                      <td className="py-3 px-3 align-top">
+                        <div className="flex flex-wrap gap-1.5">
+                          {/* Aggregate unique tools for the day */}
+                          {Array.from(new Map(dayTasks.flatMap(t => t.recommendedTools).map(tool => [tool.name, tool])).values()).map(tool => (
+                            <button
+                              type="button"
+                              key={tool.id}
+                              onClick={() => handleToolClick(tool)}
+                              title={tool.tooltip}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${getToolButtonStyle(tool)}`}
+                            >
+                              {renderToolIcon(tool.icon)}
+                              <span className="truncate max-w-[120px]">{tool.name}</span>
+                              {tool.category === 'external' && <ExternalLink className="w-2.5 h-2.5 opacity-80" />}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* Column 5: Focus Day Button */}
+                      <td className="py-3 px-3 align-top text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedDayNumber(day.dayNumber);
+                            setViewMode('day');
+                          }}
+                          className="h-8 px-2 text-xs font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 rounded-lg gap-1 border border-indigo-500/30"
+                        >
+                          <span>Focus</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </Card>
       )}
 
-      {/* Solid Metric KPI Cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-2.5 lg:gap-4 w-full max-w-full">
-        {/* Weekly Completion Bar */}
-        <Card className="p-3 sm:p-4 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col justify-between shadow-sm">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] sm:text-[11px] font-black uppercase tracking-wider text-slate-400 truncate">Weekly Completion</span>
-              <span className="text-xs font-black text-indigo-400">{progressPercent}%</span>
-            </div>
-            <div className="text-lg sm:text-2xl font-black text-white mt-1">
-              {completedTasksCount} <span className="text-[10px] sm:text-xs text-slate-400 font-normal">/ {allTasks.length}</span>
-            </div>
-          </div>
-          <div className="w-full bg-slate-950 h-2 sm:h-2.5 rounded-full overflow-hidden mt-2.5 sm:mt-3 border border-slate-800">
-            <div
-              className="h-full bg-indigo-500 transition-all duration-300 rounded-full"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </Card>
+      {/* ─── 4. VIEW MODE: DAY-BY-DAY FOCUSED CHECKLIST ─── */}
+      {viewMode === 'day' && (
+        <div className="space-y-3">
+          
+          {/* Day Navigation Tabs Strip */}
+          <div className="flex overflow-x-auto snap-x snap-mandatory gap-1.5 sm:gap-2 pb-1 custom-scrollbar">
+            {SEVEN_DAY_SALES_PLAN.map(day => {
+              const isSelected = selectedDayNumber === day.dayNumber;
+              const isToday = cycleInfo.isCurrentCycle && cycleInfo.currentDayNumber === day.dayNumber;
+              const theme = DAY_THEMES[day.dayNumber] || DAY_THEMES[1];
+              const dayTasks = day.tasks;
+              const dayDoneCount = dayTasks.filter(t => progressMap[t.id]).length;
+              const dayCompleted = dayDoneCount === dayTasks.length;
 
-        {/* Database Proof: Actual Leads */}
-        <Card className="p-3 sm:p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1">
-              <span className="text-[9px] sm:text-[11px] font-black uppercase tracking-wider text-slate-400 truncate">Leads Created</span>
-              <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-            </div>
-            <div className="text-lg sm:text-2xl font-black text-white mt-0.5">{actualMetrics.leadsCreatedCount}</div>
-            <span className="text-[9px] sm:text-[11px] text-emerald-400 font-bold block truncate">
-              {actualMetrics.hotLeadsCount} 🔥, {actualMetrics.warmLeadsCount} ☀️
-            </span>
-          </div>
-          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0 ml-1">
-            <UserPlus className="w-4 h-4 sm:w-6 sm:h-6" />
-          </div>
-        </Card>
-
-        {/* Database Proof: Actual Activities */}
-        <Card className="p-3 sm:p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1">
-              <span className="text-[9px] sm:text-[11px] font-black uppercase tracking-wider text-slate-400 truncate">Outreach Logged</span>
-              <CheckCircle2 className="w-3 h-3 text-blue-400 shrink-0" />
-            </div>
-            <div className="text-lg sm:text-2xl font-black text-white mt-0.5">{actualMetrics.activitiesCount}</div>
-            <span className="text-[9px] sm:text-[11px] text-blue-400 font-bold block truncate">
-              {actualMetrics.callsCount} calls, {actualMetrics.whatsAppCount} WA
-            </span>
-          </div>
-          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0 ml-1">
-            <Phone className="w-4 h-4 sm:w-6 sm:h-6" />
-          </div>
-        </Card>
-
-        {/* Database Proof: Meetings & Progression */}
-        <Card className="p-3 sm:p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1">
-              <span className="text-[9px] sm:text-[11px] font-black uppercase tracking-wider text-slate-400 truncate">Meetings / Deals</span>
-              <CheckCircle2 className="w-3 h-3 text-purple-400 shrink-0" />
-            </div>
-            <div className="text-lg sm:text-2xl font-black text-white mt-0.5">
-              {actualMetrics.meetingsBookedCount} / {actualMetrics.dealsProgressedCount}
-            </div>
-            <span className="text-[9px] sm:text-[11px] text-purple-400 font-bold block truncate">
-              {actualMetrics.meetingsBookedCount} mtgs, {actualMetrics.dealsProgressedCount} won
-            </span>
-          </div>
-          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md shrink-0 ml-1">
-            <Award className="w-4 h-4 sm:w-6 sm:h-6" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Solid High-Contrast 7-Day Navigation Tabs */}
-      <div className="flex overflow-x-auto snap-x snap-mandatory gap-2 sm:gap-2.5 w-full max-w-full pb-1 sm:pb-0 sm:grid sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 custom-scrollbar">
-        {SEVEN_DAY_SALES_PLAN.map(day => {
-          const isSelected = selectedDayNumber === day.dayNumber;
-          const isToday = cycleInfo.isCurrentCycle && cycleInfo.currentDayNumber === day.dayNumber;
-          const theme = DAY_THEMES[day.dayNumber] || DAY_THEMES[1];
-          const dayTasks = day.tasks;
-          const dayCompleted = dayTasks.every(t => progressMap[t.id]);
-          const dayDoneCount = dayTasks.filter(t => progressMap[t.id]).length;
-
-          return (
-            <button
-              type="button"
-              key={day.dayNumber}
-              onClick={() => setSelectedDayNumber(day.dayNumber)}
-              className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border text-left transition-all duration-150 flex flex-col justify-between min-w-[140px] sm:min-w-0 snap-center shrink-0 sm:shrink ${
-                isSelected
-                  ? `${theme.pillActiveBg} ${theme.borderColor} ring-2 ring-white/20`
-                  : 'bg-slate-900 border-slate-800 hover:bg-slate-800 text-white'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-1 mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base">{theme.stepIcon}</span>
-                  <span className="text-xs font-black uppercase tracking-tight text-white">
-                    Day {day.dayNumber}
-                  </span>
-                </div>
-                {isToday && (
-                  <Badge className="bg-emerald-500 text-slate-950 font-black text-[9px] px-1.5 py-0">
-                    Today
-                  </Badge>
-                )}
-              </div>
-
-              <div className="text-[11px] font-bold line-clamp-1 mb-2 text-slate-100">
-                {day.title.replace(' (Part 1)', '').replace(' (Part 2)', '')}
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] font-bold pt-1.5 border-t border-slate-700/60 text-slate-300">
-                <span>{dayDoneCount}/{dayTasks.length} Done</span>
-                {dayCompleted ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <Circle className="w-4 h-4 opacity-50" />
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Active Day Detail Card */}
-      <Card className={`p-3 sm:p-5 lg:p-8 bg-slate-900 border ${activeTheme.borderColor} rounded-xl sm:rounded-2xl lg:rounded-3xl shadow-xl space-y-3 sm:space-y-5 lg:space-y-6 overflow-hidden w-full max-w-full min-w-0`}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <Badge className={`${activeTheme.taskBadgeBg} text-xs font-black px-3 py-1 rounded-xl`}>
-                {currentDayPlan.badge}
-              </Badge>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                <span>{activeTheme.stepIcon}</span>
-                {currentDayPlan.title}
-              </h2>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-300 font-medium">
-              {currentDayPlan.subtitle}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-200 bg-slate-800 px-3.5 py-1.5 rounded-xl border border-slate-700">
-            <Calendar className="w-4 h-4 text-indigo-400" />
-            <span>Cycle Week: {cycleInfo.displayLabel}</span>
-          </div>
-        </div>
-
-        {/* Task List with Solid High-Contrast Action Tool Buttons */}
-        <div className="space-y-4">
-          {currentDayPlan.tasks.map((task, idx) => {
-            const isDone = !!progressMap[task.id];
-
-            return (
-              <div
-                key={task.id}
-                className={`p-3 sm:p-4 lg:p-5 rounded-xl sm:rounded-2xl border transition-all duration-150 ${
-                  isDone
-                    ? 'bg-slate-950 border-slate-800 opacity-75'
-                    : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 shadow-sm'
-                }`}
-              >
-                <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3.5 sm:gap-4 w-full min-w-0">
-                  {/* Checkbox & Task Description */}
-                  <div className="flex items-start gap-3 sm:gap-3.5 flex-1 min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleTask(currentDayPlan.dayNumber, task.id)}
-                      className={`mt-0.5 w-7 h-7 rounded-xl border flex items-center justify-center transition-all shrink-0 shadow-sm ${
-                        isDone
-                          ? 'bg-emerald-600 border-emerald-500 text-white'
-                          : 'bg-slate-800 border-slate-600 hover:border-indigo-400 text-transparent'
-                      }`}
-                      title={isDone ? "Mark as pending" : "Mark as completed"}
-                    >
-                      <Check className={`w-4 h-4 stroke-[3] ${isDone ? 'opacity-100' : 'opacity-0'}`} />
-                    </button>
-
-                    <div className="space-y-1.5 sm:space-y-2 min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-black px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white shadow-sm shrink-0">
-                          Task #{idx + 1}
-                        </span>
-                        <h3 className={`text-base sm:text-lg font-bold break-words ${isDone ? 'line-through text-slate-400' : 'text-white'}`}>
-                          {task.title}
-                        </h3>
-                      </div>
-                      <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed break-words">
-                        {task.objective}
-                      </p>
-                      {task.targetMetric && (
-                        <div className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-slate-800 px-3 py-1 rounded-xl border border-slate-700 max-w-full">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                          <span className="truncate">{task.targetMetric}</span>
-                        </div>
-                      )}
+              return (
+                <button
+                  type="button"
+                  key={day.dayNumber}
+                  onClick={() => setSelectedDayNumber(day.dayNumber)}
+                  className={`p-2 rounded-xl border text-left transition-all flex flex-col justify-between min-w-[125px] sm:min-w-0 flex-1 snap-center shrink-0 ${
+                    isSelected
+                      ? `${theme.pillActiveBg} ${theme.borderColor} ring-2 ring-white/20`
+                      : 'bg-slate-900 border-slate-800 hover:bg-slate-800 text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <div className="flex items-center gap-1 text-xs font-black uppercase">
+                      <span>{theme.stepIcon}</span>
+                      <span>Day {day.dayNumber}</span>
                     </div>
+                    {isToday && (
+                      <span className="px-1 py-0 rounded bg-emerald-500 text-slate-950 font-black text-[8px]">
+                        TODAY
+                      </span>
+                    )}
                   </div>
-
-                  {/* INLINE RECOMMENDED TOOLS (Solid Action Buttons - Wrapping gracefully) */}
-                  <div className="flex flex-wrap items-center gap-2 pt-3 xl:pt-0 xl:pl-4 border-t xl:border-t-0 border-slate-800/80 w-full xl:w-auto max-w-full">
-                    <span className="text-xs font-black text-slate-300 uppercase tracking-wider mr-1 hidden xl:inline">
-                      ACTION TOOLS:
-                    </span>
-                    {task.recommendedTools.map(tool => (
-                      <button
-                        type="button"
-                        key={tool.id}
-                        onClick={() => handleToolClick(tool)}
-                        title={tool.tooltip}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all max-w-full ${getToolButtonStyle(tool)}`}
-                      >
-                        {renderToolIcon(tool.icon)}
-                        <span className="truncate max-w-[180px] sm:max-w-none">{tool.name}</span>
-                        {tool.category === 'external' && (
-                          <ExternalLink className="w-3 h-3 opacity-80 ml-0.5 shrink-0" />
-                        )}
-                        {tool.badge && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-black/40 text-white font-black border border-white/20 shrink-0">
-                            {tool.badge}
-                          </span>
-                        )}
-                      </button>
-                    ))}
+                  <div className="text-[10px] font-bold truncate text-slate-200">
+                    {theme.shortName}
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                  <div className="flex items-center justify-between text-[9px] font-bold pt-1 mt-1 border-t border-slate-700/60 text-slate-300">
+                    <span>{dayDoneCount}/{dayTasks.length}</span>
+                    {dayCompleted ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Circle className="w-3 h-3 opacity-40" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Day 7 Report Audit & Manager Sign-off Section */}
-        {selectedDayNumber === 7 && (
-          <div className="mt-8 pt-6 border-t border-slate-800 space-y-4 bg-slate-950 p-5 rounded-2xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Active Day Detail Card */}
+          <Card className={`p-3 sm:p-5 bg-slate-900 border ${activeTheme.borderColor} rounded-xl shadow-md space-y-3 sm:space-y-4`}>
+            
+            {/* Active Day Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-black text-white flex items-center gap-2">
-                  <Award className="w-5 h-5 text-amber-400" />
-                  Weekly Performance Submission & Audit Status
-                </h3>
-                <p className="text-xs text-slate-300 font-medium">
-                  Manager verification status for cycle {cycleInfo.displayLabel}
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{activeTheme.stepIcon}</span>
+                  <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
+                    Day {currentDayPlan.dayNumber}: {currentDayPlan.title}
+                  </h2>
+                  <Badge className={`${activeTheme.badgeBg} text-[10px] font-black px-2 py-0.5 rounded`}>
+                    {currentDayPlan.badge}
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-300 font-medium mt-0.5">
+                  {currentDayPlan.subtitle}
                 </p>
               </div>
 
-              <div>
-                {submittedReport ? (
-                  <Badge
-                    className={`text-xs font-black px-3 py-1.5 rounded-xl ${
-                      submittedReport.managerStatus === 'Approved'
-                        ? 'bg-emerald-600 text-white'
-                        : submittedReport.managerStatus === 'Needs Improvement'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-amber-600 text-white'
-                    }`}
-                  >
-                    {submittedReport.managerStatus}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs font-bold text-slate-300 border-slate-700 bg-slate-800">
-                    Not Submitted Yet
-                  </Badge>
-                )}
+              <div className="text-[11px] font-bold text-slate-300 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 self-start sm:self-auto">
+                Week: {cycleInfo.displayLabel}
               </div>
             </div>
 
-            {submittedReport && (
-              <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
-                <div className="text-xs text-white font-medium">
-                  <strong className="text-amber-400">Rep Submission Notes:</strong> {submittedReport.summaryNotes}
+            {/* Task List */}
+            <div className="space-y-2.5">
+              {currentDayPlan.tasks.map((task, idx) => {
+                const isDone = !!progressMap[task.id];
+
+                return (
+                  <div
+                    key={task.id}
+                    className={`p-3 rounded-xl border transition-all ${
+                      isDone
+                        ? 'bg-slate-950 border-slate-800 opacity-75'
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 shadow-xs'
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 w-full min-w-0">
+                      
+                      {/* Checkbox & Task info */}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTask(currentDayPlan.dayNumber, task.id)}
+                          className={`mt-0.5 w-6 h-6 rounded-lg border flex items-center justify-center transition-all shrink-0 shadow-xs ${
+                            isDone
+                              ? 'bg-emerald-600 border-emerald-500 text-white'
+                              : 'bg-slate-800 border-slate-600 hover:border-indigo-400 text-transparent'
+                          }`}
+                          title={isDone ? "Mark as pending" : "Mark as completed"}
+                        >
+                          <Check className={`w-3.5 h-3.5 stroke-[3] ${isDone ? 'opacity-100' : 'opacity-0'}`} />
+                        </button>
+
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded bg-indigo-600 text-white shadow-xs shrink-0">
+                              Task #{idx + 1}
+                            </span>
+                            <h3 className={`text-sm sm:text-base font-bold break-words ${isDone ? 'line-through text-slate-400' : 'text-white'}`}>
+                              {task.title}
+                            </h3>
+                          </div>
+                          <p className="text-xs text-slate-300 font-medium leading-relaxed break-words">
+                            {task.objective}
+                          </p>
+                          {task.targetMetric && (
+                            <div className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-slate-900 px-2.5 py-0.5 rounded-lg border border-slate-800">
+                              <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+                              <span className="truncate">{task.targetMetric}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Tools Shelf */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-2 lg:pt-0 lg:pl-3 border-t lg:border-t-0 border-slate-800/80 w-full lg:w-auto">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1 hidden lg:inline">
+                          ACTIONS:
+                        </span>
+                        {task.recommendedTools.map(tool => (
+                          <button
+                            type="button"
+                            key={tool.id}
+                            onClick={() => handleToolClick(tool)}
+                            title={tool.tooltip}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${getToolButtonStyle(tool)}`}
+                          >
+                            {renderToolIcon(tool.icon)}
+                            <span className="truncate max-w-[140px] sm:max-w-none">{tool.name}</span>
+                            {tool.category === 'external' && <ExternalLink className="w-3 h-3 opacity-80 shrink-0" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Day 7 Audit & Performance Submission Section */}
+            {selectedDayNumber === 7 && (
+              <div className="mt-4 pt-4 border-t border-slate-800 space-y-3 bg-slate-950 p-3.5 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-black text-white flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-amber-400" />
+                      Weekly Performance Report & Manager Audit
+                    </h3>
+                    <p className="text-[11px] text-slate-300">
+                      Submit and review weekly outcomes for cycle {cycleInfo.displayLabel}
+                    </p>
+                  </div>
+
+                  <div>
+                    {submittedReport ? (
+                      <Badge
+                        className={`text-[11px] font-black px-2.5 py-1 rounded-lg ${
+                          submittedReport.managerStatus === 'Approved'
+                            ? 'bg-emerald-600 text-white'
+                            : submittedReport.managerStatus === 'Needs Improvement'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-amber-600 text-white'
+                        }`}
+                      >
+                        {submittedReport.managerStatus}
+                      </Badge>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => setReportModalOpen(true)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-8 px-3 rounded-lg"
+                      >
+                        Submit 7-Day Report
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                {submittedReport.managerFeedback && (
-                  <div className="text-xs text-emerald-400 font-medium pt-2 border-t border-slate-800">
-                    <strong>Manager Feedback:</strong> {submittedReport.managerFeedback}
+
+                {submittedReport && (
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-1.5 text-xs">
+                    <div className="text-white">
+                      <strong className="text-amber-400">Submission Notes:</strong> {submittedReport.summaryNotes}
+                    </div>
+                    {submittedReport.managerFeedback && (
+                      <div className="text-emerald-400 pt-1 border-t border-slate-800">
+                        <strong>Manager Feedback:</strong> {submittedReport.managerFeedback}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Manager Sign-off Controls in Audit Mode */}
+                {isManagerAuditMode && isAdmin && (
+                  <div className="p-3 bg-slate-900 border border-amber-600/60 rounded-xl space-y-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 block">
+                      Manager Sign-off Action
+                    </span>
+                    <textarea
+                      rows={2}
+                      value={managerFeedback}
+                      onChange={e => setManagerFeedback(e.target.value)}
+                      placeholder="Enter feedback for the sales rep..."
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={reviewingReport}
+                        onClick={() => handleManagerReview('Needs Improvement')}
+                        className="text-xs bg-red-950 text-red-300 border-red-800 hover:bg-red-900 font-bold rounded-lg h-7 px-2.5"
+                      >
+                        Flag Revision
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={reviewingReport}
+                        onClick={() => handleManagerReview('Approved')}
+                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg h-7 px-3 shadow-xs"
+                      >
+                        {reviewingReport ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                        Approve Performance
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
             )}
-
-            {/* Manager Sign-off Controls (Visible to Admin in Manager Audit Mode) */}
-            {isManagerAuditMode && isAdmin && (
-              <div className="p-4 bg-slate-900 border border-amber-600/60 rounded-2xl space-y-3">
-                <span className="text-xs font-black uppercase tracking-wider text-amber-400 block">
-                  Manager Sign-off & Audit Action
-                </span>
-                <textarea
-                  rows={2}
-                  value={managerFeedback}
-                  onChange={e => setManagerFeedback(e.target.value)}
-                  placeholder="Enter manager feedback, observations on actual CRM calls/leads, or guidance for next cycle..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none shadow-inner"
-                />
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={reviewingReport}
-                    onClick={() => handleManagerReview('Needs Improvement')}
-                    className="text-xs bg-red-950 text-red-300 border-red-800 hover:bg-red-900 font-bold rounded-xl"
-                  >
-                    Flag Needs Improvement
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={reviewingReport}
-                    onClick={() => handleManagerReview('Approved')}
-                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md"
-                  >
-                    {reviewingReport ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-                    Approve 7-Day Performance
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
+          </Card>
+        </div>
+      )}
 
       {/* Interactive Modals */}
       <CRMQuickActivityModal

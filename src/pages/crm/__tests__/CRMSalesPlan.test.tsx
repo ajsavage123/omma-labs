@@ -81,91 +81,77 @@ describe('CRMSalesPlan (7-Day Sales To-Do)', () => {
     });
   });
 
-  it('renders the header with 7-Day Sales To-Do and repeating cycle badge', async () => {
+  it('renders the header with 7-Day Sales Plan and cadence badge', async () => {
     renderSalesPlan();
-    expect(screen.getByText('7-Day Sales To-Do')).toBeInTheDocument();
-    expect(screen.getByText('Repeating Cycle')).toBeInTheDocument();
+    expect(screen.getByText('7-Day Sales Plan')).toBeInTheDocument();
+    expect(screen.getByText('Weekly Cadence')).toBeInTheDocument();
   });
 
-  it('renders all Day 1 through Day 7 navigation pills', async () => {
+  it('renders all Day 1 through Day 7 navigation and matrix rows', async () => {
     renderSalesPlan();
     for (let day = 1; day <= 7; day++) {
-      expect(screen.getByText(`Day ${day}`)).toBeInTheDocument();
+      expect(screen.getAllByText(new RegExp(`Day ${day}`)).length).toBeGreaterThanOrEqual(1);
     }
   });
 
   it('displays Day 1 tasks with inline tool buttons (Google Maps, Justdial, Sulekha, + Add to CRM)', async () => {
     renderSalesPlan();
-    // Click Day 1 to ensure active view
-    fireEvent.click(screen.getByText('Day 1'));
-
     expect(screen.getByText('Discover Local & Regional Target Businesses')).toBeInTheDocument();
-    expect(screen.getByText('Google Maps')).toBeInTheDocument();
+    expect(screen.getAllByText('Google Maps').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Justdial').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Sulekha').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('+ Add to CRM')).toBeInTheDocument();
+    expect(screen.getAllByText('+ Add to CRM').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('navigating to Day 3 renders Research & Qualification tasks and inline classification buttons', async () => {
+  it('renders Research & Qualification tasks and inline classification buttons', async () => {
     renderSalesPlan();
-    fireEvent.click(screen.getByText('Day 3'));
-
     expect(screen.getByText('Deep-Dive Company Background & Digital Presence')).toBeInTheDocument();
     expect(screen.getByText('Classify Lead Temperature in CRM (Hot, Warm, Cold)')).toBeInTheDocument();
-    expect(screen.getByText('Company Website')).toBeInTheDocument();
-    expect(screen.getByText('LinkedIn Company')).toBeInTheDocument();
-    expect(screen.getByText('Apollo.io')).toBeInTheDocument();
-    expect(screen.getByText('Classify Hot 🔥')).toBeInTheDocument();
-    expect(screen.getByText('Classify Warm ☀️')).toBeInTheDocument();
-    expect(screen.getByText('Classify Cold ❄️')).toBeInTheDocument();
+    expect(screen.getAllByText('Company Website').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('LinkedIn Company').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Apollo.io').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Classify Hot 🔥').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Classify Warm ☀️').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Classify Cold ❄️').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('navigating to Day 4 renders outreach tasks with Phone, WhatsApp, Gmail, LinkedIn', async () => {
+  it('renders outreach tasks with Phone, WhatsApp, Gmail, LinkedIn', async () => {
     renderSalesPlan();
-    fireEvent.click(screen.getByText('Day 4'));
-
     expect(screen.getByText('Direct Phone Calls to High-Priority Prospects')).toBeInTheDocument();
     expect(screen.getByText('Personalized WhatsApp Business Intro Messages')).toBeInTheDocument();
-    expect(screen.getByText('Phone / Dialer')).toBeInTheDocument();
-    expect(screen.getByText('Log Call in CRM')).toBeInTheDocument();
-    expect(screen.getByText('WhatsApp Business')).toBeInTheDocument();
-    expect(screen.getByText('Gmail')).toBeInTheDocument();
+    expect(screen.getAllByText('Phone / Dialer').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Log Call in CRM').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('WhatsApp Business').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Gmail').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('navigating to Day 5 renders meeting scheduling tools (Google Meet, Zoom, CRM Calendar)', async () => {
+  it('renders meeting scheduling tools (Google Meet, Zoom, CRM Calendar)', async () => {
     renderSalesPlan();
-    fireEvent.click(screen.getByText('Day 5'));
-
     expect(screen.getByText('Schedule Discovery Meetings on Google Meet or Zoom')).toBeInTheDocument();
-    expect(screen.getByText('Google Meet')).toBeInTheDocument();
-    expect(screen.getByText('Zoom')).toBeInTheDocument();
-    expect(screen.getByText('Schedule Meeting in CRM')).toBeInTheDocument();
+    expect(screen.getAllByText('Google Meet').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Zoom').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Schedule Meeting in CRM').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('navigating to Day 6 renders portfolio sharing and pipeline progression tools', async () => {
+  it('renders portfolio sharing and pipeline progression tools', async () => {
     renderSalesPlan();
-    fireEvent.click(screen.getByText('Day 6'));
-
     expect(screen.getByText('Share OomaLabs Portfolio & Case Studies')).toBeInTheDocument();
     expect(screen.getByText('Advance Good Opportunities in CRM Pipeline')).toBeInTheDocument();
-    expect(screen.getByText('OomaLabs Portfolio')).toBeInTheDocument();
-    expect(screen.getByText('Service Menu Card')).toBeInTheDocument();
-    expect(screen.getByText('Open CRM Pipeline')).toBeInTheDocument();
+    expect(screen.getAllByText('OomaLabs Portfolio').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Service Menu Card').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Open CRM Pipeline').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('navigating to Day 7 renders performance review and report submission controls', async () => {
+  it('renders performance review and report submission controls', async () => {
     renderSalesPlan();
-    fireEvent.click(screen.getByText('Day 7'));
-
     expect(screen.getByText('Review CRM History & Activity Proof')).toBeInTheDocument();
     expect(screen.getByText('Submit 7-Day Performance Report for Manager Sign-off')).toBeInTheDocument();
-    expect(screen.getByText('CRM Analytics & Reports')).toBeInTheDocument();
-    expect(screen.getByText('Generate & Submit Report')).toBeInTheDocument();
+    expect(screen.getAllByText('CRM Analytics & Reports').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Generate & Submit Report').length).toBeGreaterThanOrEqual(1);
   });
 
   it('allows checking off a task and updates completion state', async () => {
     renderSalesPlan();
-    fireEvent.click(screen.getByText('Day 1'));
 
     // Find the toggle button for task 1
     const taskButtons = screen.getAllByTitle(/Mark as (completed|pending)/);
@@ -182,11 +168,10 @@ describe('CRMSalesPlan (7-Day Sales To-Do)', () => {
   it('enables Manager Audit mode and allows switching between sales reps to view verified metrics', async () => {
     renderSalesPlan();
 
-    const managerAuditBtn = screen.getByRole('button', { name: /Manager Audit/i });
-    fireEvent.click(managerAuditBtn);
+    const auditBtn = screen.getByRole('button', { name: /Audit Reps/i });
+    fireEvent.click(auditBtn);
 
-    expect(screen.getByText('Auditing Sales Rep:')).toBeInTheDocument();
-    expect(screen.getByText(/Manager mode verifies actual database activity/i)).toBeInTheDocument();
+    expect(screen.getByText('Auditing Rep:')).toBeInTheDocument();
 
     // Rep selector exists
     const repSelect = screen.getByRole('combobox');
