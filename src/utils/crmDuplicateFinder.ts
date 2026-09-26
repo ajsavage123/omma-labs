@@ -100,8 +100,10 @@ export function findDuplicateLeads(leads: Lead[]): DuplicateAnalysisResult {
     const company = normalizeStr(l.company_name);
     const contact = normalizeStr(l.contact_person);
     
-    // Only group if BOTH company and contact match explicitly
-    if (company && contact && company.length >= 2 && contact.length >= 2 && company !== 'none' && contact !== 'none') {
+    // Only group if BOTH company and contact match explicitly, and neither is generic unknown
+    const isUnknownCompany = company.includes('unknown') || company === 'unnamed company';
+    const isUnknownContact = contact.includes('unknown') || contact === 'no contact';
+    if (company && contact && company.length >= 2 && contact.length >= 2 && company !== 'none' && contact !== 'none' && !isUnknownCompany && !isUnknownContact) {
       const compositeKey = `${company}||${contact}`;
       if (!compositeMap.has(compositeKey)) compositeMap.set(compositeKey, []);
       compositeMap.get(compositeKey)!.push(l);

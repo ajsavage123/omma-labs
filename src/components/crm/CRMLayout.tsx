@@ -17,7 +17,8 @@ import {
   Home,
   CheckCircle2,
   Volume2,
-  VolumeX
+  VolumeX,
+  CalendarCheck2
 } from "lucide-react";
 import { notificationService } from "@/utils/notificationService";
 import { OomaLogo } from "@/components/OomaLogo";
@@ -26,6 +27,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { getTaskDueDate } from "@/utils/dateUtils";
+import { notebookLMService } from "@/services/notebookLMService";
+import { resolveLeadCompanyName } from "@/utils/crmLeadUtils";
 
 interface LayoutProps {
   children: ReactNode;
@@ -52,6 +55,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/crm", icon: LayoutDashboard },
+  { label: "7-Day Plan", href: "/crm/sales-plan", icon: CalendarCheck2 },
   { label: "Leads", href: "/crm/leads", icon: Users },
   { label: "Pipeline", href: "/crm/pipeline", icon: TrendingUp },
   { label: "Tasks", href: "/crm/tasks", icon: CheckSquare },
@@ -190,11 +194,22 @@ export default function CRMLayout({ children }: LayoutProps) {
 
   useEffect(() => {
     notificationService.requestPermission(); // Request native push on mount once
-  }, []);
+    if (user?.workspace_id) {
+      notebookLMService.fetchWorkspaceUrl(user.workspace_id);
+    }
+  }, [user?.workspace_id]);
+
+  const handleOpenSalesAI = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const popup = notebookLMService.openCompanionWindow();
+    if (!popup || popup.closed) {
+      toast.error("Popup blocked! Please allow popups for this site in your browser to open Sales AI.");
+    }
+  };
 
 
   return (
-    <div className="crm-root fixed inset-0 w-screen h-screen h-[100dvh] max-h-[100dvh] flex overflow-hidden bg-background">
+    <div className="crm-root fixed inset-0 w-full max-w-full h-screen h-[100dvh] max-h-[100dvh] flex overflow-hidden bg-background">
       {/* Mobile Backdrop */}
       {isMobile && sidebarOpen && (
         <div 
@@ -234,7 +249,7 @@ export default function CRMLayout({ children }: LayoutProps) {
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1.5 overflow-y-auto custom-scrollbar">
           {navItems
-            .filter(item => !item.adminOnly || isAdmin)
+            .filter(item => item.label !== "Settings" && (!item.adminOnly || isAdmin))
             .map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.href || (item.href === "/crm" && location.pathname === "/crm/");
@@ -253,6 +268,55 @@ export default function CRMLayout({ children }: LayoutProps) {
               </Link>
             );
           })}
+
+          {/* Sales Support Assistant - Seamlessly styled like native navigation item */}
+          <button
+            type="button"
+            onClick={handleOpenSalesAI}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-sidebar-foreground hover:bg-sidebar-accent/10 hover:text-white ${
+              !sidebarOpen && !isMobile && "justify-center"
+            }`}
+            title="Support - Sales Knowledge Assistant"
+            aria-label="Open Support Assistant"
+          >
+            <img
+              src="/robot-assistant.png"
+              alt="Support"
+              className="w-5 h-5 object-contain flex-shrink-0 group-hover:scale-110 transition-transform"
+            />
+            {(sidebarOpen || isMobile) && (
+              <div className="flex items-center justify-between flex-1 min-w-0">
+                <span className="text-sm font-bold tracking-tight text-sidebar-foreground group-hover:text-white truncate">
+                  Support
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  AI
+                </span>
+              </div>
+            )}
+          </button>
+
+          {/* Settings Nav Item */}
+          {(() => {
+            const settingsItem = navItems.find(i => i.label === "Settings");
+            if (!settingsItem) return null;
+            const Icon = settingsItem.icon;
+            const isActive = location.pathname === settingsItem.href;
+            return (
+              <Link
+                key={settingsItem.href}
+                to={settingsItem.href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/10"
+                } ${!sidebarOpen && !isMobile && "justify-center"}`}
+              >
+                <Icon size={20} className={`flex-shrink-0 ${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+                {(sidebarOpen || isMobile) && <span className="text-sm font-bold tracking-tight">{settingsItem.label}</span>}
+              </Link>
+            );
+          })()}
 
           {/* Mobile Only Exit Button */}
           {isMobile && (
@@ -287,7 +351,7 @@ export default function CRMLayout({ children }: LayoutProps) {
       {/* Main Content Area - Native Mobile App Fixed Viewport */}
       <div className="flex-1 flex flex-col min-w-0 h-full max-h-full bg-background relative overflow-hidden">
         {/* Top Navigation Bar - Responsive Sticky Header */}
-        <header className="bg-card border-b border-border px-3 sm:px-6 py-2 sm:py-3 z-30 shrink-0 sticky top-0 shadow-sm">
+        <header className="bg-card border-b border-border px-2.5 sm:px-6 py-1.5 sm:py-3 z-30 shrink-0 sticky top-0 shadow-sm">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             {/* Left: Menu & Title/Search */}
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -300,7 +364,7 @@ export default function CRMLayout({ children }: LayoutProps) {
                   <Menu size={20} />
                 </button>
               )}
-              <div className="relative flex-1 max-w-md group hidden sm:block">
+              <div className="relative flex-1 max-w-md group hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
                 <input
                   type="search"
@@ -319,9 +383,9 @@ export default function CRMLayout({ children }: LayoutProps) {
 
             {/* Right Actions: Admin Filter (Desktop) + Bell + Exit */}
             <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-              {/* Desktop Global Salesperson Control */}
+              {/* Desktop Global Salesperson Control (Large screens only) */}
               {isAdmin && (
-                <div className="hidden sm:flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50">
+                <div className="hidden lg:flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50">
                   <button
                     onClick={() => setCrmViewMode('mine')}
                     className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
@@ -343,7 +407,7 @@ export default function CRMLayout({ children }: LayoutProps) {
 
                   {crmViewMode === 'team' && (
                     <div className="ml-1 border-l border-border/60 pl-1.5 flex items-center gap-1">
-                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-wider hidden md:inline">Rep:</span>
+                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-wider hidden xl:inline">Rep:</span>
                       <select
                         value={selectedSalesRepId}
                         onChange={(e) => setSelectedSalesRepId(e.target.value)}
@@ -435,7 +499,7 @@ export default function CRMLayout({ children }: LayoutProps) {
                                 </button>
                               </div>
                               {task.crm_leads && (
-                                <p className="text-xs text-muted-foreground truncate font-medium mt-0.5">{task.crm_leads.company_name}</p>
+                                <p className="text-xs text-muted-foreground truncate font-medium mt-0.5">{resolveLeadCompanyName(task.crm_leads)}</p>
                               )}
                               <div className="flex flex-wrap items-center gap-2 mt-2">
                                 <span className={`text-[9px] flex-shrink-0 font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
@@ -473,7 +537,7 @@ export default function CRMLayout({ children }: LayoutProps) {
             </div>
             <Link 
               to="/"
-              className="hidden sm:flex px-4 py-2 bg-red-600 text-white rounded-xl font-black text-sm hover:bg-red-500 transition-all shadow-lg shadow-red-600/20 active:scale-95 items-center"
+              className="hidden lg:flex px-4 py-2 bg-red-600 text-white rounded-xl font-black text-sm hover:bg-red-500 transition-all shadow-lg shadow-red-600/20 active:scale-95 items-center"
             >
               <Home size={18} className="mr-2" />
               Exit CRM
@@ -481,9 +545,9 @@ export default function CRMLayout({ children }: LayoutProps) {
           </div>
         </div>
 
-          {/* Mobile Dedicated Filter Sub-Bar (When Admin) */}
+          {/* Mobile & Tablet Dedicated Filter Sub-Bar (When Admin on screens < lg) */}
           {isAdmin && (
-            <div className="sm:hidden mt-2 pt-2 border-t border-border/50 flex items-center justify-between gap-2">
+            <div className="lg:hidden mt-2 pt-2 border-t border-border/50 flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 shrink-0">
                 <button
                   onClick={() => setCrmViewMode('mine')}
@@ -526,12 +590,13 @@ export default function CRMLayout({ children }: LayoutProps) {
           )}
         </header>
 
-        {/* Internal Scrollable Content Body - Locks viewport */}
-        <main className="flex-1 min-h-0 w-full overflow-y-auto overscroll-y-contain custom-scrollbar relative bg-background flex flex-col [webkit-overflow-scrolling:touch]">
-          <div className={location.pathname.includes('/pipeline') ? "flex-1 flex flex-col w-full h-full" : "px-3 sm:px-6 lg:px-12 py-3 sm:py-6 pb-6 sm:pb-8 max-w-7xl mx-auto w-full flex-1"}>
+        {/* Internal Scrollable Content Body - Locks viewport & prevents horizontal blowout */}
+        <main className="flex-1 min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden overscroll-y-contain custom-scrollbar relative bg-background flex flex-col [webkit-overflow-scrolling:touch]">
+          <div className={location.pathname.includes('/pipeline') ? "flex-1 flex flex-col w-full max-w-full h-full" : "px-3 sm:px-6 lg:px-12 py-2 sm:py-6 pb-4 sm:pb-8 max-w-7xl mx-auto w-full max-w-full min-w-0 flex-1"}>
             {children}
           </div>
         </main>
+
       </div>
     </div>
   );

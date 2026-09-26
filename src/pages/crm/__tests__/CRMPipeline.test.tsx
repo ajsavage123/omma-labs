@@ -122,9 +122,9 @@ describe('CRMPipeline', () => {
     renderPipeline();
 
     // Should render stage headers
-    expect(screen.getByText('New Leads')).toBeInTheDocument();
-    expect(screen.getByText('Contacted')).toBeInTheDocument();
-    expect(screen.getByText('Interested')).toBeInTheDocument();
+    expect(screen.getAllByText('New Leads').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Contacted').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Interested').length).toBeGreaterThan(0);
   });
 
   it('places leads in correct stage columns', () => {

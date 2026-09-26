@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { ChevronLeft, CheckCircle, Copy, Check, Plus, X, Pencil, Eye, Download, Clock, History as HistoryIcon, Trash2 } from 'lucide-react';
+import { ChevronLeft, CheckCircle, Copy, Check, Plus, X, Pencil, Eye, Download, Clock, History as HistoryIcon, Trash2, Search, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { WEBSITE_CATALOG, APPLICATION_CATALOG, AI_AUTOMATION_CATALOG, getDefaultPriceFormatted, getDefaultModulePrices } from '@/modules/quotationCatalogData';
 
 interface ScopeItem { title: string; desc: string; }
 interface Phase { name: string; days: string; tasks: string; }
 interface PaymentMilestone { pct: string; label: string; trigger: string; }
-interface CostItem { label: string; amount: string; qty?: string; unitPrice?: string; }
+interface CostItem { label: string; qty?: string; unitPriceINR?: string; unitPriceUSD?: string; unitPrice?: string; amount?: string; }
 
 const serviceScopeMap: Record<string, ScopeItem[]> = {
   'Web Application': [
@@ -78,13 +79,22 @@ const serviceDeliverables: Record<string, string[]> = {
   'E-commerce': ['Product Catalog', 'Shopping Cart', 'Payment Gateway', 'Order Management'],
 };
 
-const servicePriceMap: Record<string, number> = {
-  'Web Application': 15000,
-  'Mobile App': 20000,
-  'UI/UX Design': 8000,
-  'Cloud Architecture': 12000,
-  'Maintenance': 5000,
-  'E-commerce': 18000,
+const servicePriceMapINR: Record<string, number> = {
+  'Web Application': 125000,
+  'Mobile App': 165000,
+  'UI/UX Design': 65000,
+  'Cloud Architecture': 95000,
+  'Maintenance': 40000,
+  'E-commerce': 150000,
+};
+
+const servicePriceMapUSD: Record<string, number> = {
+  'Web Application': 1500,
+  'Mobile App': 2000,
+  'UI/UX Design': 800,
+  'Cloud Architecture': 1200,
+  'Maintenance': 500,
+  'E-commerce': 1800,
 };
 
 const serviceIcons: Record<string, string> = {
@@ -169,9 +179,27 @@ export default function QuotationPage() {
 
   const [copied, setCopied] = useState(false);
   const [generated, setGenerated] = useState(true);
-  const [currency, setCurrency] = useState('USD');
-  const symbol = currency === 'USD' ? '$' : '₹';
-  const locale = currency === 'USD' ? 'en-US' : 'en-IN';
+  const [currency, setCurrency] = useState<'USD' | 'INR' | 'BOTH'>('BOTH');
+
+  // Safe number parser that strips currency symbols and prevents NaN
+  const parseNum = (val: any, defaultVal = 0): number => {
+    if (val === undefined || val === null || val === '') return defaultVal;
+    const cleaned = String(val).replace(/[^0-9.-]/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? defaultVal : num;
+  };
+
+  // Helper to format values using independent INR and USD amounts (No exchange rate conversion math!)
+  const formatDualPrices = (valINR: number, valUSD: number) => {
+    const vINR = isNaN(valINR) ? 0 : valINR;
+    const vUSD = isNaN(valUSD) ? 0 : valUSD;
+    const strINR = `₹${vINR.toLocaleString('en-IN')}`;
+    const strUSD = `$${vUSD.toLocaleString('en-US')}`;
+
+    if (currency === 'INR') return strINR;
+    if (currency === 'USD') return strUSD;
+    return `${strINR} / ${strUSD}`;
+  };
   const [includeGST, setIncludeGST] = useState(false);
   const [gstRate, setGstRate] = useState('18');
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
@@ -181,6 +209,65 @@ export default function QuotationPage() {
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // ── MODULE CATALOG STATE ──
+  const [catalogCategory, setCatalogCategory] = useState<'Websites' | 'Applications' | 'AI Automations'>('Websites');
+  const [catalogSubCategory, setCatalogSubCategory] = useState<string>('Business Website');
+  const [catalogGroup, setCatalogGroup] = useState<'Pages' | 'Features' | 'Add-ons'>('Pages');
+  const [catalogSearch, setCatalogSearch] = useState<string>('');
+  const [selectedCatalogItem, setSelectedCatalogItem] = useState<string>('Home');
+  const [customCatalogItemName, setCustomCatalogItemName] = useState<string>('Home');
+  const [customCatalogItemPriceINR, setCustomCatalogItemPriceINR] = useState<string>('5000');
+  const [customCatalogItemPriceUSD, setCustomCatalogItemPriceUSD] = useState<string>('120');
+  const [customCatalogItemQty, setCustomCatalogItemQty] = useState<string>('1');
+  const [catalogFeedback, setCatalogFeedback] = useState<string | null>(null);
+  const [isCatalogOpen, setIsCatalogOpen] = useState<boolean>(true);
+
+  // Current catalog dictionary based on category
+  const activeCatalogData = useMemo(() => {
+    if (catalogCategory === 'Websites') return WEBSITE_CATALOG;
+    if (catalogCategory === 'Applications') return APPLICATION_CATALOG;
+    return AI_AUTOMATION_CATALOG;
+  }, [catalogCategory]);
+
+  // Ensure valid subcategory when category changes
+  useEffect(() => {
+    const availableSubs = Object.keys(activeCatalogData);
+    if (!availableSubs.includes(catalogSubCategory)) {
+      const defaultSub = availableSubs[0] || 'Business Website';
+      setCatalogSubCategory(defaultSub);
+    }
+  }, [catalogCategory, activeCatalogData]);
+
+  // Active items for the selected subcategory & group
+  const currentCatalogItems = useMemo(() => {
+    const sub = activeCatalogData[catalogSubCategory];
+    if (!sub) return [];
+    let items: string[] = [];
+    if (catalogGroup === 'Pages') items = sub.pages || [];
+    else if (catalogGroup === 'Features') items = sub.features || [];
+    else items = sub.addons || [];
+
+    if (!catalogSearch.trim()) return items;
+    const q = catalogSearch.toLowerCase();
+    return items.filter(i => i.toLowerCase().includes(q));
+  }, [activeCatalogData, catalogSubCategory, catalogGroup, catalogSearch]);
+
+  // Update selected item default when group or category changes
+  useEffect(() => {
+    if (currentCatalogItems.length > 0 && !currentCatalogItems.includes(selectedCatalogItem)) {
+      const firstItem = currentCatalogItems[0];
+      setSelectedCatalogItem(firstItem);
+      setCustomCatalogItemName(firstItem);
+    }
+  }, [currentCatalogItems]);
+
+  // Sync default price tags when group changes
+  useEffect(() => {
+    const defaults = getDefaultModulePrices(catalogGroup);
+    setCustomCatalogItemPriceINR(defaults.inr.toString());
+    setCustomCatalogItemPriceUSD(defaults.usd.toString());
+  }, [catalogGroup]);
 
   // Print Styles for professional PDF
   const printStyles = `
@@ -244,17 +331,43 @@ export default function QuotationPage() {
     }
   `;
 
-  // Compute subtotal from cost items
-  const computeSubtotal = () => costItems.reduce((sum, c) => {
-    const qty = parseFloat(String(c.qty) || '1');
-    const unitPrice = parseFloat(String(c.unitPrice || c.amount).replace(/,/g, '')) || 0;
-    return sum + (qty * unitPrice);
-  }, 0);
-  const subtotal = computeSubtotal();
-  const disc = parseInt(discount) || 0;
-  const priceAfterDiscount = Math.round(subtotal * (1 - disc / 100));
-  const gstAmount = includeGST ? Math.round(priceAfterDiscount * (parseInt(gstRate) || 0) / 100) : 0;
-  const totalInvestment = priceAfterDiscount + gstAmount;
+  // Compute subtotals independently for INR and USD
+  const computeTotals = () => {
+    let subtotalINR = 0;
+    let subtotalUSD = 0;
+
+    costItems.forEach(c => {
+      const qty = parseNum(c.qty, 1);
+      const priceINR = parseNum(c.unitPriceINR !== undefined ? c.unitPriceINR : (c.unitPrice || c.amount), 0);
+      const priceUSD = parseNum(c.unitPriceUSD !== undefined ? c.unitPriceUSD : c.unitPrice, 0);
+      subtotalINR += qty * priceINR;
+      subtotalUSD += qty * priceUSD;
+    });
+
+    const discPct = parseNum(discount, 0);
+    const discAmountINR = Math.round(subtotalINR * (discPct / 100));
+    const discAmountUSD = Math.round(subtotalUSD * (discPct / 100));
+
+    const priceAfterDiscINR = subtotalINR - discAmountINR;
+    const priceAfterDiscUSD = subtotalUSD - discAmountUSD;
+
+    const rateGST = includeGST ? parseNum(gstRate, 18) : 0;
+    const gstAmountINR = includeGST ? Math.round(priceAfterDiscINR * (rateGST / 100)) : 0;
+    const gstAmountUSD = includeGST ? Math.round(priceAfterDiscUSD * (rateGST / 100)) : 0;
+
+    const totalINR = priceAfterDiscINR + gstAmountINR;
+    const totalUSD = priceAfterDiscUSD + gstAmountUSD;
+
+    return {
+      subtotalINR, subtotalUSD,
+      discAmountINR, discAmountUSD,
+      priceAfterDiscINR, priceAfterDiscUSD,
+      gstAmountINR, gstAmountUSD,
+      totalINR, totalUSD
+    };
+  };
+
+  const totals = computeTotals();
 
   useEffect(() => {
     const newScopes = selectedServices.flatMap(s => serviceScopeMap[s] || []);
@@ -283,14 +396,22 @@ export default function QuotationPage() {
       setWarranty('Standard 30-day post-launch warranty for fixing reproducible bugs within the stated scope.');
     }
 
-    // Auto-generate cost items from selected services
-    const newCosts = selectedServices.map(s => ({ 
-      label: s, 
-      qty: '1',
-      unitPrice: (servicePriceMap[s] || 0).toLocaleString(),
-      amount: (servicePriceMap[s] || 0).toLocaleString() 
-    }));
-    setCostItems(newCosts);
+    // Auto-generate cost items from selected services while preserving custom-added catalog items
+    setCostItems(prev => {
+      return selectedServices.map(s => {
+        const existing = prev.find(c => c.label === s);
+        if (existing) return existing;
+        const defaultRateINR = servicePriceMapINR[s] || 0;
+        const defaultRateUSD = servicePriceMapUSD[s] || 0;
+        return {
+          label: s,
+          qty: '1',
+          unitPriceINR: defaultRateINR.toString(),
+          unitPriceUSD: defaultRateUSD.toString(),
+          amount: defaultRateINR.toString()
+        };
+      }).concat(prev.filter(c => !selectedServices.includes(c.label) && !Object.keys(servicePriceMapINR).includes(c.label)));
+    });
   }, [selectedServices]);
 
   const toggleService = (s: string) => setSelectedServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
@@ -315,15 +436,23 @@ export default function QuotationPage() {
   const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
   const addCostItem = () => setCostItems([...costItems, { label: 'New Line Item', qty: '1', unitPrice: '0', amount: '0' }]);
   const removeCostItem = (i: number) => setCostItems(costItems.filter((_, idx) => idx !== i));
-  const updateCostItem = (i: number, f: keyof CostItem, v: string) => { const n = [...costItems]; n[i] = { ...n[i], [f]: v }; setCostItems(n); };
+  const updateCostItem = (i: number, f: keyof CostItem, v: string) => { 
+    const n = [...costItems]; 
+    n[i] = { ...n[i], [f]: v }; 
+    if (f === 'unitPrice') {
+      n[i].amount = v;
+    }
+    if (f === 'amount') {
+      n[i].unitPrice = v;
+    }
+    setCostItems(n); 
+  };
 
   const addMetaField = () => setMetaFields([...metaFields, { label: 'Field Label', value: 'Value', subValue: '' }]);
   const removeMetaField = (i: number) => setMetaFields(metaFields.filter((_, idx) => idx !== i));
   const updateMetaField = (i: number, f: string, v: string) => { const n = [...metaFields]; n[i] = { ...n[i], [f as any]: v }; setMetaFields(n); };
 
   const handleCopy = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
-
-  const computedGSTStr = gstAmount.toLocaleString(locale);
 
   // Supabase Save Function
   const handleSave = async () => {
@@ -405,7 +534,7 @@ export default function QuotationPage() {
     setCompanyContact(d.companyContact || '');
     setSignatureName(d.signatureName || '');
     setSignatureTitle(d.signatureTitle || '');
-    setCurrency(d.currency || 'USD');
+    setCurrency(d.currency || 'BOTH');
     setIncludeGST(d.includeGST || false);
     setGstRate(d.gstRate || '18');
     setDiscount(d.discount || '15');
@@ -505,7 +634,7 @@ export default function QuotationPage() {
         {showHistory && (
           <>
             <div onClick={() => setShowHistory(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" />
-            <div className="fixed top-0 right-0 w-[400px] h-full bg-white shadow-2xl z-50 transform transition-transform animate-slide-left p-8">
+            <div className="fixed top-0 right-0 w-full max-w-[400px] h-full bg-white shadow-2xl z-50 transform transition-transform animate-slide-left p-6 sm:p-8">
               <div className="flex items-center justify-between mb-8 border-bottom pb-4" style={{ borderBottom: '1.5px solid #e2dfd6' }}>
                 <div>
                   <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700 }}>Saved Quotations</h2>
@@ -746,14 +875,437 @@ export default function QuotationPage() {
           </div>
 
 
+          {/* ── HIERARCHICAL MODULE CATALOG & PRICING PICKER ── */}
+          <div style={{ marginBottom: 26, background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 12, overflow: 'hidden' }}>
+            <div 
+              onClick={() => setIsCatalogOpen(!isCatalogOpen)}
+              className="flex items-center justify-between cursor-pointer" 
+              style={{ padding: '14px 16px', background: isCatalogOpen ? '#f9f6ee' : '#fdfcf9', borderBottom: isCatalogOpen ? '1px solid #e2dfd6' : 'none' }}
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" style={{ color: '#c9a84c' }} />
+                <div>
+                  <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: '#1a1a2e', fontWeight: 700 }}>
+                    Module Catalog & Pricing Tags
+                  </div>
+                  <div style={{ fontSize: 10.5, color: '#8888aa' }}>
+                    19 Website Types, Apps & AI Automations • Pages, Features & Add-ons
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 10, background: '#1a1a2e', color: '#fff', padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>
+                  {catalogCategory}
+                </span>
+                {isCatalogOpen ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
+              </div>
+            </div>
+
+            {isCatalogOpen && (
+              <div style={{ padding: '16px' }}>
+                {/* 1. Category Switcher */}
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8888aa', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase' }}>
+                    1. Select Service Catalog
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5" style={{ background: '#f0ece1', padding: 3, borderRadius: 8 }}>
+                    {(['Websites', 'Applications', 'AI Automations'] as const).map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setCatalogCategory(cat)}
+                        style={{
+                          padding: '6px 4px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: catalogCategory === cat ? '#1a1a2e' : 'transparent',
+                          color: catalogCategory === cat ? '#fff' : '#4a4a68',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          textAlign: 'center'
+                        }}
+                      >
+                        {cat === 'Websites' ? '🌐 ' : cat === 'Applications' ? '📱 ' : '🤖 '}{cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Subcategory Dropdown ("Drop Box") */}
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8888aa', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase' }}>
+                    2. Select Subcategory / Template {catalogCategory === 'Websites' && '(19 Types)'}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      value={catalogSubCategory}
+                      onChange={e => {
+                        setCatalogSubCategory(e.target.value);
+                      }}
+                      style={{
+                        width: '100%',
+                        background: '#fff',
+                        border: '1.5px solid #c9a84c',
+                        borderRadius: 8,
+                        padding: '9px 12px',
+                        fontFamily: "'Outfit', sans-serif",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: '#1a1a2e',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        appearance: 'none',
+                        backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%231a1a2e%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 12px center'
+                      }}
+                    >
+                      {Object.keys(activeCatalogData).map((subKey, idx) => (
+                        <option key={subKey} value={subKey}>
+                          {catalogCategory === 'Websites' ? `${idx + 1}. ` : ''}{activeCatalogData[subKey]?.icon || '📦'} {subKey}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 3. Sub-group Tabs: Pages | Features | Add-ons */}
+                <div style={{ marginBottom: 12 }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label style={{ fontSize: 10, color: '#8888aa', fontWeight: 600, textTransform: 'uppercase' }}>
+                      3. Module Classification
+                    </label>
+                    <span style={{ fontSize: 10, color: '#c9a84c', fontWeight: 600 }}>
+                      {currentCatalogItems.length} items available
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5" style={{ background: '#f5eed8', padding: 3, borderRadius: 8 }}>
+                    {(['Pages', 'Features', 'Add-ons'] as const).map(grp => {
+                      const count = (activeCatalogData[catalogSubCategory] as any)?.[grp === 'Pages' ? 'pages' : grp === 'Features' ? 'features' : 'addons']?.length || 0;
+                      return (
+                        <button
+                          key={grp}
+                          type="button"
+                          onClick={() => {
+                            setCatalogGroup(grp);
+                            const defaults = getDefaultModulePrices(grp);
+                            setCustomCatalogItemPriceINR(defaults.inr.toString());
+                            setCustomCatalogItemPriceUSD(defaults.usd.toString());
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '6px 4px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderRadius: 6,
+                            border: 'none',
+                            background: catalogGroup === grp ? '#1a1a2e' : 'transparent',
+                            color: catalogGroup === grp ? '#fff' : '#1a1a2e',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4
+                          }}
+                        >
+                          <span>{grp === 'Pages' ? '📄' : grp === 'Features' ? '⚡' : '🧩'}</span>
+                          <span>{grp}</span>
+                          <span style={{ fontSize: 9.5, opacity: 0.8 }}>({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Instant Filter Search */}
+                <div style={{ marginBottom: 12, position: 'relative' }}>
+                  <Search className="h-3.5 w-3.5 text-gray-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={catalogSearch}
+                    onChange={e => setCatalogSearch(e.target.value)}
+                    placeholder={`Filter ${catalogGroup.toLowerCase()} in ${catalogSubCategory}...`}
+                    style={{
+                      width: '100%',
+                      background: '#fff',
+                      border: '1px solid #e2dfd6',
+                      borderRadius: 6,
+                      padding: '7px 10px 7px 30px',
+                      fontSize: 12,
+                      fontFamily: "'Outfit', sans-serif",
+                      outline: 'none'
+                    }}
+                  />
+                  {catalogSearch && (
+                    <button 
+                      onClick={() => setCatalogSearch('')}
+                      style={{ position: 'absolute', right: 8, top: 6, background: 'transparent', border: 'none', color: '#8888aa', cursor: 'pointer' }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* 5. Module Picker Chips / Dropdown List */}
+                <div style={{ marginBottom: 14 }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span style={{ fontSize: 10, color: '#8888aa', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Select Module to Edit & Add:
+                    </span>
+                    <span style={{ fontSize: 10, color: '#2d7a5f', fontWeight: 700 }}>
+                      Tag: {getDefaultPriceFormatted(catalogGroup, currency)}
+                    </span>
+                  </div>
+                  <div 
+                    className="flex flex-wrap gap-1.5 overflow-y-auto pr-1"
+                    style={{ maxHeight: 150, padding: 6, background: '#fff', border: '1px solid #e2dfd6', borderRadius: 8 }}
+                  >
+                    {currentCatalogItems.map(item => {
+                      const isSelected = selectedCatalogItem === item;
+                      return (
+                        <div
+                          key={item}
+                          onClick={() => {
+                            setSelectedCatalogItem(item);
+                            setCustomCatalogItemName(item);
+                            const defaults = getDefaultModulePrices(catalogGroup);
+                            setCustomCatalogItemPriceINR(defaults.inr.toString());
+                            setCustomCatalogItemPriceUSD(defaults.usd.toString());
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '4px 10px',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: isSelected ? 700 : 500,
+                            background: isSelected ? '#1a1a2e' : '#fdfcf9',
+                            color: isSelected ? '#fff' : '#3a3a5c',
+                            border: `1px solid ${isSelected ? '#1a1a2e' : '#e2dfd6'}`,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <span>{item}</span>
+                          <button
+                            title="Add directly to quotation"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const defaults = getDefaultModulePrices(catalogGroup);
+                              const formattedLabel = `[${catalogSubCategory}] ${item}`;
+                              setCostItems(prev => [...prev, {
+                                label: formattedLabel,
+                                qty: '1',
+                                unitPriceINR: defaults.inr.toString(),
+                                unitPriceUSD: defaults.usd.toString(),
+                                amount: defaults.inr.toString()
+                              }]);
+                              setCatalogFeedback(`Added "${item}" (${formatDualPrices(defaults.inr, defaults.usd)}) to Price Summary!`);
+                              setTimeout(() => setCatalogFeedback(null), 3000);
+                            }}
+                            style={{
+                              background: isSelected ? '#3a3a5c' : '#f5eed8',
+                              color: isSelected ? '#fff' : '#c9a84c',
+                              border: 'none',
+                              borderRadius: 4,
+                              padding: '2px 5px',
+                              fontSize: 10,
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 6. Editable Module & Pricing Tag Form */}
+                <div style={{ background: '#f5eed8', border: '1.5px solid #c9a84c', borderRadius: 10, padding: 14 }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a1a2e', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      ✏️ Edit Module & Multiple Currency Price Tags
+                    </span>
+                    <span style={{ fontSize: 10, color: '#c9a84c', background: '#fff', padding: '2px 8px', borderRadius: 6, fontWeight: 700, border: '1px solid #c9a84c' }}>
+                      {catalogSubCategory} • {catalogGroup}
+                    </span>
+                  </div>
+
+                  {/* Module Name Editable */}
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontSize: 9.5, color: '#6a6a88', marginBottom: 3, fontWeight: 600, textTransform: 'uppercase' }}>
+                      Module / Line Item Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={customCatalogItemName}
+                      onChange={e => setCustomCatalogItemName(e.target.value)}
+                      placeholder="e.g., Home Page or Payment Gateway"
+                      style={{
+                        width: '100%',
+                        background: '#fff',
+                        border: '1px solid #c9a84c',
+                        borderRadius: 6,
+                        padding: '7px 10px',
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        color: '#1a1a2e',
+                        fontFamily: "'Outfit', sans-serif",
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+                  {/* Independent Rupee (₹) & Dollar ($) Price Tags */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: '#6a6a88', marginBottom: 3, fontWeight: 600, textTransform: 'uppercase' }}>
+                        Qty:
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={customCatalogItemQty}
+                        onChange={e => setCustomCatalogItemQty(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: '#fff',
+                          border: '1px solid #c9a84c',
+                          borderRadius: 6,
+                          padding: '6px 8px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: '#1a1a2e',
+                          fontFamily: "'Outfit', sans-serif",
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: '#6a6a88', marginBottom: 3, fontWeight: 600, textTransform: 'uppercase' }}>
+                        Rupees (₹ INR):
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: 7, top: 6, fontWeight: 700, color: '#1a1a2e', fontSize: 11 }}>₹</span>
+                        <input
+                          type="text"
+                          value={customCatalogItemPriceINR}
+                          onChange={e => setCustomCatalogItemPriceINR(e.target.value)}
+                          placeholder="INR"
+                          style={{
+                            width: '100%',
+                            background: '#fff',
+                            border: '1px solid #c9a84c',
+                            borderRadius: 6,
+                            padding: '6px 6px 6px 18px',
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: '#2d7a5f',
+                            fontFamily: "'Outfit', sans-serif",
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: '#6a6a88', marginBottom: 3, fontWeight: 600, textTransform: 'uppercase' }}>
+                        Dollars ($ USD):
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: 7, top: 6, fontWeight: 700, color: '#1a1a2e', fontSize: 11 }}>$</span>
+                        <input
+                          type="text"
+                          value={customCatalogItemPriceUSD}
+                          onChange={e => setCustomCatalogItemPriceUSD(e.target.value)}
+                          placeholder="USD"
+                          style={{
+                            width: '100%',
+                            background: '#fff',
+                            border: '1px solid #c9a84c',
+                            borderRadius: 6,
+                            padding: '6px 6px 6px 18px',
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: '#2d7a5f',
+                            fontFamily: "'Outfit', sans-serif",
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Add Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!customCatalogItemName.trim()) return;
+                      const finalQty = customCatalogItemQty.trim() || '1';
+                      const cleanINR = parseNum(customCatalogItemPriceINR, 0).toString();
+                      const cleanUSD = parseNum(customCatalogItemPriceUSD, 0).toString();
+                      const formattedLabel = `[${catalogSubCategory}] ${customCatalogItemName.trim()}`;
+                      
+                      const newCost: CostItem = {
+                        label: formattedLabel,
+                        qty: finalQty,
+                        unitPriceINR: cleanINR,
+                        unitPriceUSD: cleanUSD,
+                        amount: cleanINR
+                      };
+                      setCostItems(prev => [...prev, newCost]);
+                      setCatalogFeedback(`✓ Added "${customCatalogItemName}" (${formatDualPrices(parseNum(cleanINR), parseNum(cleanUSD))}) to Price Summary!`);
+                      setTimeout(() => setCatalogFeedback(null), 3500);
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#1a1a2e',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      padding: '10px 14px',
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: '0 2px 8px rgba(26,26,46,0.18)',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Plus className="h-4 w-4" style={{ color: '#c9a84c' }} />
+                    <span>Add to Quotation / Price Summary</span>
+                  </button>
+
+                  {/* Live Feedback Toast */}
+                  {catalogFeedback && (
+                    <div className="flex items-center gap-2 mt-2" style={{ color: '#2d7a5f', fontSize: 11.5, fontWeight: 700 }}>
+                      <Check className="h-4 w-4" /> {catalogFeedback}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Pricing & Investment */}
           <div style={{ marginBottom: 26 }}>
-            <div className="flex items-center justify-between" style={{ marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid #e2dfd6' }}>
-              <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#8888aa', fontWeight: 600 }}>Pricing & Items</div>
-              <div className="flex items-center gap-2">
-                <div className="flex" style={{ background: '#f5eed8', borderRadius: 8, padding: 2 }}>
-                  <button onClick={() => setCurrency('USD')} style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'USD' ? '#1a1a2e' : 'transparent', color: currency === 'USD' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>USD</button>
-                  <button onClick={() => setCurrency('INR')} style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'INR' ? '#1a1a2e' : 'transparent', color: currency === 'INR' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>INR</button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2" style={{ marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid #e2dfd6' }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#8888aa', fontWeight: 600 }}>Pricing & Items</div>
+                <div style={{ fontSize: 10.5, color: '#2d7a5f', fontWeight: 600 }}>Multiple Currency Quotes for Indian & International Clients</div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex gap-0.5" style={{ background: '#f5eed8', borderRadius: 8, padding: 2 }}>
+                  <button onClick={() => setCurrency('INR')} style={{ padding: '4px 9px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'INR' ? '#1a1a2e' : 'transparent', color: currency === 'INR' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>INR (₹)</button>
+                  <button onClick={() => setCurrency('USD')} style={{ padding: '4px 9px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'USD' ? '#1a1a2e' : 'transparent', color: currency === 'USD' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>USD ($)</button>
+                  <button onClick={() => setCurrency('BOTH')} style={{ padding: '4px 9px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'BOTH' ? '#1a1a2e' : 'transparent', color: currency === 'BOTH' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>BOTH (₹ & $)</button>
                 </div>
                 <button onClick={addCostItem} style={{ ...addBtnStyle, marginTop: 0, padding: '4px 10px' }}>
                   <Plus className="h-3 w-3" /> Add Item
@@ -762,35 +1314,49 @@ export default function QuotationPage() {
             </div>
             
             <div className="flex flex-col gap-2 mb-4">
-              {costItems.map((c, i) => (
-                <div key={i} className="flex flex-col gap-2" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 10, padding: '12px 32px 12px 12px' }}>
-                  <input value={c.label} onChange={e => updateCostItem(i, 'label', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 700, color: '#1a1a2e', outline: 'none' }} placeholder="Item description" />
-                  
-                  <div className="flex gap-4 items-center">
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Quantity</label>
-                      <input value={c.qty || '1'} onChange={e => updateCostItem(i, 'qty', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 8px', fontSize: 12, outline: 'none' }} placeholder="1" />
-                    </div>
-                    <div style={{ flex: 2 }}>
-                      <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Unit Price ({symbol})</label>
-                      <input value={c.unitPrice || c.amount} onChange={e => updateCostItem(i, 'unitPrice', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 8px', fontSize: 12, outline: 'none' }} placeholder="0" />
-                    </div>
-                    <div style={{ flex: 2, textAlign: 'right' }}>
-                      <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Line Total</label>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: '#2d7a5f' }}>
-                        {symbol}{(parseFloat(String(c.qty) || '1') * (parseFloat(String(c.unitPrice || c.amount).replace(/,/g, '')) || 0)).toLocaleString(locale)}
+              {costItems.map((c, i) => {
+                const uINR = c.unitPriceINR !== undefined ? c.unitPriceINR : (c.amount || '');
+                const uUSD = c.unitPriceUSD !== undefined ? c.unitPriceUSD : (c.unitPrice || '');
+                const qNum = parseNum(c.qty, 1);
+                const lineTotalINR = qNum * parseNum(uINR, 0);
+                const lineTotalUSD = qNum * parseNum(uUSD, 0);
+
+                return (
+                  <div key={i} className="flex flex-col gap-2.5" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 10, padding: '12px 32px 12px 12px' }}>
+                    <input value={c.label} onChange={e => updateCostItem(i, 'label', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 700, color: '#1a1a2e', outline: 'none' }} placeholder="Item description" />
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-center">
+                      <div>
+                        <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Qty</label>
+                        <input value={c.qty || '1'} onChange={e => updateCostItem(i, 'qty', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 6px', fontSize: 12, outline: 'none' }} placeholder="1" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Rate (₹ INR)</label>
+                        <input value={uINR} onChange={e => updateCostItem(i, 'unitPriceINR', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 6px', fontSize: 12, outline: 'none' }} placeholder="0" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Rate ($ USD)</label>
+                        <input value={uUSD} onChange={e => updateCostItem(i, 'unitPriceUSD', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 6px', fontSize: 12, outline: 'none' }} placeholder="0" />
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Line Total</label>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: '#2d7a5f' }}>
+                          {formatDualPrices(lineTotalINR, lineTotalUSD)}
+                        </div>
                       </div>
                     </div>
+                    <button onClick={() => removeCostItem(i)} style={removeBtnStyle}><X className="h-3 w-3" /></button>
                   </div>
-                  <button onClick={() => removeCostItem(i)} style={removeBtnStyle}><X className="h-3 w-3" /></button>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div style={{ background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 10, padding: 16 }}>
               <div className="flex justify-between items-center mb-3">
                 <label style={{ fontSize: 11, color: '#8888aa', fontWeight: 500, textTransform: 'uppercase' }}>Subtotal</label>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e' }}>{symbol}{subtotal.toLocaleString(locale)}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1a1a2e' }}>
+                  {formatDualPrices(totals.subtotalINR, totals.subtotalUSD)}
+                </div>
               </div>
               
               <div className="flex justify-between items-center mb-3">
@@ -800,7 +1366,9 @@ export default function QuotationPage() {
 
               <div className="flex justify-between items-center pt-3" style={{ borderTop: '1px dashed #e2dfd6' }}>
                 <label style={{ fontSize: 11, color: '#1a1a2e', fontWeight: 700, textTransform: 'uppercase' }}>Net Total</label>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#2d7a5f' }}>{symbol}{priceAfterDiscount.toLocaleString(locale)}</div>
+                <div style={{ fontSize: 14.5, fontWeight: 800, color: '#2d7a5f' }}>
+                  {formatDualPrices(totals.priceAfterDiscINR, totals.priceAfterDiscUSD)}
+                </div>
               </div>
 
               <div className="mt-4 pt-4" style={{ borderTop: '1px solid #e2dfd6' }}>
@@ -819,7 +1387,9 @@ export default function QuotationPage() {
                 {includeGST && (
                   <div className="flex justify-between items-center pt-2">
                     <label style={{ fontSize: 11, color: '#1a1a2e', fontWeight: 700, textTransform: 'uppercase' }}>Total + Tax</label>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#2d7a5f' }}>{symbol}{totalInvestment.toLocaleString(locale)}</div>
+                    <div style={{ fontSize: 14.5, fontWeight: 800, color: '#2d7a5f' }}>
+                      {formatDualPrices(totals.totalINR, totals.totalUSD)}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1049,42 +1619,49 @@ export default function QuotationPage() {
                     <tr style={{ borderBottom: '2px solid #1a1a2e' }}>
                       <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'left' }}>Item Description</th>
                       <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'center' }}>Qty</th>
-                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'right' }}>Unit Price</th>
-                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'right' }}>Total</th>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'right' }}>
+                        {currency === 'BOTH' ? 'Unit Price (₹ INR / $ USD)' : currency === 'INR' ? 'Unit Price (₹ INR)' : 'Unit Price ($ USD)'}
+                      </th>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'right' }}>
+                        {currency === 'BOTH' ? 'Total (₹ INR / $ USD)' : currency === 'INR' ? 'Total (₹ INR)' : 'Total ($ USD)'}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {costItems.map((c, i) => {
-                      const qty = parseFloat(String(c.qty) || '1');
-                      const unitPrice = parseFloat(String(c.unitPrice || c.amount).replace(/,/g, '')) || 0;
+                      const qty = parseNum(c.qty, 1);
+                      const uINR = parseNum(c.unitPriceINR !== undefined ? c.unitPriceINR : (c.unitPrice || c.amount), 0);
+                      const uUSD = parseNum(c.unitPriceUSD !== undefined ? c.unitPriceUSD : c.unitPrice, 0);
                       return (
                         <tr key={i}>
                           <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6' }}>{c.label}</td>
                           <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'center' }}>{qty}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'right' }}>{symbol}{unitPrice.toLocaleString(locale)}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 700, color: '#1a1a2e' }}>{symbol}{(qty * unitPrice).toLocaleString(locale)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'right' }}>{formatDualPrices(uINR, uUSD)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 700, color: '#1a1a2e' }}>{formatDualPrices(qty * uINR, qty * uUSD)}</td>
                         </tr>
                       );
                     })}
                     <tr>
-                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', color: '#8888aa', textDecoration: 'line-through' }}>Subtotal</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#8888aa', textDecoration: 'line-through' }}>{symbol}{subtotal.toLocaleString(locale)}</td>
+                      <td colSpan={3} style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', color: '#8888aa' }}>Subtotal</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#1a1a2e' }}>{formatDualPrices(totals.subtotalINR, totals.subtotalUSD)}</td>
                     </tr>
-                    <tr>
-                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6' }}>Discount ({discount}%)</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#c0392b' }}>
-                        -{symbol}{Math.round(subtotal * disc / 100).toLocaleString(locale)}
-                      </td>
-                    </tr>
+                    {totals.discAmountINR > 0 && (
+                      <tr>
+                        <td colSpan={3} style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6' }}>Discount ({discount}%)</td>
+                        <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#c0392b' }}>
+                          - {formatDualPrices(totals.discAmountINR, totals.discAmountUSD)}
+                        </td>
+                      </tr>
+                    )}
                     {includeGST && (
                       <tr>
-                        <td style={{ padding: '10px 14px', fontSize: 12, borderBottom: '1px solid #e2dfd6', color: '#8888aa' }}>GST ({gstRate}%)</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, borderBottom: '1px solid #e2dfd6', textAlign: 'right', color: '#8888aa' }}>{symbol}{computedGSTStr}</td>
+                        <td colSpan={3} style={{ padding: '10px 14px', fontSize: 12, borderBottom: '1px solid #e2dfd6', color: '#8888aa' }}>GST ({gstRate}%)</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, borderBottom: '1px solid #e2dfd6', textAlign: 'right', color: '#8888aa' }}>{formatDualPrices(totals.gstAmountINR, totals.gstAmountUSD)}</td>
                       </tr>
                     )}
                     <tr>
-                      <td style={{ padding: '10px 14px', fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700 }}>Total Investment</td>
-                      <td style={{ padding: '10px 14px', fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, textAlign: 'right', color: '#2d7a5f' }}>{symbol}{totalInvestment.toLocaleString(locale)}</td>
+                      <td colSpan={3} style={{ padding: '10px 14px', fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700 }}>Total Investment</td>
+                      <td style={{ padding: '10px 14px', fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, textAlign: 'right', color: '#2d7a5f' }}>{formatDualPrices(totals.totalINR, totals.totalUSD)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1096,13 +1673,21 @@ export default function QuotationPage() {
                     🏦 Payment Milestones
                   </div>
                   <div className="flex gap-3">
-                    {payments.map((p, i) => (
-                      <div key={i} className="flex-1 text-center" style={{ padding: '16px 12px', border: '1px solid #e2dfd6', borderRadius: 8, background: '#fdfcf9' }}>
-                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: '#1a1a2e' }}>{p.pct}</div>
-                        <div style={{ fontSize: 11, color: '#8888aa', margin: '4px 0', textTransform: 'uppercase', letterSpacing: 1 }}>{p.label}</div>
-                        <div style={{ fontSize: 12, color: '#3a3a5c', fontWeight: 500 }}>{p.trigger}</div>
-                      </div>
-                    ))}
+                    {payments.map((p, i) => {
+                      const pctVal = (parseFloat(p.pct) || 0) / 100;
+                      const mINR = Math.round(totals.totalINR * pctVal);
+                      const mUSD = Math.round(totals.totalUSD * pctVal);
+                      return (
+                        <div key={i} className="flex-1 text-center" style={{ padding: '16px 12px', border: '1px solid #e2dfd6', borderRadius: 8, background: '#fdfcf9' }}>
+                          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: '#1a1a2e' }}>{p.pct}</div>
+                          <div style={{ fontSize: 11, color: '#8888aa', margin: '4px 0', textTransform: 'uppercase', letterSpacing: 1 }}>{p.label}</div>
+                          <div style={{ fontSize: 12, color: '#3a3a5c', fontWeight: 500 }}>{p.trigger}</div>
+                          <div style={{ fontSize: 11.5, color: '#2d7a5f', fontWeight: 700, marginTop: 6 }}>
+                            {formatDualPrices(mINR, mUSD)}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

@@ -300,16 +300,16 @@ export default function CRMTasks() {
     activeRep ? `${activeRep.full_name || activeRep.username}` : 'Team Tasks';
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl lg:text-3xl font-black text-foreground mb-1 tracking-tight">Tasks</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-foreground mb-0.5 sm:mb-1 tracking-tight">Tasks</h1>
             <span className="px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black rounded-full uppercase tracking-wider">
               {filterLabel}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground font-medium">Manage follow-ups and to-dos ({tasks.length} total tasks)</p>
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium">Follow-ups & to-dos ({tasks.length} tasks)</p>
         </div>
         <Button 
           onClick={() => {

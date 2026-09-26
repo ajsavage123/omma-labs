@@ -257,3 +257,90 @@ CREATE TRIGGER trigger_delete_old_chats
 AFTER INSERT ON public.chat_messages
 FOR EACH STATEMENT
 EXECUTE FUNCTION delete_old_chat_messages();
+
+-- ==========================================
+-- 5. 7-DAY SALES PLAN FEATURE SCHEMA
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS public.crm_sales_plan_progress (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  cycle_start_date date NOT NULL,
+  day_number integer NOT NULL CHECK (day_number BETWEEN 1 AND 7),
+  task_id text NOT NULL,
+  completed boolean DEFAULT false NOT NULL,
+  completed_at timestamp with time zone,
+  notes text,
+  custom_data jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  UNIQUE(workspace_id, user_id, cycle_start_date, day_number, task_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.crm_weekly_sales_reports (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  cycle_start_date date NOT NULL,
+  cycle_end_date date NOT NULL,
+  leads_created_count integer DEFAULT 0,
+  activities_logged_count integer DEFAULT 0,
+  meetings_booked_count integer DEFAULT 0,
+  deals_progressed_count integer DEFAULT 0,
+  summary_notes text,
+  manager_status text DEFAULT 'Pending Review' CHECK (manager_status IN ('Pending Review', 'Approved', 'Needs Improvement')),
+  manager_feedback text,
+  reviewed_by uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  reviewed_at timestamp with time zone,
+  submitted_at timestamp with time zone DEFAULT now() NOT NULL,
+  UNIQUE(workspace_id, user_id, cycle_start_date)
+);
+
+ALTER TABLE public.crm_sales_plan_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_weekly_sales_reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow crm_sales_plan_progress select" ON public.crm_sales_plan_progress;
+CREATE POLICY "Allow crm_sales_plan_progress select" ON public.crm_sales_plan_progress
+  FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_sales_plan_progress all" ON public.crm_sales_plan_progress;
+CREATE POLICY "Allow crm_sales_plan_progress all" ON public.crm_sales_plan_progress
+  FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_weekly_sales_reports select" ON public.crm_weekly_sales_reports;
+CREATE POLICY "Allow crm_weekly_sales_reports select" ON public.crm_weekly_sales_reports
+  FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_weekly_sales_reports all" ON public.crm_weekly_sales_reports;
+CREATE POLICY "Allow crm_weekly_sales_reports all" ON public.crm_weekly_sales_reports
+  FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+CREATE INDEX IF NOT EXISTS idx_crm_sales_plan_cycle 
+  ON public.crm_sales_plan_progress (workspace_id, user_id, cycle_start_date);
+
+CREATE INDEX IF NOT EXISTS idx_crm_weekly_reports_cycle 
+  ON public.crm_weekly_sales_reports (workspace_id, user_id, cycle_start_date);
+
+-- ==========================================
+-- 6. CRM WORKSPACE SETTINGS TABLE
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS public.crm_settings (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+  key text NOT NULL,
+  value text NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  UNIQUE(workspace_id, key)
+);
+
+ALTER TABLE public.crm_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow crm_settings select" ON public.crm_settings;
+CREATE POLICY "Allow crm_settings select" ON public.crm_settings
+  FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_settings all" ON public.crm_settings;
+CREATE POLICY "Allow crm_settings all" ON public.crm_settings
+  FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));

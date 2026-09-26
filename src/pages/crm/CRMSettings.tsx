@@ -1,9 +1,10 @@
 import { useAuth } from '@/hooks/useAuth';
-import { Building, Shield, Bell } from 'lucide-react';
-
+import { Building, Shield, Bell, ExternalLink } from 'lucide-react';
 import { pushNotificationService } from '@/services/pushNotificationService';
 import { notificationService } from '@/utils/notificationService';
-import { useState } from 'react';
+import { notebookLMService } from '@/services/notebookLMService';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 export default function CRMSettings() {
   const { user, supabaseUser } = useAuth();
@@ -14,6 +15,32 @@ export default function CRMSettings() {
     return 'default';
   });
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [notebookUrl, setNotebookUrl] = useState(() => notebookLMService.getStoredUrl());
+  const [savingUrl, setSavingUrl] = useState(false);
+  const isAdmin = user?.role === 'admin';
+
+  useEffect(() => {
+    if (user?.workspace_id) {
+      notebookLMService.fetchWorkspaceUrl(user.workspace_id).then(url => setNotebookUrl(url));
+    }
+  }, [user?.workspace_id]);
+
+  const handleSaveNotebookUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingUrl(true);
+    try {
+      const ok = await notebookLMService.saveWorkspaceUrl(notebookUrl, user?.workspace_id);
+      if (ok) {
+        toast.success("Ooma AI Knowledge Base URL updated for all sales reps!");
+      } else {
+        toast.error("Please enter a valid URL.");
+      }
+    } catch {
+      toast.error("Failed to save URL.");
+    } finally {
+      setSavingUrl(false);
+    }
+  };
 
   const handleEnablePush = async () => {
     setIsSubscribing(true);
@@ -35,14 +62,14 @@ export default function CRMSettings() {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-2xl space-y-6">
+    <div className="space-y-4 sm:space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-xl font-black text-white uppercase tracking-widest">Settings</h1>
-        <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Workspace and account configuration</p>
+        <h1 className="text-lg sm:text-xl font-black text-white uppercase tracking-widest">Settings</h1>
+        <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5 sm:mt-1">Workspace and account configuration</p>
       </div>
 
       {/* Account Info */}
-      <div className="bg-[#111116] border border-white/5 rounded-2xl p-6 space-y-4">
+      <div className="bg-[#111116] border border-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-4">
         <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">Account</h2>
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-lg font-black text-white">
@@ -59,7 +86,7 @@ export default function CRMSettings() {
       </div>
 
       {/* Workspace */}
-      <div className="bg-[#111116] border border-white/5 rounded-2xl p-6 space-y-3">
+      <div className="bg-[#111116] border border-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-3">
         <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">Workspace</h2>
         <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl border border-white/5">
           <Building size={14} className="text-indigo-400"/>
@@ -71,7 +98,7 @@ export default function CRMSettings() {
       </div>
 
       {/* CRM Config */}
-      <div className="bg-[#111116] border border-white/5 rounded-2xl p-6 space-y-3">
+      <div className="bg-[#111116] border border-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-3">
         <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">CRM Configuration</h2>
         {[
           { label: 'Auto-task on stage change', status: 'Enabled', color: 'text-emerald-400' },
@@ -90,7 +117,7 @@ export default function CRMSettings() {
 
 
       {/* Push Notifications Configuration */}
-      <div className="bg-[#111116] border border-white/5 rounded-2xl p-6 space-y-4">
+      <div className="bg-[#111116] border border-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
             <Bell size={14} /> Push Notifications
@@ -138,6 +165,74 @@ export default function CRMSettings() {
             Test Local Push
           </button>
         </div>
+      </div>
+
+      {/* Sales Support Assistant Knowledge Base Configuration (Admin Managed) */}
+      <div className="bg-[#111116] border border-purple-500/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg shadow-purple-950/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/robot-assistant.png" alt="Support" className="w-6 h-6 object-contain" />
+            <div>
+              <h2 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-1.5">
+                <span>Support Knowledge Base</span>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  NotebookLM
+                </span>
+              </h2>
+              <p className="text-[10px] text-gray-400 font-medium mt-0.5">Sales knowledge assistant connection</p>
+            </div>
+          </div>
+          
+          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+            {isAdmin ? 'Admin Config' : 'Workspace Active'}
+          </span>
+        </div>
+
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Configure the Google NotebookLM chat view URL for your sales team. When updated by an admin, all sales reps will instantly access this notebook from their sidebar <strong>Support</strong> button.
+        </p>
+
+        <form onSubmit={handleSaveNotebookUrl} className="space-y-3 pt-1">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+              NotebookLM Chat View URL
+            </label>
+            <input
+              type="url"
+              value={notebookUrl}
+              onChange={(e) => setNotebookUrl(e.target.value)}
+              disabled={!isAdmin}
+              placeholder="https://notebooklm.google.com/notebook/YOUR_NOTEBOOK_ID"
+              className="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-xs text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors font-mono disabled:opacity-60 disabled:cursor-not-allowed"
+              required
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                const popup = notebookLMService.openCompanionWindow(notebookUrl);
+                if (!popup || popup.closed) {
+                  toast.error("Popup blocked! Please allow popups for this site in your browser to open Ooma AI.");
+                }
+              }}
+              className="flex items-center gap-2 px-3.5 py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold rounded-xl transition-all border border-white/10 active:scale-95"
+            >
+              <ExternalLink size={14} /> Test 390px Window
+            </button>
+
+            {isAdmin && (
+              <button
+                type="submit"
+                disabled={savingUrl}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shadow-md shadow-purple-600/30"
+              >
+                {savingUrl ? 'Saving...' : 'Save Workspace AI Link'}
+              </button>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );

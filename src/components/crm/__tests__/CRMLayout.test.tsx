@@ -79,10 +79,10 @@ describe('CRMLayout', () => {
     });
     renderLayout();
     
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Leads')).toBeInTheDocument();
-    expect(screen.getByText('Pipeline')).toBeInTheDocument();
-    expect(screen.getByText('Tasks')).toBeInTheDocument();
+    expect(screen.getAllByText('Dashboard').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Leads').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Pipeline').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Tasks').length).toBeGreaterThan(0);
     expect(screen.getByText('Calendar')).toBeInTheDocument();
     expect(screen.getByText('Notes')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
@@ -106,12 +106,14 @@ describe('CRMLayout', () => {
     expect(screen.getByText('CRM ENGINE')).toBeInTheDocument();
   });
 
-  it('renders notification bell', () => {
+  it('renders Support navigation item and handles click', () => {
     mockUser.mockReturnValue({
       user: { id: 'user-1', workspace_id: 'ws-1', role: 'admin' },
     });
     renderLayout();
-    // The bell icon should be present (notification badge shows count for pending tasks)
-    expect(screen.getByTestId('ooma-logo')).toBeInTheDocument();
+    expect(screen.getAllByText('Support').length).toBeGreaterThan(0);
+
+    const supportBtn = screen.getByRole('button', { name: /open support assistant/i });
+    expect(supportBtn).toBeInTheDocument();
   });
 });

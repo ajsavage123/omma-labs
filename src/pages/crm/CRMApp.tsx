@@ -9,12 +9,15 @@ import CRMNotes from './CRMNotes';
 import CRMProjects from './CRMProjects';
 import CRMReports from './CRMReports';
 import CRMSettings from './CRMSettings';
+import CRMSalesPlan from './CRMSalesPlan';
 
 export default function CRMApp() {
   return (
     <CRMLayout>
       <Routes>
         <Route index element={<CRMDashboard />} />
+        <Route path="sales-plan" element={<CRMSalesPlan />} />
+        <Route path="7-day-plan" element={<Navigate to="/crm/sales-plan" replace />} />
         <Route path="leads" element={<CRMLeads />} />
         <Route path="pipeline" element={<CRMPipeline />} />
         <Route path="tasks" element={<CRMTasks />} />

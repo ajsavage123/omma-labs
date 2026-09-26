@@ -49,7 +49,7 @@ export default defineConfig({
   },
   server: {
     watch: {
-      ignored: ['**/playwright-report/**', '**/tests/**', '**/dist/**']
+      ignored: ['**/playwright-report/**', '**/tests/**', '**/dist/**', '**/Modular quotation/**', '**/*.zip']
     }
   },
   build: {

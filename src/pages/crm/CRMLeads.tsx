@@ -5,7 +5,7 @@ import { useWorkspaceUsers } from "@/hooks/useWorkspaceUsers";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake, AlertTriangle, CheckSquare, History, RotateCcw, FileSpreadsheet, Layers } from "lucide-react";
+import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake, AlertTriangle, CheckSquare, History, RotateCcw, FileSpreadsheet, Layers, Phone, MessageCircle, Mail } from "lucide-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
@@ -13,6 +13,12 @@ import { useLeadScoring } from "@/hooks/useLeadScoring";
 import { formatUrl } from "../../utils/formatUrl";
 import CRMDuplicateLeadsModal from "@/components/crm/CRMDuplicateLeadsModal";
 import { findDuplicateLeads } from "@/utils/crmDuplicateFinder";
+import { 
+  extractLeadCompanyAndContact, 
+  resolveLeadCompanyName, 
+  resolveLeadContactPerson, 
+  normalizeColumnKey 
+} from "@/utils/crmLeadUtils";
 
 const STAGE_COLORS: Record<string, string> = {
   'New Leads': 'bg-blue-500',
@@ -114,6 +120,56 @@ export default function CRMLeads() {
     const activeLeadsScope = crmViewMode === 'mine' ? leads : (allLeads || leads);
     return findDuplicateLeads(activeLeadsScope || []);
   }, [crmViewMode, leads, allLeads]);
+
+  // Identify existing leads with "Unknown Company" that can be auto-repaired from custom_data
+  const unmappedCompanyLeads = React.useMemo(() => {
+    const activeScope = crmViewMode === 'mine' ? leads : (allLeads || leads);
+    return (activeScope || []).filter(lead => {
+      const rawComp = (lead.company_name || '').toLowerCase().trim();
+      const isUnknown = !rawComp || rawComp === 'unknown company' || rawComp === 'unknown' || rawComp === 'unnamed company';
+      if (!isUnknown) return false;
+      const recovered = resolveLeadCompanyName(lead);
+      const normRec = (recovered || '').toLowerCase().trim();
+      return normRec && normRec !== 'unknown company' && normRec !== 'unknown' && normRec !== 'unnamed company';
+    });
+  }, [crmViewMode, leads, allLeads]);
+
+  const [isRepairingCompanies, setIsRepairingCompanies] = useState(false);
+
+  const handleAutoRepairCompanies = async () => {
+    if (unmappedCompanyLeads.length === 0) return;
+    setIsRepairingCompanies(true);
+    try {
+      let repairedCount = 0;
+      const batchSize = 50;
+      for (let i = 0; i < unmappedCompanyLeads.length; i += batchSize) {
+        const chunk = unmappedCompanyLeads.slice(i, i + batchSize);
+        await Promise.all(chunk.map(async (lead) => {
+          const recoveredCompany = resolveLeadCompanyName(lead);
+          const recoveredContact = resolveLeadContactPerson(lead);
+          const updatePayload: Record<string, any> = {
+            company_name: recoveredCompany
+          };
+          if (!lead.contact_person || lead.contact_person.toLowerCase().trim() === 'unknown contact' || lead.contact_person === lead.company_name) {
+            updatePayload.contact_person = recoveredContact;
+          }
+
+          const { error } = await supabase
+            .from('crm_leads')
+            .update(updatePayload)
+            .eq('id', lead.id);
+          if (!error) repairedCount++;
+        }));
+      }
+      toast.success(`Successfully repaired ${repairedCount} company name(s) in CRM!`);
+      refreshLeads();
+    } catch (err: any) {
+      toast.error("Failed to auto-repair some leads");
+      console.error(err);
+    } finally {
+      setIsRepairingCompanies(false);
+    }
+  };
   
   // Advanced Deletion State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -201,9 +257,11 @@ export default function CRMLeads() {
   const openEditModal = (lead: Record<string, any>) => {
     setIsEditMode(true);
     setEditingLeadId(lead.id);
+    const resolvedCompany = resolveLeadCompanyName(lead);
+    const resolvedContact = resolveLeadContactPerson(lead);
     setFormData({
-      contact_person: lead.contact_person || '',
-      company_name: lead.company_name || '',
+      contact_person: (lead.contact_person && lead.contact_person !== 'Unknown Contact') ? lead.contact_person : resolvedContact,
+      company_name: (lead.company_name && lead.company_name !== 'Unknown Company') ? lead.company_name : resolvedCompany,
       email: lead.email || '',
       phone: lead.phone || '',
       estimated_value: lead.estimated_value === 0 ? '' : (lead.estimated_value || '').toString(),
@@ -395,8 +453,8 @@ export default function CRMLeads() {
   const handleExportCSV = () => {
     if (!leads.length) return toast.error("No leads to export");
     const exportData = leads.map(l => ({
-      'Company Name': l.company_name,
-      'Contact Person': l.contact_person,
+      'Company Name': resolveLeadCompanyName(l),
+      'Contact Person': resolveLeadContactPerson(l),
       'Email': l.email || '',
       'Phone': l.phone || '',
       'Estimated Value': l.estimated_value || 0,
@@ -436,12 +494,24 @@ export default function CRMLeads() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      transformHeader: (header: string, index: number) => {
+        const clean = (header || '').replace(/^\ufeff/, '').trim();
+        if (!clean) {
+          // If the first column header is blank/empty, assign it as "Company Name" automatically
+          return index === 0 ? 'Company Name' : `Column_${index + 1}`;
+        }
+        return clean;
+      },
       complete: async (results) => {
         try {
           const newLeads = (results.data as Record<string, any>[]).map((row) => {
             const matchedKeys: string[] = [];
             const getField = (keys: string[]) => {
-              const key = Object.keys(row).find(k => keys.includes(k.toLowerCase().trim()));
+              const normalizedTargetKeys = keys.map(k => normalizeColumnKey(k));
+              const key = Object.keys(row).find(k => {
+                const normK = normalizeColumnKey(k);
+                return normalizedTargetKeys.includes(normK) || keys.includes(k.toLowerCase().trim());
+              });
               if (key) {
                 matchedKeys.push(key.toLowerCase().trim());
                 return row[key];
@@ -449,15 +519,19 @@ export default function CRMLeads() {
               return null;
             };
 
-            // Smart mapping fallbacks:
-            let name = getField(['name', 'contact name', 'contact_person', 'person', 'contact person']);
-            let company = getField(['company', 'company name', 'business', 'company_name']);
-            const email = getField(['email', 'email address', 'email_address']);
-            const phone = getField(['phone', 'mobile', 'contact number', 'phone number']);
+            // Smart mapping using robust multi-strategy extractor:
+            const { company: extractedCompany, contactPerson: extractedContact, matchedKeys: nameMatchedKeys } = extractLeadCompanyAndContact(row);
+            nameMatchedKeys.forEach(k => matchedKeys.push(k.toLowerCase().trim()));
+
+            let name = extractedContact;
+            let company = extractedCompany;
+
+            const email = getField(['email', 'email address', 'email_address', 'mail', 'e-mail']);
+            const phone = getField(['phone', 'mobile', 'contact number', 'phone number', 'telephone', 'mobile number', 'cell', 'phone 1', 'phone 1 - value']);
             const value = parseFloat(getField(['value', 'estimated value', 'amount', 'revenue', 'estimated_value'])?.replace(/[^0-9.]/g, '') || '0');
             const budget = parseFloat(getField(['budget', 'estimated budget'])?.replace(/[^0-9.]/g, '') || '0');
             const status = getField(['status', 'stage', 'lead status']) || 'New Leads';
-            const website = getField(['website', 'url', 'link', 'website link', 'website url', 'website_url', 'web url', 'weblink']);
+            const website = getField(['website', 'url', 'link', 'website link', 'website url', 'website_url', 'web url', 'weblink', 'domain']);
             const businessType = getField(['business category', 'category', 'business type', 'business_type', 'industry', 'type']);
 
             let location = getField([
@@ -466,12 +540,12 @@ export default function CRMLeads() {
               'google maps', 'google map'
             ]);
             if (!location) {
-              location = getField(['location', 'address', 'map', 'maps', 'location link', 'address link']);
+              location = getField(['location', 'address', 'map', 'maps', 'location link', 'address link', 'full address', 'street address']);
             }
 
             const service = getField(['service', 'service interest', 'interest', 'service_interest']);
             const source = getField(['source', 'lead source']) || `CSV Import (${importFilename})`;
-            const notes = getField(['notes', 'comment', 'description']);
+            const notes = getField(['notes', 'comment', 'description', 'reviews', 'rating']);
             const paymentStatus = getField(['payment status', 'payment_status']) || 'Pending';
             const amountPaid = parseFloat(getField(['amount paid', 'amount_paid'])?.replace(/[^0-9.]/g, '') || '0');
             
@@ -597,9 +671,13 @@ export default function CRMLeads() {
 
   const filteredLeads = scoredLeads.filter(l => {
     const q = searchQuery.toLowerCase().trim();
+    const resolvedCompany = resolveLeadCompanyName(l);
+    const resolvedContact = resolveLeadContactPerson(l);
     
     const matchesSearch = !q || 
+      resolvedCompany.toLowerCase().includes(q) || 
       (l.company_name || '').toLowerCase().includes(q) || 
+      resolvedContact.toLowerCase().includes(q) || 
       (l.contact_person || '').toLowerCase().includes(q) || 
       (l.email || '').toLowerCase().includes(q) ||
       (l.phone || '').toLowerCase().includes(q) ||
@@ -656,10 +734,10 @@ export default function CRMLeads() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground leading-tight">Leads</h1>
+          <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-foreground leading-tight">Leads</h1>
           <p className="text-xs text-muted-foreground hidden sm:block">Manage all your sales leads</p>
         </div>
         <div className="flex items-center gap-2">
@@ -867,8 +945,35 @@ export default function CRMLeads() {
         </div>
       </div>
 
+      {/* Auto-Repair Unmapped Company Names Banner */}
+      {unmappedCompanyLeads.length > 0 && (
+        <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-500 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/20 rounded-xl flex-shrink-0">
+              <AlertTriangle size={20} className="text-amber-500 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                Found {unmappedCompanyLeads.length} lead(s) showing "Unknown Company" from past CSV imports
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Actual company names found in file data: <span className="font-semibold text-foreground">{unmappedCompanyLeads.slice(0, 3).map(l => resolveLeadCompanyName(l)).join(', ')}{unmappedCompanyLeads.length > 3 ? ` +${unmappedCompanyLeads.length - 3} more` : ''}</span>
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={handleAutoRepairCompanies}
+            disabled={isRepairingCompanies}
+            className="bg-amber-500 hover:bg-amber-600 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-amber-500/20 whitespace-nowrap active:scale-95 transition-all self-end sm:self-auto"
+          >
+            {isRepairingCompanies ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+            Auto-Repair {unmappedCompanyLeads.length} Company Name{unmappedCompanyLeads.length > 1 ? 's' : ''}
+          </Button>
+        </div>
+      )}
+
       {/* Multi-Select Quick Selection Toolbar & Sticky Actions Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-card border border-border rounded-2xl shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 sm:p-3.5 bg-card border border-border rounded-xl sm:rounded-2xl shadow-xs">
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
@@ -926,9 +1031,10 @@ export default function CRMLeads() {
         )}
       </div>
 
-      {/* Leads Table */}
-      <Card className="bg-card border-border overflow-hidden rounded-2xl shadow-xl">
-        <div className="overflow-x-auto custom-scrollbar">
+      {/* Leads Dual View: Desktop Table + Touch-Friendly Mobile Cards */}
+      <Card className="bg-card border-border overflow-hidden rounded-xl sm:rounded-2xl shadow-xl">
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-background/50">
@@ -984,18 +1090,22 @@ export default function CRMLeads() {
                       </td>
                        <td className="px-4 lg:px-6 py-4 min-w-[280px] break-words">
                         <div className="font-semibold text-foreground text-sm tracking-tight leading-snug flex flex-wrap items-center gap-1.5">
-                          {lead.company_name || lead.contact_person}
+                          {resolveLeadCompanyName(lead)}
                           {lead.business_type && (
                             <span className="px-1.5 py-0.5 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 text-[8px] font-black rounded-lg uppercase tracking-wider">
                               {lead.business_type}
                             </span>
                           )}
                         </div>
-                        {lead.contact_person && lead.contact_person !== lead.company_name && (
-                          <div className="text-xs text-muted-foreground mt-0.5 font-bold uppercase tracking-wider">
-                            {lead.contact_person}
-                          </div>
-                        )}
+                        {(() => {
+                          const contact = resolveLeadContactPerson(lead);
+                          const comp = resolveLeadCompanyName(lead);
+                          return contact && contact !== comp && contact !== 'Unknown Contact' ? (
+                            <div className="text-xs text-muted-foreground mt-0.5 font-bold uppercase tracking-wider">
+                              {contact}
+                            </div>
+                          ) : null;
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-sm text-foreground">
                         {lead.email || <span className="text-muted-foreground opacity-30 italic">No email</span>}
@@ -1075,7 +1185,7 @@ export default function CRMLeads() {
                     {/* Expandable details panel */}
                     {isExpanded && (
                       <tr className="bg-muted/15 border-b border-border">
-                        <td colSpan={10} className="p-6 md:p-8">
+                        <td colSpan={12} className="p-6 md:p-8">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-foreground">
                             
                             {/* Panel Column 1: Financial & Core Info */}
@@ -1188,13 +1298,225 @@ export default function CRMLeads() {
               })}
               {filteredLeads.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-muted-foreground">
-                    No leads found.
+                  <td colSpan={12} className="py-12 text-center text-muted-foreground">
+                    No leads found matching current filter or search criteria.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Lead Cards View (< md) */}
+        <div className="block md:hidden divide-y divide-border">
+          {filteredLeads.map((lead) => {
+            const isExpanded = expandedRowId === lead.id;
+            const company = resolveLeadCompanyName(lead);
+            const contact = resolveLeadContactPerson(lead);
+            const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
+            const hasPhone = Boolean(lead.phone && lead.phone.trim() !== '' && lead.phone.toLowerCase() !== 'none' && lead.phone.toLowerCase() !== 'n/a');
+            const isSelected = selectedLeadIds.includes(lead.id);
+
+            return (
+              <div 
+                key={lead.id} 
+                className={`p-3 sm:p-4 transition-colors ${
+                  isSelected ? 'bg-primary/10' : 'bg-card'
+                }`}
+              >
+                {/* Header Row: Checkbox, Name, Status, Value */}
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => toggleSelectLead(lead.id, e as any)}
+                      className="rounded border-input text-primary focus:ring-primary h-5 w-5 mt-0.5 cursor-pointer shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-foreground text-sm leading-snug flex flex-wrap items-center gap-1.5">
+                        <span className="truncate">{company}</span>
+                        {lead.business_type && (
+                          <span className="px-1.5 py-0.2 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 text-[8px] font-black rounded uppercase">
+                            {lead.business_type}
+                          </span>
+                        )}
+                      </div>
+                      {contact && contact !== company && contact !== 'Unknown Contact' && (
+                        <p className="text-[11px] text-muted-foreground font-semibold mt-0.5 truncate">
+                          {contact}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Status & Value */}
+                  <div className="flex flex-col items-end shrink-0 gap-1">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${STAGE_COLORS[lead.status] || 'bg-gray-500'}`}>
+                      {lead.status}
+                    </span>
+                    <span className="text-xs font-black text-foreground">
+                      ₹{(lead.estimated_value || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Score & Assignment Row */}
+                <div className="flex items-center justify-between gap-2 mt-2.5 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {lead.propensityScore !== undefined && (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-black ${
+                        lead.propensityScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                        lead.propensityScore >= 40 ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                        'bg-slate-500/10 text-slate-500 border-slate-500/20'
+                      }`}>
+                        {lead.propensityScore >= 75 ? <Flame size={11} /> : lead.propensityScore >= 40 ? <Zap size={11} /> : <Snowflake size={11} />}
+                        Score {lead.propensityScore}
+                      </span>
+                    )}
+                    {lead.service_interest && (
+                      <span className="px-2 py-0.5 bg-muted/60 text-muted-foreground rounded-md text-[10px] font-medium truncate max-w-[130px]">
+                        {lead.service_interest}
+                      </span>
+                    )}
+                  </div>
+                  {lead.assigned_user && (
+                    <span className="text-[10px] font-bold text-muted-foreground truncate max-w-[100px]">
+                      👤 {lead.assigned_user.full_name || lead.assigned_user.username}
+                    </span>
+                  )}
+                </div>
+
+                {/* Quick 1-Tap Action Bar (44px touch targets) */}
+                <div className="flex items-center justify-between gap-1.5 mt-3 pt-3 border-t border-border/60">
+                  <div className="flex items-center gap-1.5">
+                    {hasPhone && (
+                      <>
+                        <a
+                          href={`tel:${lead.phone}`}
+                          className="h-9 px-3 rounded-xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-600 flex items-center justify-center gap-1 text-xs font-bold active:scale-90 transition-transform"
+                          title="Call Lead"
+                        >
+                          <Phone size={14} />
+                          <span>Call</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/${cleanPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-9 px-3 rounded-xl bg-emerald-600 text-white flex items-center justify-center gap-1 text-xs font-bold active:scale-90 transition-transform shadow-xs"
+                          title="WhatsApp Chat"
+                        >
+                          <MessageCircle size={14} />
+                          <span>WhatsApp</span>
+                        </a>
+                      </>
+                    )}
+                    {lead.email && !hasPhone && (
+                      <a
+                        href={`mailto:${lead.email}`}
+                        className="h-9 px-3 rounded-xl bg-indigo-600/10 border border-indigo-500/30 text-indigo-600 flex items-center justify-center gap-1 text-xs font-bold active:scale-90 transition-transform"
+                        title="Send Email"
+                      >
+                        <Mail size={14} />
+                        <span>Email</span>
+                      </a>
+                    )}
+                    {lead.external_link && (
+                      <a
+                        href={formatUrl(lead.external_link)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-9 w-9 rounded-xl bg-rose-600/10 border border-rose-500/30 text-rose-600 flex items-center justify-center active:scale-90 transition-transform"
+                        title="Google Maps"
+                      >
+                        <MapPin size={15} />
+                      </a>
+                    )}
+                    {lead.website && (
+                      <a
+                        href={formatUrl(lead.website)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-9 w-9 rounded-xl bg-indigo-600/10 border border-indigo-500/30 text-indigo-600 flex items-center justify-center active:scale-90 transition-transform"
+                        title="Website"
+                      >
+                        <Globe size={15} />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Actions & Expand button */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEditModal(lead)}
+                      className="h-9 w-9 rounded-xl bg-background border border-border hover:bg-primary/10 text-primary flex items-center justify-center active:scale-90 transition-transform"
+                      title="Edit"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      onClick={() => deleteLead(lead.id)}
+                      className="h-9 w-9 rounded-xl bg-background border border-border hover:bg-rose-500/10 text-rose-500 flex items-center justify-center active:scale-90 transition-transform"
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    <button
+                      onClick={() => setExpandedRowId(isExpanded ? null : lead.id)}
+                      className="h-9 px-2 rounded-xl bg-background border border-border text-muted-foreground flex items-center justify-center gap-1 text-[11px] font-bold active:scale-90 transition-transform"
+                    >
+                      <span>{isExpanded ? 'Less' : 'More'}</span>
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mobile Expanded Drawer Accordion */}
+                {isExpanded && (
+                  <div className="mt-3 p-3 bg-muted/20 border border-border/80 rounded-xl space-y-2 text-xs text-foreground animate-in slide-in-from-top-2">
+                    <div className="flex justify-between py-1 border-b border-border/40">
+                      <span className="text-muted-foreground">Email:</span>
+                      <span className="font-semibold text-right truncate max-w-[200px]">{lead.email || '—'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-border/40">
+                      <span className="text-muted-foreground">Phone:</span>
+                      <span className="font-semibold">{lead.phone || '—'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-border/40">
+                      <span className="text-muted-foreground">Payment Status:</span>
+                      <span className={`font-bold px-1.5 py-0.5 rounded text-[9px] uppercase ${
+                        lead.payment_status === 'Paid' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+                      }`}>
+                        {lead.payment_status || 'Pending'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-border/40">
+                      <span className="text-muted-foreground">Amount Paid:</span>
+                      <span className="font-bold text-emerald-500">₹{(lead.amount_paid || 0).toLocaleString()}</span>
+                    </div>
+                    {lead.follow_up_date && (
+                      <div className="flex justify-between py-1 border-b border-border/40">
+                        <span className="text-muted-foreground">Follow-Up:</span>
+                        <span className="font-bold text-amber-500">{new Date(lead.follow_up_date).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {lead.notes && (
+                      <div className="pt-1">
+                        <span className="text-muted-foreground font-bold text-[10px] uppercase block mb-1">Notes:</span>
+                        <p className="p-2 bg-background rounded-lg border border-border/40 text-[11px] whitespace-pre-wrap">{lead.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {filteredLeads.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              No leads found matching current filter or search criteria.
+            </div>
+          )}
         </div>
       </Card>
 

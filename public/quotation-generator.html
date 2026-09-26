@@ -1,0 +1,2174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OomaLabs - Quotation Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111726;
+      --card-border: #1e293b;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --primary-glow: rgba(59, 130, 246, 0.25);
+      --accent: #06b6d4;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --doc-bg: #ffffff;
+      --doc-text: #0f172a;
+      --doc-muted: #475569;
+      --doc-border: #e2e8f0;
+      --doc-accent: #1e3a8a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, h5, .brand-font {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* Top Navigation Bar */
+    header {
+      background: rgba(17, 23, 38, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .logo-badge {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: white;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-title span {
+      color: var(--accent);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.825rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      outline: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #1e293b;
+      color: var(--text);
+      border-color: #334155;
+    }
+
+    .btn-secondary:hover {
+      background: #334155;
+      color: white;
+    }
+
+    .btn-accent {
+      background: rgba(6, 182, 212, 0.15);
+      color: #38bdf8;
+      border-color: rgba(6, 182, 212, 0.3);
+    }
+
+    .btn-accent:hover {
+      background: rgba(6, 182, 212, 0.25);
+    }
+
+    .btn-sm {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.75rem;
+      border-radius: 6px;
+    }
+
+    /* Mobile View Toggle */
+    .mobile-nav-toggle {
+      display: none;
+      background: #1e293b;
+      padding: 0.3rem;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      margin: 0.5rem 1rem;
+    }
+
+    .mobile-tab-btn {
+      flex: 1;
+      padding: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .mobile-tab-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* Main Container Layout */
+    .main-workspace {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      flex: 1;
+      height: calc(100vh - 61px);
+      overflow: hidden;
+    }
+
+    /* Editor Sidebar */
+    .editor-sidebar {
+      background: var(--card-bg);
+      border-right: 1px solid var(--card-border);
+      overflow-y: auto;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .editor-sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .editor-sidebar::-webkit-scrollbar-track {
+      background: var(--card-bg);
+    }
+
+    .editor-sidebar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    .panel {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.85rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 0.5rem;
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-group {
+      margin-bottom: 0.75rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      background: #0b1120;
+      border: 1px solid #243048;
+      border-radius: 6px;
+      padding: 0.5rem 0.65rem;
+      color: white;
+      font-size: 0.825rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 55px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    /* Service Pills Selection */
+    .services-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .service-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.65rem;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 20px;
+      font-size: 0.775rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .service-pill.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--primary);
+      color: white;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+    }
+
+    /* Dynamic Item Rows */
+    .item-row {
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 0.6rem;
+      margin-bottom: 0.5rem;
+      position: relative;
+    }
+
+    .item-row-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4rem;
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: none;
+      color: #ef4444;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    .btn-delete:hover {
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    /* Preview Canvas Area */
+    .preview-canvas {
+      background: #060911;
+      overflow-y: auto;
+      padding: 2.5rem 1.5rem;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* Printable Quotation Paper Document */
+    .quotation-paper {
+      background: var(--doc-bg);
+      color: var(--doc-text);
+      width: 100%;
+      max-width: 820px;
+      min-height: 1100px;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      padding: 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+      position: relative;
+    }
+
+    /* Paper Header */
+    .doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid var(--doc-border);
+      padding-bottom: 1.5rem;
+    }
+
+    .doc-brand-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: var(--doc-accent);
+      letter-spacing: -0.02em;
+    }
+
+    .doc-company-info {
+      font-size: 0.8rem;
+      color: var(--doc-muted);
+      line-height: 1.45;
+      margin-top: 0.35rem;
+    }
+
+    .doc-badge-quotation {
+      text-align: right;
+    }
+
+    .doc-type-tag {
+      display: inline-block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #2563eb;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .doc-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      background: #f8fafc;
+      border: 1px solid var(--doc-border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+
+    .doc-meta-item label {
+      color: #64748b;
+      margin-bottom: 0.15rem;
+      font-size: 0.7rem;
+    }
+
+    .doc-meta-item .val {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #0f172a;
+    }
+
+    .doc-meta-item .sub {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    /* Document Sections */
+    .doc-section-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--doc-accent);
+      border-bottom: 1.5px solid #cbd5e1;
+      padding-bottom: 0.35rem;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .doc-text-p {
+      font-size: 0.85rem;
+      color: #334155;
+      line-height: 1.6;
+    }
+
+    /* Scopes Grid */
+    .doc-scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .doc-scope-card {
+      background: #f8fafc;
+      border: 1px solid var(--doc-border);
+      border-left: 3px solid #3b82f6;
+      border-radius: 6px;
+      padding: 0.75rem;
+    }
+
+    .doc-scope-card h4 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+
+    .doc-scope-card p {
+      font-size: 0.775rem;
+      color: #475569;
+      line-height: 1.45;
+    }
+
+    /* Timeline Table */
+    .doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.825rem;
+    }
+
+    .doc-table th {
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 700;
+      text-align: left;
+      padding: 0.55rem 0.75rem;
+      border-bottom: 1px solid #cbd5e1;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.03em;
+    }
+
+    .doc-table td {
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid #e2e8f0;
+      color: #1e293b;
+    }
+
+    .doc-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Deliverables List */
+    .doc-check-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem 1rem;
+      list-style: none;
+    }
+
+    .doc-check-list li {
+      font-size: 0.8rem;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .doc-check-list li::before {
+      content: "✔";
+      color: #10b981;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+
+    /* Investment Summary Box */
+    .doc-cost-summary {
+      background: #f8fafc;
+      border: 1px solid var(--doc-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .doc-cost-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .doc-cost-table th {
+      background: #f1f5f9;
+      padding: 0.6rem 0.9rem;
+      text-align: left;
+      font-size: 0.725rem;
+      text-transform: uppercase;
+      color: #475569;
+    }
+
+    .doc-cost-table td {
+      padding: 0.65rem 0.9rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .doc-cost-total-row {
+      background: #f1f5f9;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .doc-cost-total-row td {
+      color: var(--doc-accent);
+      border-bottom: none;
+    }
+
+    /* Milestones Grid */
+    .doc-milestones {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .doc-milestone-card {
+      border: 1px dashed #cbd5e1;
+      border-radius: 6px;
+      padding: 0.65rem;
+      background: #fff;
+    }
+
+    .doc-milestone-card .pct {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #2563eb;
+    }
+
+    .doc-milestone-card .lbl {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .doc-milestone-card .trig {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Signatures Section */
+    .doc-signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-top: 1rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--doc-border);
+    }
+
+    .doc-signature-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .sig-line {
+      height: 40px;
+      border-bottom: 1.5px solid #94a3b8;
+      margin-bottom: 0.4rem;
+    }
+
+    .sig-name {
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: #0f172a;
+    }
+
+    .sig-title {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #10b981;
+      color: white;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      display: none;
+      z-index: 100;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(100px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Print Formatting Rules */
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      header, .editor-sidebar, .mobile-nav-toggle, .toast, .no-print {
+        display: none !important;
+      }
+
+      .main-workspace {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      .preview-canvas {
+        background: transparent !important;
+        padding: 0 !important;
+        display: block !important;
+        overflow: visible !important;
+      }
+
+      .quotation-paper {
+        max-width: 100% !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        min-height: auto !important;
+      }
+
+      @page {
+        margin: 1.5cm;
+        size: auto;
+      }
+
+      .print-avoid-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+    }
+
+    /* Mobile Responsive adjustments */
+    @media (max-width: 900px) {
+      .main-workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .mobile-nav-toggle {
+        display: flex;
+      }
+
+      .editor-sidebar {
+        height: calc(100vh - 120px);
+      }
+
+      .preview-canvas {
+        padding: 1rem;
+        display: none;
+      }
+
+      .quotation-paper {
+        padding: 1.5rem;
+      }
+
+      .doc-scopes-grid, .doc-check-list, .doc-signatures {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header>
+    <a href="#" class="brand">
+      <div class="logo-badge">O</div>
+      <div class="brand-title">Ooma<span>Labs</span> <small style="font-size:0.65rem; color:#94a3b8; font-weight:400; margin-left:4px;">Quotation Suite</small></div>
+    </a>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="exportJSON()" title="Save quote data to a .json file">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+        Save JSON
+      </button>
+      <label class="btn btn-secondary" style="margin-bottom:0;" title="Load quote data from a .json file">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Load JSON
+        <input type="file" id="jsonFileInput" accept=".json" style="display:none;" onchange="importJSON(event)">
+      </label>
+      <button class="btn btn-accent" onclick="copySummaryText()" title="Copy proposal pitch to clipboard">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+        Copy Text
+      </button>
+      <button class="btn btn-primary" onclick="window.print()" title="Print or save as pristine PDF">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        Print / PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Tab Switcher -->
+  <div class="mobile-nav-toggle">
+    <button class="mobile-tab-btn active" id="tabBtnEditor" onclick="switchMobileTab('editor')">✏️ Edit Proposal</button>
+    <button class="mobile-tab-btn" id="tabBtnPreview" onclick="switchMobileTab('preview')">📄 Live Preview</button>
+  </div>
+
+  <!-- Workspace: Editor + Document Preview -->
+  <main class="main-workspace">
+
+    <!-- Configuration Panel (Left) -->
+    <aside class="editor-sidebar" id="editorSidebar">
+
+      <!-- General Meta -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🏢 Project & Client Info</div>
+        </div>
+        <div class="form-group">
+          <label>Project Name</label>
+          <input type="text" id="inpProjectName" value="Digital Transformation & Platform Build" oninput="updateDoc()">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Client Organization</label>
+            <input type="text" id="inpClientName" value="Acme Corporation" oninput="updateDoc()">
+          </div>
+          <div class="form-group">
+            <label>Client Email / Contact</label>
+            <input type="text" id="inpClientContact" value="contact@acme.com" oninput="updateDoc()">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Quotation Number</label>
+            <input type="text" id="inpQuoteNum" value="OL-Q-2026-001" oninput="updateDoc()">
+          </div>
+          <div class="form-group">
+            <label>Validity (Days)</label>
+            <input type="text" id="inpValidity" value="14" oninput="updateDoc()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Services Selection -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">⚡ Services & Tech Solutions</div>
+        </div>
+        <div class="services-pills" id="servicesPillsContainer">
+          <!-- Populated by JS -->
+        </div>
+        <div class="form-group">
+          <label>Executive Goal Summary</label>
+          <textarea id="inpExecutiveGoal" oninput="updateDoc()">generate high-converting leads, build modern digital presence, and streamline operations with scalable architecture</textarea>
+        </div>
+      </div>
+
+      <!-- ── HIERARCHICAL MODULE CATALOG & PRICING PICKER ── -->
+      <div class="panel" style="border: 1px solid #3b82f6; background: rgba(59, 130, 246, 0.05); margin-bottom: 1.25rem;">
+        <div class="panel-header" style="border-bottom-color: rgba(59, 130, 246, 0.25);">
+          <div class="panel-title" style="color: #60a5fa; font-size: 0.85rem;">
+            <span>✨</span> Module Catalog & Pricing Tags
+          </div>
+          <span style="font-size:0.65rem; background:#1e293b; color:#93c5fd; padding:2px 8px; border-radius:12px; font-weight:700; border:1px solid #3b82f6;">19 Website Types</span>
+        </div>
+
+        <!-- 1. Category Switcher (Websites | Apps | AI) -->
+        <div class="form-group">
+          <label style="color:#94a3b8; font-weight:600; font-size:0.725rem;">1. Select Service Catalog</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:0.35rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnCatWebsites" onclick="switchCatalogCategory('Websites')" style="background:var(--primary); color:#fff; font-size:0.75rem; font-weight:700;">🌐 Websites</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnCatApps" onclick="switchCatalogCategory('Applications')" style="font-size:0.75rem; font-weight:700;">📱 Apps</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnCatAI" onclick="switchCatalogCategory('AI Automations')" style="font-size:0.75rem; font-weight:700;">🤖 AI</button>
+          </div>
+        </div>
+
+        <!-- 2. Subcategory Dropdown ("Drop Box") -->
+        <div class="form-group">
+          <label style="color:#94a3b8; font-weight:600; font-size:0.725rem;" id="lblCatalogSub">2. Select Subcategory / Template (19 Types)</label>
+          <select id="selCatalogSubCategory" onchange="onCatalogSubCategoryChanged()" style="background:#0f172a; border: 1.5px solid #3b82f6; font-weight:700; color:#f1f5f9; width:100%; border-radius:6px; padding:0.45rem;">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <!-- 3. Sub-group Tabs: Pages | Features | Add-ons -->
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+            <label style="color:#94a3b8; font-weight:600; font-size:0.725rem; margin-bottom:0;">3. Classification</label>
+            <span id="lblCatalogCount" style="font-size:0.7rem; color:#60a5fa; font-weight:700;">42 available</span>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:0.35rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnGrpPages" onclick="switchCatalogGroup('Pages')" style="background:var(--primary); color:#fff; font-size:0.75rem; font-weight:700;">📄 Pages</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnGrpFeatures" onclick="switchCatalogGroup('Features')" style="font-size:0.75rem; font-weight:700;">⚡ Features</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnGrpAddons" onclick="switchCatalogGroup('Add-ons')" style="font-size:0.75rem; font-weight:700;">🧩 Add-ons</button>
+          </div>
+        </div>
+
+        <!-- 4. Filter Search -->
+        <div class="form-group" style="position:relative;">
+          <input type="text" id="inpCatalogFilter" placeholder="Filter modules..." oninput="filterCatalogItems()" style="padding-left:1.8rem; font-size:0.8rem; border-radius:6px;">
+          <span style="position:absolute; left:0.6rem; top:0.45rem; color:#64748b; font-size:0.8rem;">🔍</span>
+        </div>
+
+        <!-- 5. Module Picker Chips Container -->
+        <div class="form-group">
+          <label style="color:#94a3b8; font-weight:600; font-size:0.7rem;">Click to select or click [+] to quick-add:</label>
+          <div id="catalogItemsChipContainer" style="max-height:140px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:0.35rem; padding:0.45rem; background:rgba(15,23,42,0.85); border:1px solid #334155; border-radius:6px;">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- 6. Editable Module & Pricing Tag Form -->
+        <div style="background:rgba(30, 41, 59, 0.8); border:1.5px solid #3b82f6; border-radius:8px; padding:0.75rem; margin-top:0.6rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+            <span style="font-size:0.75rem; font-weight:700; color:#93c5fd; text-transform:uppercase;">✏️ Edit Module & Pricing Tag</span>
+            <span id="badgeActiveCategory" style="font-size:0.65rem; background:rgba(59,130,246,0.25); color:#93c5fd; padding:1px 6px; border-radius:4px; font-weight:600;">Business Website</span>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size:0.7rem; color:#94a3b8;">Module Title / Description</label>
+            <input type="text" id="inpCustomModuleName" placeholder="Module Title" style="font-weight:700; color:#f8fafc;">
+          </div>
+
+          <div class="grid-2" style="margin-bottom:0.5rem;">
+            <div>
+              <label style="font-size:0.7rem; color:#94a3b8;">Quantity</label>
+              <input type="number" id="inpCustomModuleQty" min="1" value="1">
+            </div>
+            <div>
+              <label style="font-size:0.7rem; color:#94a3b8;" id="lblCustomPriceTag">Pricing Tag Rate</label>
+              <input type="number" id="inpCustomModulePrice" value="5000" style="color:#10b981; font-weight:700;">
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-sm" style="width:100%; display:flex; justify-content:center; align-items:center; gap:0.4rem; padding:0.6rem; font-weight:700;" onclick="addSelectedCatalogItemToPricing()">
+            <span>+</span> <span>Add to Quotation / Price Summary</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Financials & Investment -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">💰 Investment & Taxes</div>
+        </div>
+        <div class="grid-3" style="margin-bottom:0.75rem;">
+          <div class="form-group">
+            <label>Currency</label>
+            <select id="inpCurrency" onchange="updateDoc()">
+              <option value="USD">USD ($)</option>
+              <option value="INR" selected>INR (₹)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Discount (%)</label>
+            <input type="number" id="inpDiscount" value="10" min="0" max="100" oninput="updateDoc()">
+          </div>
+          <div class="form-group">
+            <label>Include GST?</label>
+            <select id="inpIncludeGST" onchange="updateDoc()">
+              <option value="true" selected>Yes (18%)</option>
+              <option value="false">No (0%)</option>
+            </select>
+          </div>
+        </div>
+
+        <label style="margin-top:0.5rem;">Cost Line Items</label>
+        <div id="costItemsContainer"></div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:0.4rem; width:100%;" onclick="addCostItem()">+ Add Line Item</button>
+      </div>
+
+      <!-- Payment Milestones -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">💳 Payment Milestones</div>
+          <button class="btn btn-secondary btn-sm" onclick="addPaymentMilestone()">+ Add</button>
+        </div>
+        <div id="milestonesContainer"></div>
+      </div>
+
+      <!-- Scope of Work -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">📋 Scope Items</div>
+          <button class="btn btn-secondary btn-sm" onclick="addScopeItem()">+ Add Scope</button>
+        </div>
+        <div id="scopeItemsContainer"></div>
+      </div>
+
+      <!-- Timeline & Phases -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">⏱️ Timeline & Phases</div>
+          <button class="btn btn-secondary btn-sm" onclick="addPhaseItem()">+ Add Phase</button>
+        </div>
+        <div id="phaseItemsContainer"></div>
+      </div>
+
+      <!-- Deliverables -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">📦 Deliverables</div>
+          <button class="btn btn-secondary btn-sm" onclick="addDeliverableItem()">+ Add Item</button>
+        </div>
+        <div id="deliverablesContainer"></div>
+      </div>
+
+      <!-- Exclusions & Warranty -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🛡️ Warranty & Exclusions</div>
+        </div>
+        <div class="form-group">
+          <label>Warranty Terms</label>
+          <textarea id="inpWarranty" oninput="updateDoc()">30-day post-launch warranty covering reproducible bug fixes within the specified project scope. Additional features post-launch are billed separately.</textarea>
+        </div>
+        <label>Explicit Exclusions</label>
+        <div id="exclusionsContainer"></div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:0.4rem; width:100%;" onclick="addExclusionItem()">+ Add Exclusion</button>
+      </div>
+
+      <!-- Company & Signatures -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">✍️ Company & Sign-off</div>
+        </div>
+        <div class="form-group">
+          <label>Company Name</label>
+          <input type="text" id="inpCompanyName" value="OomaLabs" oninput="updateDoc()">
+        </div>
+        <div class="form-group">
+          <label>Company Address</label>
+          <input type="text" id="inpCompanyAddress" value="Gachibowli, Hyderabad, Telangana, India" oninput="updateDoc()">
+        </div>
+        <div class="form-group">
+          <label>Contact Info</label>
+          <input type="text" id="inpCompanyContact" value="oomalabs@gmail.com | +91 9381167058 | www.oomalabs.com" oninput="updateDoc()">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Signer Name</label>
+            <input type="text" id="inpSignatureName" value="OomaLabs Executive Team" oninput="updateDoc()">
+          </div>
+          <div class="form-group">
+            <label>Signer Title</label>
+            <input type="text" id="inpSignatureTitle" value="Authorized Representative" oninput="updateDoc()">
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Document Live Preview (Right) -->
+    <section class="preview-canvas" id="previewCanvas">
+
+      <div class="quotation-paper" id="printableQuotationDoc">
+
+        <!-- Doc Header -->
+        <div class="doc-header">
+          <div>
+            <div class="doc-brand-title" id="lblCompanyName">OomaLabs</div>
+            <div class="doc-company-info" id="lblCompanyInfo">
+              Gachibowli, Hyderabad, Telangana, India<br>
+              oomalabs@gmail.com | +91 9381167058 | www.oomalabs.com
+            </div>
+          </div>
+          <div class="doc-badge-quotation">
+            <div class="doc-type-tag">Commercial Proposal</div>
+            <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">Ref: <strong id="lblQuoteNum" style="color:#0f172a;">OL-Q-2026-001</strong></div>
+          </div>
+        </div>
+
+        <!-- Meta Grid -->
+        <div class="doc-meta-grid">
+          <div class="doc-meta-item">
+            <label>Prepared For</label>
+            <div class="val" id="lblClientName">Acme Corporation</div>
+            <div class="sub" id="lblClientContact">contact@acme.com</div>
+          </div>
+          <div class="doc-meta-item">
+            <label>Project Title</label>
+            <div class="val" id="lblProjectName">Digital Transformation</div>
+            <div class="sub" id="lblServicesSubtitle">Web Application</div>
+          </div>
+          <div class="doc-meta-item">
+            <label>Issue Date</label>
+            <div class="val" id="lblDateVal">September 24, 2026</div>
+            <div class="sub" id="lblValiditySub">Valid for 14 Days</div>
+          </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div>
+          <div class="doc-section-title">1. Executive Overview</div>
+          <p class="doc-text-p">
+            This commercial quotation outlines the engineering implementation, timelines, and deliverables designed to 
+            <span id="lblExecutiveGoal" style="font-weight:600; color:#0f172a;">generate high-converting leads, build modern digital presence, and streamline operations</span> 
+            for <strong id="lblClientNameInline">Acme Corporation</strong>. OomaLabs ensures full transparency, dedicated sprints, and clean handover.
+          </p>
+        </div>
+
+        <!-- Scope of Work -->
+        <div class="print-avoid-break">
+          <div class="doc-section-title">2. Scope of Services & Architecture</div>
+          <div class="doc-scopes-grid" id="docScopesGrid">
+            <!-- Dynamic Scope Cards -->
+          </div>
+        </div>
+
+        <!-- Timeline & Phases -->
+        <div class="print-avoid-break">
+          <div class="doc-section-title">3. Implementation Schedule & Delivery Phases</div>
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Phase</th>
+                <th style="width: 20%;">Duration</th>
+                <th>Milestone Objectives & Key Tasks</th>
+              </tr>
+            </thead>
+            <tbody id="docPhasesTableBody">
+              <!-- Dynamic Rows -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Deliverables -->
+        <div class="print-avoid-break">
+          <div class="doc-section-title">4. Concrete Deliverables</div>
+          <ul class="doc-check-list" id="docDeliverablesList">
+            <!-- Dynamic Checks -->
+          </ul>
+        </div>
+
+        <!-- Investment & Commercials -->
+        <div class="print-avoid-break">
+          <div class="doc-section-title">5. Commercial Investment</div>
+          <div class="doc-cost-summary">
+            <table class="doc-cost-table">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th style="text-align:center; width:80px;">Qty</th>
+                  <th style="text-align:right; width:140px;">Unit Rate</th>
+                  <th style="text-align:right; width:150px;">Total</th>
+                </tr>
+              </thead>
+              <tbody id="docCostTableBody">
+                <!-- Dynamic Cost Items -->
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3" style="text-align:right; color:#64748b;">Subtotal:</td>
+                  <td style="text-align:right; font-weight:600;" id="lblDocSubtotal">₹0</td>
+                </tr>
+                <tr id="rowDocDiscount" style="display:none;">
+                  <td colspan="3" style="text-align:right; color:#10b981;">Special Partner Discount (<span id="lblDocDiscountPct">0</span>%):</td>
+                  <td style="text-align:right; color:#10b981; font-weight:600;" id="lblDocDiscountAmount">-₹0</td>
+                </tr>
+                <tr id="rowDocGST" style="display:none;">
+                  <td colspan="3" style="text-align:right; color:#64748b;">Applicable GST / Tax (18%):</td>
+                  <td style="text-align:right; font-weight:600;" id="lblDocGSTAmount">+₹0</td>
+                </tr>
+                <tr class="doc-cost-total-row">
+                  <td colspan="3" style="text-align:right;">Total Agreed Investment:</td>
+                  <td style="text-align:right; font-size:1.15rem;" id="lblDocGrandTotal">₹0</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Milestones -->
+          <div style="margin-top:1.25rem;">
+            <div style="font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:0.35rem; text-transform:uppercase;">Payment Structure</div>
+            <div class="doc-milestones" id="docMilestonesGrid">
+              <!-- Milestones -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Exclusions & Warranty -->
+        <div class="print-avoid-break">
+          <div class="doc-section-title">6. Warranty, Support & Boundaries</div>
+          <div style="font-size:0.825rem; color:#334155; line-height:1.55; margin-bottom:0.75rem;">
+            <strong>Post-Launch Warranty:</strong> <span id="lblDocWarranty">30-day post-launch warranty covering reproducible bug fixes.</span>
+          </div>
+          <div style="font-size:0.8rem; font-weight:700; color:#64748b; margin-bottom:0.3rem; text-transform:uppercase;">Out of Scope / Exclusions:</div>
+          <ul id="docExclusionsList" style="padding-left:1.2rem; font-size:0.775rem; color:#64748b; line-height:1.5;">
+            <!-- Exclusions -->
+          </ul>
+        </div>
+
+        <!-- Terms & Signatures -->
+        <div class="print-avoid-break">
+          <div class="doc-section-title">7. Authorization & Agreement</div>
+          <p class="doc-text-p" style="font-size:0.75rem; margin-bottom:1rem;">
+            By signing below, the client agrees to the terms, deliverables, and payment schedule set forth in this document. 
+            All source code and intellectual property transfer upon receipt of final settlement.
+          </p>
+
+          <div class="doc-signatures">
+            <div class="doc-signature-block">
+              <div class="sig-line"></div>
+              <div class="sig-name" id="lblDocSignerName">OomaLabs Executive Team</div>
+              <div class="sig-title" id="lblDocSignerTitle">Authorized Signature</div>
+              <div style="font-size:0.7rem; color:#94a3b8; margin-top:2px;">OomaLabs Technologies</div>
+            </div>
+            <div class="doc-signature-block">
+              <div class="sig-line"></div>
+              <div class="sig-name" id="lblDocClientSigner">Client Representative</div>
+              <div class="sig-title">Authorized Signatory / Acceptance</div>
+              <div style="font-size:0.7rem; color:#94a3b8; margin-top:2px;" id="lblDocClientOrg">Acme Corporation</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <div class="toast" id="toastMessage">Notification</div>
+
+  <!-- Main Quotation Engine Script -->
+  <script>
+    // Master Pre-built Service Catalog
+    const SERVICE_PRESETS = {
+      'Web Application': {
+        icon: '🌐',
+        price: 15000,
+        scopes: [
+          { title: 'Frontend Engineering', desc: 'Modern responsive SPA built with React.js, Tailwind CSS, and optimized UI flows.' },
+          { title: 'Secure API Backend', desc: 'Robust Node.js REST API with database indexing and JWT/OAuth authentication.' }
+        ],
+        phases: [
+          { name: 'Discovery & Wireframes', days: '7 Days', tasks: 'Requirements architecture & wireframe approval' },
+          { name: 'Core Development', days: '21 Days', tasks: 'Component build, API hooks, and database migrations' },
+          { name: 'QA & Deployment', days: '7 Days', tasks: 'Load testing, security checks, and production launch' }
+        ],
+        deliverables: ['Responsive Web App', 'Admin Management Panel', 'RESTful API & DB Schema', 'Cloud Deployment Config'],
+        exclusions: ['Third-party domain/hosting provider fees', 'Manual data entry from legacy systems'],
+        warranty: '30-day post-launch warranty covering reproducible bug fixes within the agreed scope.'
+      },
+      'Mobile App': {
+        icon: '📱',
+        price: 20000,
+        scopes: [
+          { title: 'Cross-Platform Mobile UI', desc: 'High-performance React Native/Flutter mobile app for iOS and Android.' },
+          { title: 'Push Notifications & Sync', desc: 'Real-time push alerts, offline storage sync, and secure biometric login.' }
+        ],
+        phases: [
+          { name: 'Screen Mapping', days: '5 Days', tasks: 'User journey definition and interactive prototype' },
+          { name: 'App Engineering', days: '28 Days', tasks: 'Cross-platform feature development and API bindings' },
+          { name: 'Store Publishing', days: '7 Days', tasks: 'Apple App Store & Google Play Store submission' }
+        ],
+        deliverables: ['iOS App Binary', 'Android App Binary', 'Push Notification Pipeline', 'App Store Listing Assets'],
+        exclusions: ['Apple Developer ($99/yr) & Google Play developer account fees', 'Paid promotional videos'],
+        warranty: '45-day warranty covering app crashes and OS compatibility fixes on supported devices.'
+      },
+      'UI/UX Design': {
+        icon: '🎨',
+        price: 8000,
+        scopes: [
+          { title: 'User Research & Journey', desc: 'Competitor benchmarking, persona design, and workflow wireframes.' },
+          { title: 'Figma Design System', desc: 'High-fidelity mockups, responsive components, typography, and color tokens.' }
+        ],
+        phases: [
+          { name: 'Research & Wireframes', days: '5 Days', tasks: 'Interviews, low-fidelity wireframes, and concept testing' },
+          { name: 'High-Fidelity UI', days: '14 Days', tasks: 'Complete screen design, interactive prototype, and design system' },
+          { name: 'Developer Handoff', days: '3 Days', tasks: 'Specs delivery, SVG icon export, and developer walkthrough' }
+        ],
+        deliverables: ['Complete Figma Project', 'Interactive Prototype', 'Component Design System', 'Asset Export Pack'],
+        exclusions: ['Frontend code implementation', 'Purchasing premium commercial fonts/stock assets'],
+        warranty: '14-day revision window post-handoff for minor UI tweaks.'
+      },
+      'Cloud Architecture': {
+        icon: '☁️',
+        price: 12000,
+        scopes: [
+          { title: 'Cloud Infrastructure Setup', desc: 'Scalable cloud architecture on AWS/GCP with auto-scaling and CDN caching.' },
+          { title: 'CI/CD & Observability', desc: 'Automated GitHub Actions deployment pipeline, monitoring, and alerts.' }
+        ],
+        phases: [
+          { name: 'Infrastructure Audit', days: '5 Days', tasks: 'Architecture blueprint and security compliance review' },
+          { name: 'Deployment & Migration', days: '14 Days', tasks: 'Terraform/Docker provisioning and database clustering' },
+          { name: 'Optimization & Handover', days: '7 Days', tasks: 'Performance tuning, stress tests, and runbooks' }
+        ],
+        deliverables: ['Terraform/Docker Blueprints', 'Automated CI/CD Pipeline', 'Monitoring Dashboard', 'Disaster Recovery Plan'],
+        exclusions: ['Direct monthly hosting bills from AWS/Google Cloud', 'Legacy application refactoring'],
+        warranty: '30-day infrastructure monitoring and scaling stabilization.'
+      },
+      'Maintenance': {
+        icon: '🔧',
+        price: 5000,
+        scopes: [
+          { title: 'Proactive Bug Fixing & Patches', desc: 'Monthly dependency security updates, server patches, and health checks.' },
+          { title: 'Continuous Performance Tuning', desc: 'Database optimization, API latency monitoring, and minor feature polish.' }
+        ],
+        phases: [
+          { name: 'Onboarding & Audit', days: '3 Days', tasks: 'Codebase review, credentials audit, and error tracker setup' },
+          { name: 'Active Maintenance', days: 'Ongoing', tasks: 'Monthly sprint cycles and 99.9% uptime SLA monitoring' },
+          { name: 'Monthly Review', days: 'Monthly', tasks: 'Detailed health reports and performance metrics' }
+        ],
+        deliverables: ['Monthly Activity Reports', 'Emergency Bug Fixes', 'Security Audit Logs', 'Backup Verification'],
+        exclusions: ['Architecting brand new product modules from scratch', 'Hardware support'],
+        warranty: 'Continuous SLA resolution support during the active maintenance contract.'
+      },
+      'E-commerce': {
+        icon: '🛒',
+        price: 18000,
+        scopes: [
+          { title: 'E-commerce Storefront', desc: 'Product showcase, category filters, cart, and Razorpay/Stripe checkout.' },
+          { title: 'Admin & Inventory Manager', desc: 'Order tracking, inventory management, coupons, and customer analytics.' }
+        ],
+        phases: [
+          { name: 'Catalog & Gateway Setup', days: '5 Days', tasks: 'Database schema, payment merchant approval, and cart flow' },
+          { name: 'Storefront Build', days: '21 Days', tasks: 'Product pages, checkout integration, and shipping API hooks' },
+          { name: 'Launch & SEO', days: '7 Days', tasks: 'Live transactions audit, schema tags, and public go-live' }
+        ],
+        deliverables: ['Custom E-commerce Store', 'Payment Gateway Integration', 'Admin Inventory Portal', 'Automated Invoicing'],
+        exclusions: ['Manual catalog data entry of thousands of products', 'Professional product photoshoots'],
+        warranty: '30-day warranty covering checkout, payment verification, and order notifications.'
+      }
+    };
+
+    // ── COMPLETE HIERARCHICAL MODULE CATALOG DATA ──
+    const CATALOG_DATA = {
+      'Websites': {
+        'Business Website': {
+          icon: '💼',
+          pages: ['Home', 'About', 'Services', 'Service Detail', 'Contact', 'FAQ', 'Testimonials / Reviews', 'Gallery', 'Locations', 'Blog', 'Team', 'Team Member Detail', 'Pricing', 'Process / How It Works', 'Industries', 'Case Studies', 'Projects', 'Project Detail', 'Partners / Clients', 'Certifications', 'Awards', 'Careers', 'Career Detail', 'News', 'News Detail', 'Resources', 'Resource Detail', 'Downloads', 'Downloads Detail', 'Events', 'Event Detail', 'Offers', 'Offer Detail', 'Contact Locations', 'Privacy Policy', 'Terms & Conditions', 'Cookie Policy', 'Accessibility', 'Sitemap', 'Search Results', 'Thank You', '404 Page', 'Coming Soon'],
+          features: ['Responsive Design', 'CMS', 'Contact Form', 'CTA Buttons', 'WhatsApp Button', 'Google Maps', 'Social Media Links', 'Image Gallery', 'FAQ Accordion', 'Blog / CMS', 'Basic SEO', 'Analytics', 'Spam Protection', 'Search', 'Newsletter Signup', 'Lead Capture', 'Form Notifications', 'Social Sharing', 'Cookie Consent', 'Performance Optimization', 'Security', 'Schema Markup', 'Open Graph', 'XML Sitemap', 'Robots.txt', 'Image Optimization', 'Video Embeds', 'Testimonials Slider', 'Logo / Brand Assets', 'Breadcrumbs', 'Sticky Header', 'Mobile Navigation', 'Multi-language', 'Live Chat', 'AI Chatbot', 'Booking System', 'CRM Integration'],
+          addons: ['WhatsApp Automation', 'Email Automation', 'Advanced SEO', 'Advanced Analytics', 'Marketing Pixels', 'Heatmaps', 'A/B Testing', 'Custom Animations', 'Third-party Integrations', 'API Integration', 'Maps / Location Integration', 'Payment Gateway', 'Maintenance & Support', 'Additional Page', 'Additional Service Page', 'Blog Setup', 'Custom Module', 'Custom Form', 'Custom Dashboard', 'Member Login']
+        },
+        'Corporate Website': {
+          icon: '🏢',
+          pages: ['Home', 'About Company', 'Services', 'Service Detail', 'Industries', 'Case Studies', 'Team', 'Careers', 'Career Detail', 'Blog', 'Contact', 'Locations', 'Leadership', 'Leadership Detail', 'Investor Relations', 'Press / Media', 'News', 'News Detail', 'Resources', 'Whitepapers', 'Reports', 'Partners', 'Clients', 'Certifications', 'Awards', 'ESG', 'Sustainability', 'Policies', 'Governance', 'FAQ', 'Search Results', 'Privacy Policy', 'Terms & Conditions', 'Cookie Policy', 'Accessibility', 'Sitemap', '404 Page'],
+          features: ['Responsive Design', 'CMS', 'Contact Forms', 'Search', 'Mega Menu', 'Team Profiles', 'Google Maps', 'Analytics', 'SEO', 'Security', 'Lead Capture', 'Newsletter', 'Downloads', 'Document Library', 'Social Sharing', 'Social Links', 'Breadcrumbs', 'Structured Data', 'Open Graph', 'XML Sitemap', 'Robots.txt', 'Performance Optimization', 'Image Optimization', 'Video Integration', 'Media Library', 'Multi-language', 'Localization', 'Live Chat', 'AI Chatbot', 'CRM Integration', 'Lead Automation', 'Marketing Automation', 'Advanced Analytics', 'Advanced SEO', 'Custom UI/UX', 'Custom Forms', 'API Integration', 'SSO', 'Careers / Job Portal', 'Application Tracking', 'Job Search', 'Employee Stories'],
+          addons: ['Events', 'Event Registration', 'Webinars', 'Press Releases', 'Investor Documents', 'Compliance Documents', 'Cookie Management', 'Personalization', 'A/B Testing', 'Heatmaps', 'Chat Integration', 'WhatsApp Integration', 'Maintenance & Support', 'Additional Page', 'Custom Module', 'Third-party Integration', 'Advanced Security', 'Performance Monitoring', 'Content Workflow', 'Approval Workflow']
+        },
+        'Portfolio Website': {
+          icon: '🎨',
+          pages: ['Home', 'About', 'Portfolio', 'Project Detail', 'Services', 'Testimonials', 'Resume / CV', 'Blog', 'Contact', 'Project Category', 'Project Archive', 'Client Detail', 'Case Study', 'Case Study Detail', 'Skills', 'Experience', 'Education', 'Certifications', 'Awards', 'Press', 'Speaking', 'Publications', 'Downloads', 'Media Kit', 'Contact Locations', 'FAQ', 'Privacy Policy', 'Terms & Conditions', 'Cookie Policy', '404 Page'],
+          features: ['Responsive Design', 'Project Gallery', 'Image / Video Gallery', 'Project Filtering', 'Contact Form', 'Social Links', 'Download CV', 'SEO', 'CMS', 'Search', 'Tags', 'Categories', 'Related Projects', 'Featured Projects', 'Project Slider', 'Lightbox', 'Video Embeds', 'Before / After Gallery', 'Image Optimization', 'Lazy Loading', 'Analytics', 'Conversion Tracking', 'Newsletter', 'Social Sharing', 'Open Graph', 'Schema Markup', 'XML Sitemap', 'Performance Optimization', 'Custom Animations', 'Interactive Portfolio', 'Timeline', 'Skills Visualization', 'Testimonials Slider', 'Map Integration', 'Booking / Consultation', 'Lead Capture', 'Form Notifications', 'CRM Integration', 'Email Automation', 'WhatsApp Button', 'Live Chat', 'AI Assistant'],
+          addons: ['Advanced Gallery', 'Advanced SEO', 'Video Integration', 'Multi-language', 'Custom Domain', 'Password-protected Projects', 'Private Portfolio', 'Client Proofing', 'File Downloads', 'Project Inquiry', 'Advanced Analytics', 'A/B Testing', 'Third-party Integrations', 'API Integration', 'Maintenance & Support', 'Additional Project Page', 'Custom Module', 'Custom Form', 'Custom Landing Page', 'Portfolio Migration', 'Content Import', 'Media Library', 'Custom UI/UX', 'Performance Monitoring', 'CTA Buttons', 'Filters', 'User Accounts', 'User Dashboard']
+        },
+        'Landing Page': {
+          icon: '🎯',
+          pages: ['Landing Page', 'Thank You Page', 'Privacy Policy', 'Terms & Conditions', 'Cookie Policy', 'FAQ', 'Offer Detail', 'Pricing Section', 'Comparison Section', 'Features Section', 'Benefits Section', 'Use Cases', 'Problem / Solution', 'How It Works', 'Process Section', 'Testimonials', 'Reviews', 'Case Studies', 'Logos / Trust Bar', 'Team Section', 'Founder Section', 'FAQ Section', 'Guarantee Section', 'Countdown Section', 'Contact Section', 'Footer', '404 Page'],
+          features: ['Responsive Design', 'Hero Section', 'CTA', 'Lead Form', 'WhatsApp Button', 'Analytics', 'Conversion Tracking', 'Form Notifications', 'UTM Tracking', 'Pixel Tracking', 'Event Tracking', 'Heatmaps', 'Session Recording', 'A/B Testing', 'Sticky CTA', 'Exit Intent', 'Popup Form', 'Progressive Form', 'Multi-step Form', 'Conditional Form', 'Form Validation', 'Spam Protection', 'Email Notifications', 'CRM Integration', 'Email Automation', 'WhatsApp Automation', 'Chatbot', 'Live Chat', 'Custom Animations', 'Video Background', 'Video Embed', 'Image Optimization', 'SEO', 'Advanced SEO', 'Schema Markup', 'Open Graph', 'Fast Loading', 'Mobile Optimization', 'Accessibility', 'Cookie Consent', 'Payment Gateway', 'Checkout', 'Coupon Code', 'Appointment Booking', 'Calendar', 'Social Proof', 'Dynamic Content', 'Personalization', 'Geo Targeting', 'Device Targeting', 'Referral Tracking', 'Affiliate Tracking'],
+          addons: ['Advanced Analytics', 'Custom Domain', 'Custom UI/UX', 'API Integration', 'Third-party Integration', 'Additional Landing Page', 'A/B Variant', 'Advanced Forms', 'Lead Scoring', 'Lead Routing', 'Sales Notifications', 'CRM Webhook', 'Downloadable Lead Magnet', 'Newsletter Signup', 'Maintenance & Support', 'Custom Module', 'Custom Script', 'CMS', 'Contact Form', 'CTA Buttons', 'Search']
+        },
+        'E-commerce Website': {
+          icon: '🛒',
+          pages: ['Home', 'Shop', 'Product Category', 'Product Detail', 'Cart', 'Checkout', 'My Account', 'Orders', 'Wishlist', 'Contact', 'FAQ', 'Privacy Policy', 'Terms & Conditions', 'Shipping / Returns', 'About', 'Brands', 'Brand Detail', 'Deals', 'Offers', 'Sale Page', 'New Arrivals', 'Best Sellers', 'Product Search', 'Search Results', 'Compare Products', 'Gift Cards', 'Store Locator', 'Track Order', 'Order Detail', 'Invoice', 'Addresses', 'Payment Methods'],
+          features: ['Product Catalogue', 'Filters', 'Product Variants', 'Shopping Cart', 'Coupons', 'Reviews & Ratings', 'Order Tracking', 'Inventory Management', 'Customer Accounts', 'Payment Gateway', 'Shipping Calculation', 'Tax Calculation', 'Product Recommendations', 'Related Products', 'Recently Viewed', 'Back-in-stock Alerts', 'Low-stock Alerts', 'Product Bundles', 'Cross-sell', 'Upsell', 'Subscriptions', 'Digital Products', 'Download Delivery', 'Guest Checkout', 'Saved Cart', 'Abandoned Cart', 'Email Notifications', 'SMS Notifications', 'WhatsApp Notifications', 'Returns Management', 'Refunds', 'Exchange Management', 'Order Management', 'Customer Management', 'Vendor Management', 'Search Engine', 'SEO', 'Schema Markup', 'Analytics', 'Conversion Tracking', 'Pixel Tracking', 'Marketing Automation', 'CRM Integration', 'Email Automation', 'WhatsApp Automation'],
+          addons: ['Loyalty Program', 'Rewards', 'Referral Program', 'Affiliate Program', 'Store Credit', 'Multi-currency', 'Multi-language', 'Multiple Tax Rules', 'Advanced Shipping', 'Marketplace / Multi-vendor', 'Product Comparison', 'Bulk Product Upload', 'Advanced Filters', 'Subscription Products', 'AI Product Assistant', 'Advanced Analytics', 'Custom UI/UX', 'API Integration', 'POS Integration', 'ERP Integration', 'Accounting Integration', 'Maintenance & Support', 'Responsive Design']
+        },
+        'Booking / Appointment Website': {
+          icon: '📅',
+          pages: ['Home', 'Services', 'Service Detail', 'Booking', 'Availability', 'Booking Confirmation', 'My Bookings', 'Team / Staff', 'Staff Detail', 'Locations', 'Contact', 'FAQ', 'About', 'Pricing', 'Packages', 'Memberships', 'Offers', 'Gift Cards', 'Calendar', 'Time Slots'],
+          features: ['Staff Selection', 'Availability Management', 'Cancellation / Rescheduling', 'Email Notifications', 'Payment During Booking', 'Google Calendar Integration', 'Online Booking', 'Recurring Appointments', 'Multiple Locations', 'SMS Reminders', 'WhatsApp Reminders', 'Online Payments', 'CRM Integration', 'Staff Dashboard', 'Automation', 'Waitlist', 'Group Booking', 'Class Booking', 'Resource Booking', 'Room Booking', 'Equipment Booking', 'Buffer Time', 'Blackout Dates', 'Holiday Calendar', 'Timezone Support', 'Calendar Sync', 'Outlook Calendar', 'iCal Sync', 'Appointment Types', 'Duration Rules', 'Pricing Rules', 'Deposit Payments', 'Refunds', 'Coupons', 'Promo Codes', 'Customer Accounts', 'Customer Profiles', 'Booking History', 'Invoice Generation', 'Receipts', 'Email Templates', 'SMS Templates', 'WhatsApp Templates', 'Review Requests', 'Ratings', 'Staff Availability', 'Staff Leave Management', 'Staff Permissions', 'Branch Management', 'Lead Capture', 'Lead Routing', 'CRM Automation', 'Payment Gateway', 'Subscription Billing', 'Membership Billing'],
+          addons: ['Analytics', 'Booking Analytics', 'Revenue Analytics', 'Conversion Tracking', 'No-show Tracking', 'Reminder Automation', 'Follow-up Automation', 'AI Booking Assistant', 'Chatbot', 'Live Chat', 'Maps Integration', 'Directions', 'Multi-language', 'Multi-currency', 'Custom UI/UX', 'API Integration', 'Third-party Integrations', 'Advanced Booking', 'Advanced Reports', 'Custom Forms', 'Additional Service', 'Maintenance & Support', 'Responsive Design', 'CMS']
+        },
+        'Directory Website': {
+          icon: '📂',
+          pages: ['Home', 'Listings', 'Category', 'Listing Detail', 'Search Results', 'Submit Listing', 'User Dashboard', 'Saved Listings', 'Contact', 'About', 'FAQ', 'Pricing', 'Vendor Registration', 'Vendor Profile', 'Vendor Dashboard', 'Listing Management', 'Claim Listing', 'Listing Approval', 'Listing Verification', 'Location Search', 'Map View'],
+          features: ['Search', 'Advanced Filters', 'Categories', 'Listing Profiles', 'Listing Submission', 'Reviews & Ratings', 'Favourites', 'Featured Listings', 'Paid Listings', 'Advanced Map', 'Reviews Moderation', 'Subscription Plans', 'Payment Gateway', 'CRM Integration', 'Listing Import', 'Bulk Listing Upload', 'Listing Export', 'Duplicate Detection', 'Business Hours', 'Contact Details', 'Phone Reveal', 'Website Link', 'Social Links', 'Photo Gallery', 'Video Gallery', 'Amenities', 'Attributes', 'Tags', 'Related Listings', 'Similar Listings', 'Nearby Listings', 'Distance Search', 'Radius Search', 'Geo Search', 'Map Clustering', 'Directions', 'Lead Forms', 'Enquiry Management', 'Messaging', 'Notifications', 'Email Alerts', 'Saved Searches', 'Search Alerts', 'User Registration', 'Login', 'Password Reset', 'User Profiles', 'User Roles', 'Vendor Verification', 'Admin Moderation', 'Report Listing', 'Abuse Reporting', 'Listing Expiry', 'Renewal', 'Featured Placement', 'Sponsored Listings', 'Subscription Billing', 'Commission Management', 'Coupons'],
+          addons: ['Analytics', 'Listing Analytics', 'Lead Analytics', 'SEO', 'Schema Markup', 'Open Graph', 'Multi-language', 'Multi-location', 'API Integration', 'WhatsApp Integration', 'AI Search', 'AI Listing Assistant', 'Advanced Search', 'Custom UI/UX', 'Mobile PWA', 'Maintenance & Support', 'Custom Module', 'Additional Listing Type', 'Responsive Design', 'CMS']
+        },
+        'Membership Website': {
+          icon: '👑',
+          pages: ['Home', 'About', 'Membership Plans', 'Registration', 'Login', 'Member Dashboard', 'Member Profile', 'Account Settings', 'Subscription', 'Billing', 'Members-only Content', 'Contact', 'FAQ', 'Pricing', 'Membership Detail', 'Benefits', 'Community', 'Member Directory', 'Events', 'Event Detail', 'Resources', 'Resource Detail', 'Courses', 'Course Detail', 'Downloads', 'Profile Settings', 'Security Settings', 'Privacy Settings', 'Payment History', 'Invoices'],
+          features: ['User Registration', 'Password Reset', 'Membership Levels', 'Content Restriction', 'Recurring Payments', 'User Roles', 'Profile Management', 'Email Notifications', 'Subscription Management', 'Billing Management', 'Payment Gateway', 'Coupons', 'Trial Periods', 'Upgrade / Downgrade', 'Cancellation', 'Renewal', 'Grace Period', 'Access Expiry', 'Entitlement Management', 'Role-based Access', 'Permissions', 'Private Pages', 'Private Posts', 'Private Downloads', 'Community Integration', 'Forums', 'Comments', 'Messaging', 'Member Search', 'Member Verification', 'Profile Approval', 'Email Automation', 'SMS Notifications', 'WhatsApp Notifications', 'CRM Integration', 'Member Import', 'Member Export', 'Activity History', 'Login History', 'Content Library', 'Document Library', 'Video Library', 'Newsletter', 'Events Management', 'Event Registration', 'Booking', 'Calendar'],
+          addons: ['Analytics', 'Membership Analytics', 'Revenue Analytics', 'Engagement Analytics', 'AI Assistant', 'Chatbot', 'Advanced Membership Levels', 'Paid Content', 'Advanced Access Control', 'Recurring Subscription Automation', 'Custom Dashboard', 'API Integration', 'SSO', 'Multi-language', 'Advanced Security', 'Custom UI/UX', 'Mobile PWA', 'Maintenance & Support', 'Custom Module', 'Responsive Design', 'CMS', 'Contact Form', 'CTA Buttons']
+        },
+        'Blog / Publication Website': {
+          icon: '📰',
+          pages: ['Home', 'Blog', 'Article Detail', 'Category', 'Author', 'Search', 'About', 'Contact', 'Privacy Policy', 'Terms & Conditions', 'News', 'News Detail', 'Opinion', 'Opinion Detail', 'Topics', 'Topic Detail', 'Archive', 'Tag Archive', 'Author Archive', 'Featured Articles', 'Trending Articles', 'Latest Articles', 'Related Articles', 'Popular Articles', 'Newsletter', 'Subscribe', 'Membership', 'Paywall', 'Media', 'Video', 'Podcast', 'Podcast Episode', 'Events', 'Event Detail'],
+          features: ['CMS', 'Categories', 'Tags', 'Article Search', 'Author Profiles', 'Comments', 'Social Sharing', 'Newsletter Signup', 'SEO', 'Analytics', 'Editorial Workflow', 'Drafts', 'Scheduled Publishing', 'Content Approval', 'Version History', 'Media Library', 'Image Optimization', 'Video Embeds', 'Audio Embeds', 'Podcast Feed', 'RSS Feed', 'Sitemap', 'Schema Markup', 'Open Graph', 'Canonical URLs', 'Robots.txt', 'Search Engine', 'Internal Search', 'Recommendations', 'Reading List', 'Bookmarks', 'Saved Articles', 'Print View', 'PDF Export', 'Email Article', 'Author Follow', 'Topic Follow', 'Push Notifications', 'Comment Moderation', 'User Registration', 'User Login', 'User Profiles', 'Social Login', 'Newsletter Automation', 'Blog Migration', 'Bulk Content Upload'],
+          addons: ['Advanced SEO', 'Paywall / Membership', 'AI Content Assistant', 'Multi-language', 'Advanced Analytics', 'Advertising Slots', 'Sponsored Content', 'Subscription Billing', 'CRM Integration', 'Email Automation', 'WhatsApp Sharing', 'Custom UI/UX', 'API Integration', 'Third-party Integrations', 'Performance Optimization', 'Accessibility', 'Maintenance & Support', 'Custom Module', 'Additional Content Type', 'Responsive Design']
+        },
+        'Educational Website': {
+          icon: '🎓',
+          pages: ['Home', 'Courses', 'Course Detail', 'Lessons', 'Lesson Detail', 'Student Registration', 'Student Login', 'Student Dashboard', 'Progress', 'Quiz', 'Results', 'Certificates', 'Instructor Profile', 'Contact', 'FAQ', 'Pricing', 'Course Category', 'Learning Paths', 'Programs', 'Program Detail', 'Assignments', 'Assignment Detail', 'Exams', 'Exam Detail', 'Question Bank', 'Resources', 'Downloads', 'Events', 'Live Classes', 'Community', 'Discussion', 'Announcements', 'Student Profile', 'Instructor Dashboard'],
+          features: ['Course Catalogue', 'Student Accounts', 'Lesson Management', 'Video Lessons', 'Quizzes', 'Progress Tracking', 'Instructor Profiles', 'Search', 'Payment Gateway', 'Subscriptions', 'Advanced Quizzes', 'Zoom / Meeting Integration', 'Automated Certificates', 'CRM Integration', 'AI Tutor', 'Multi-language', 'Course Reviews', 'Ratings', 'Bookmarks', 'Notes', 'Watch History', 'Resume Learning', 'Completion Tracking', 'Attendance', 'Gradebook', 'Leaderboards', 'Badges', 'Gamification', 'Learning Analytics', 'Student Analytics', 'Instructor Analytics', 'Course Analytics', 'Enrollment Management', 'Cohorts', 'Batch Management', 'Calendar', 'Schedule', 'Notifications', 'Email Automation', 'SMS Notifications', 'WhatsApp Notifications', 'Payment Plans', 'Coupons', 'Discounts', 'Trial Courses', 'Memberships'],
+          addons: ['Content Drip', 'Prerequisites', 'Access Control', 'Certificates Verification', 'Certificate Download', 'Plagiarism Check', 'Proctoring', 'Question Randomization', 'Time Limits', 'Pass Criteria', 'API Integration', 'SSO', 'Custom Dashboard', 'Custom UI/UX', 'Advanced Analytics', 'AI Content Assistant', 'AI Assessment', 'Maintenance & Support', 'Custom Module', 'Responsive Design']
+        },
+        'Marketplace Website': {
+          icon: '🛍️',
+          pages: ['Home', 'Products / Services', 'Category', 'Listing Detail', 'Search', 'Seller Profile', 'Seller Dashboard', 'Cart', 'Checkout', 'Orders', 'User Dashboard', 'Contact', 'About', 'FAQ', 'Seller Registration', 'Seller Verification', 'Seller Detail', 'Product Detail', 'Service Detail', 'Category Detail', 'Search Results', 'Wishlist', 'Saved Listings', 'Messages', 'Notifications', 'Reviews', 'Ratings', 'Returns', 'Refunds', 'Disputes', 'Support', 'Seller Payouts', 'Commission', 'Vendor Policies'],
+          features: ['Multi-vendor', 'Product / Service Listings', 'Search & Filters', 'Commission Management', 'Order Management', 'Payments', 'Vendor Verification', 'Advanced Vendor Management', 'Seller Subscriptions', 'Featured Listings', 'Advanced Commission Rules', 'Messaging', 'Shipping Integration', 'CRM Integration', 'Analytics', 'Seller Analytics', 'Sales Analytics', 'Customer Analytics', 'Inventory Management', 'Product Variants', 'Bulk Upload', 'Order Fulfillment', 'Shipping Labels', 'Tracking', 'Tax Calculation', 'Coupons', 'Promotions', 'Discounts', 'Seller Coupons', 'Seller Storefront', 'Store Categories', 'Featured Vendors', 'Sponsored Vendors', 'Vendor Ads', 'Vendor Memberships', 'Payout Scheduling', 'Payment Gateway', 'Escrow', 'Dispute Management', 'Refund Management', 'Email Automation', 'WhatsApp Automation', 'CRM Automation', 'Search Engine', 'Advanced Search'],
+          addons: ['AI Search', 'AI Seller Assistant', 'Multi-language', 'Multi-currency', 'API Integration', 'Third-party Integration', 'Custom UI/UX', 'Mobile PWA', 'Advanced Analytics', 'Custom Module', 'Maintenance & Support', 'Responsive Design', 'CMS', 'Contact Form', 'CTA Buttons', 'Filters', 'User Accounts', 'Admin Dashboard', 'Email Notifications', 'SEO', 'Advanced SEO']
+        },
+        'Real Estate Website': {
+          icon: '🏠',
+          pages: ['Home', 'Properties', 'Property Category', 'Property Detail', 'Search', 'Agent Profile', 'Locations', 'Schedule Viewing', 'Saved Properties', 'Enquiry', 'Contact', 'About', 'Projects', 'Project Detail', 'Property Type', 'New Projects', 'Featured Properties', 'Commercial', 'Residential', 'Rentals', 'Luxury', 'Land', 'Agents', 'Agent Directory', 'Developers', 'Developer Profile', 'Amenities', 'Floor Plans', 'Brochures', 'Gallery', 'Video Tour', 'Virtual Tour', 'Mortgage Calculator', 'Property Comparison', 'Map Search'],
+          features: ['Advanced Search', 'Filters', 'Property Listings', 'Property Gallery', 'Agent Profiles', 'Favourites', 'Enquiry Forms', 'Viewing Requests', 'Property Import', 'Advanced Map', 'CRM Integration', 'WhatsApp Enquiries', 'Lead Automation', 'Property Valuation', 'EMI Calculator', 'Loan Calculator', 'Stamp Duty Calculator', 'Registration Calculator', 'ROI Calculator', 'Rental Yield', 'Area Converter', 'Location Insights', 'Nearby Places', 'Commute Map', 'School Search', 'Hospital Search', 'Price Trends', 'Market Reports', 'Saved Searches', 'Search Alerts', 'Lead Capture', 'Lead Routing', 'Lead Scoring', 'Agent Assignment', 'Contact Management', 'Follow-up Automation', 'Email Automation', 'SMS Notifications', 'WhatsApp Automation', 'Appointment Booking', 'Calendar', 'Document Upload', 'Document Management', 'Property Documents', 'Owner Portal'],
+          addons: ['Agent Dashboard', 'Admin Dashboard', 'Listing Approval', 'Listing Verification', 'Featured Listings', 'Paid Listings', 'Subscription Plans', 'Payment Gateway', 'Analytics', 'Lead Analytics', 'Listing Analytics', 'SEO', 'Schema Markup', 'Multi-language', 'API Integration', 'Custom UI/UX', 'Mobile PWA', 'AI Property Assistant', 'AI Search', 'Maintenance & Support']
+        },
+        'Restaurant / Food Website': {
+          icon: '🍽️',
+          pages: ['Home', 'Menu', 'Menu Category', 'Food Item Detail', 'Reservation', 'Online Ordering', 'Cart', 'Checkout', 'Locations', 'Offers', 'Gallery', 'Contact', 'About', 'FAQ', 'Catering', 'Catering Detail', 'Private Dining', 'Events', 'Event Detail', 'Order Tracking', 'Order History', 'My Account', 'Loyalty', 'Gift Cards', 'Coupons', 'Deals', 'Branches', 'Branch Detail', 'Delivery Areas', 'Menu Search', 'Dietary Information', 'Allergen Information', 'Nutrition'],
+          features: ['Digital Menu', 'Table Reservation', 'Food Categories', 'Payment Gateway', 'Location Map', 'Order Notifications', 'Delivery Integration', 'POS Integration', 'WhatsApp Ordering', 'Online Payments', 'Multiple Locations', 'Loyalty Program', 'Order Automation', 'CRM Integration', 'Kitchen Display Integration', 'Delivery Tracking', 'Pickup Orders', 'Scheduled Orders', 'Preorders', 'Table Management', 'Waitlist', 'Reservation Management', 'Guest Profiles', 'Customer Accounts', 'Order Management', 'Refunds', 'Promotions', 'Rewards', 'Reviews', 'Ratings', 'Review Requests', 'Email Notifications', 'SMS Notifications', 'WhatsApp Notifications', 'Email Automation', 'Marketing Automation', 'CRM Automation', 'Analytics', 'Sales Analytics', 'Order Analytics', 'Customer Analytics', 'Menu Management', 'Inventory Integration', 'Ingredient Management', 'Kitchen Management', 'Staff Accounts', 'Branch Management'],
+          addons: ['Multi-language', 'Multi-currency', 'AI Menu Assistant', 'AI Ordering Assistant', 'Chatbot', 'Live Chat', 'Maps Integration', 'Directions', 'SEO', 'Schema Markup', 'API Integration', 'Third-party Integration', 'Custom UI/UX', 'Mobile PWA', 'Advanced Analytics', 'Maintenance & Support', 'Custom Module', 'Responsive Design', 'CMS', 'Contact Form']
+        },
+        'Hotel / Accommodation Website': {
+          icon: '🏨',
+          pages: ['Home', 'Rooms', 'Room Detail', 'Availability', 'Booking', 'Booking Confirmation', 'Amenities', 'Gallery', 'Offers', 'Location', 'My Booking', 'Contact', 'About', 'FAQ', 'Rooms & Suites', 'Room Type', 'Room Comparison', 'Packages', 'Package Detail', 'Experiences', 'Experience Detail', 'Dining', 'Dining Detail', 'Spa', 'Spa Detail', 'Events', 'Event Detail', 'Meeting Rooms', 'Wedding', 'Wedding Detail', 'Gift Cards', 'Virtual Tour'],
+          features: ['Availability Calendar', 'Online Booking', 'Guest Details', 'Payment Gateway', 'Room Gallery', 'Google Maps', 'Email Notifications', 'Channel Manager Integration', 'Multiple Properties', 'Advanced Booking', 'Payment Automation', 'WhatsApp Notifications', 'Guest CRM', 'Loyalty Program', 'Multi-language', 'Rate Plans', 'Dynamic Pricing', 'Room Inventory', 'Rate Calendar', 'Promo Codes', 'Coupons', 'Extra Services', 'Airport Transfer', 'Restaurant Reservation', 'Spa Booking', 'Event Booking', 'Guest Accounts', 'Booking History', 'Cancellation', 'Modification', 'Refunds', 'Invoices', 'Receipts', 'Email Automation', 'SMS Notifications', 'WhatsApp Automation', 'CRM Integration', 'Channel Manager', 'OTA Integration', 'PMS Integration', 'POS Integration', 'Housekeeping Integration', 'Staff Dashboard', 'Property Dashboard', 'Revenue Analytics', 'Occupancy Analytics', 'Booking Analytics'],
+          addons: ['Guest Analytics', 'Review Management', 'Review Requests', 'SEO', 'Schema Markup', 'Maps Integration', 'AI Concierge', 'Chatbot', 'Live Chat', 'API Integration', 'Custom UI/UX', 'Mobile PWA', 'Advanced Analytics', 'Maintenance & Support', 'Custom Module', 'Responsive Design', 'CMS', 'Contact Form', 'CTA Buttons', 'Search']
+        },
+        'Event Website': {
+          icon: '🎟️',
+          pages: ['Home', 'About Event', 'Schedule', 'Speakers', 'Speaker Detail', 'Venue', 'Registration', 'Tickets', 'Sponsors', 'FAQ', 'Contact', 'About Organizer', 'Organizer Profile', 'Agenda', 'Session Detail', 'Track', 'Track Detail', 'Workshops', 'Workshop Detail', 'Exhibitors', 'Exhibitor Detail', 'Networking', 'Travel Information', 'Accommodation', 'Venue Map', 'Directions', 'Downloads', 'Resources', 'News', 'Announcements', 'Gallery', 'Videos', 'Live Stream', 'Event App'],
+          features: ['Ticketing', 'Speaker Profiles', 'Email Confirmation', 'Payment Gateway', 'Countdown', 'Multiple Ticket Types', 'Early-bird Pricing', 'QR Code Tickets', 'Check-in System', 'Email Automation', 'Sponsor Management', 'Live Streaming Integration', 'Analytics', 'Attendee Registration', 'Attendee Profiles', 'Badge Generation', 'QR Check-in', 'Session Check-in', 'Attendance Tracking', 'Ticket Transfer', 'Ticket Cancellation', 'Refunds', 'Promo Codes', 'Discounts', 'Group Registration', 'Corporate Registration', 'Waitlist', 'Session Booking', 'Capacity Management', 'Room Management', 'Speaker Management', 'Sponsor Portal', 'Exhibitor Portal', 'Volunteer Management', 'Staff Dashboard', 'Push Notifications', 'Email Notifications', 'SMS Notifications', 'WhatsApp Notifications', 'Messaging', 'Meeting Scheduling', 'Surveys', 'Feedback', 'Polls', 'Q&A', 'Live Chat'],
+          addons: ['Maps Integration', 'Social Sharing', 'SEO', 'Schema Markup', 'CRM Integration', 'API Integration', 'Payment Automation', 'Advanced Analytics', 'Multi-language', 'Custom UI/UX', 'Mobile PWA', 'Maintenance & Support', 'Custom Module', 'Responsive Design', 'CMS', 'Contact Form', 'CTA Buttons', 'Search', 'Filters', 'User Accounts']
+        },
+        'Nonprofit / Organization Website': {
+          icon: '🤝',
+          pages: ['Home', 'About', 'Programs', 'Projects', 'Impact / Reports', 'Team', 'Events', 'Get Involved', 'Donate', 'Volunteer', 'Blog', 'Contact', 'Mission', 'Vision', 'Values', 'Leadership', 'Leadership Detail', 'Annual Reports', 'Financial Reports', 'Impact Stories', 'Story Detail', 'Campaigns', 'Campaign Detail', 'Causes', 'Cause Detail', 'Partners', 'Sponsors', 'News', 'News Detail', 'Resources', 'Downloads', 'FAQ', 'Privacy Policy', 'Terms & Conditions'],
+          features: ['Donation Form', 'Volunteer Form', 'Event Registration', 'Newsletter', 'Project Gallery', 'Impact Reports', 'Contact Forms', 'Payment Gateway', 'Analytics', 'CMS', 'Recurring Donations', 'Donor Management', 'CRM Integration', 'Volunteer Management', 'Email Automation', 'Payment Automation', 'Multi-language', 'Advanced Analytics', 'Donor Portal', 'Donor Profiles', 'Donation History', 'Receipts', 'Tax Receipts', 'Campaign Progress', 'Fundraising Goals', 'Peer-to-peer Fundraising', 'Fundraising Pages', 'Recurring Giving', 'Matching Gifts', 'Pledge Management', 'Grant Management', 'Grant Applications', 'Volunteer Registration', 'Volunteer Profiles', 'Volunteer Scheduling', 'Volunteer Hours', 'Event Management', 'Ticketing', 'Membership', 'Community', 'Member Directory', 'Newsletter Automation', 'SMS Notifications', 'WhatsApp Notifications', 'Social Sharing', 'Social Media Integration'],
+          addons: ['Maps Integration', 'SEO', 'Schema Markup', 'Open Graph', 'Content Workflow', 'Approval Workflow', 'Document Library', 'Media Library', 'API Integration', 'Accounting Integration', 'CRM Automation', 'AI Assistant', 'Donation Assistant', 'Chatbot', 'Custom UI/UX', 'Mobile PWA', 'Custom Dashboard', 'Advanced Security', 'Maintenance & Support', 'Custom Module']
+        },
+        'SaaS / Web Application Website': {
+          icon: '⚡',
+          pages: ['Home', 'Features', 'Pricing', 'Solutions', 'Documentation', 'Blog', 'About', 'Contact', 'Login', 'Sign Up', 'Forgot Password', 'Product Overview', 'Feature Detail', 'Pricing Detail', 'Use Case', 'Use Case Detail', 'Integrations', 'Integration Detail', 'API Documentation', 'Developer Portal', 'Changelog', 'Status', 'Security', 'Compliance', 'Resources', 'Guides', 'Tutorials', 'FAQ', 'Contact Sales', 'Request Demo'],
+          features: ['User Registration', 'Dashboard', 'Pricing Plans', 'Subscriptions', 'Product Search', 'API / Integration Support', 'Analytics', 'Notifications', 'Advanced Dashboard', 'Team Accounts', 'Role Management', 'API Integration', 'SSO', 'AI Features', 'Advanced Analytics', 'Billing Automation', 'Custom UI/UX', 'User Profiles', 'Account Settings', 'Workspace Management', 'Organization Management', 'Permissions', 'Role-based Access', 'Invitations', 'Team Management', 'Activity Logs', 'Audit Logs', 'Usage Metering', 'Quotas', 'Plan Limits', 'Feature Flags', 'Onboarding', 'Product Tours', 'In-app Help', 'Search', 'Global Search', 'Email Notifications', 'Webhooks', 'API Keys', 'OAuth', 'Third-party Integrations', 'Billing Portal', 'Invoices', 'Payment Gateway', 'Coupons', 'Trials', 'Upgrade / Downgrade', 'Cancellation', 'Refunds', 'Support Tickets'],
+          addons: ['Live Chat', 'Chatbot', 'Knowledge Base', 'Status Page', 'Incident Management', 'Feature Requests', 'Feedback', 'Surveys', 'A/B Testing', 'Event Tracking', 'Product Analytics', 'Marketing Analytics', 'CRM Integration', 'Email Automation', 'WhatsApp Automation', 'AI Assistant', 'AI Copilot', 'Multi-language', 'Mobile PWA', 'Maintenance & Support']
+        },
+        'Customer Portal': {
+          icon: '🔐',
+          pages: ['Login', 'Forgot Password', 'Dashboard', 'Profile', 'Projects', 'Project Detail', 'Documents', 'Document Detail', 'Invoices', 'Invoice Detail', 'Payments', 'Payment Detail', 'Support', 'Support Ticket', 'Notifications', 'Settings', 'Account', 'Team', 'Team Member', 'Messages', 'Activity', 'Tasks', 'Task Detail', 'Milestones', 'Milestone Detail', 'Reports', 'Report Detail', 'Contracts', 'Contract Detail', 'Approvals', 'Approval Detail', 'Requests', 'Request Detail', 'Knowledge Base', 'FAQ', 'Contact'],
+          features: ['Secure Login', 'User Dashboard', 'Project Tracking', 'Document Upload', 'Invoice Viewing', 'Online Payments', 'Support Requests', 'Role-based Access', 'Activity History', 'Profile Management', 'Password Reset', 'Two-factor Authentication', 'Session Management', 'Device Management', 'Project Timeline', 'Task Management', 'Task Assignment', 'Status Tracking', 'File Storage', 'File Sharing', 'File Preview', 'Version History', 'Document Approval', 'E-signature', 'Invoice Download', 'Receipt Download', 'Payment History', 'Saved Payment Methods', 'Payment Gateway', 'Support Chat', 'Ticket Routing', 'Ticket Priority', 'SLA Tracking', 'Search', 'Global Search', 'Email Notifications', 'SMS Notifications', 'WhatsApp Notifications', 'Push Notifications', 'Advanced Reporting', 'CRM Integration', 'Accounting Integration', 'Live Chat', 'Approval Workflows'],
+          addons: ['Automation', 'Mobile App / PWA', 'Calendar', 'Meeting Scheduling', 'Time Tracking', 'Timesheets', 'Expense Claims', 'Feedback', 'Surveys', 'Announcements', 'Team Collaboration', 'Comments', 'Mentions', 'API Integration', 'SSO', 'Custom Dashboard', 'Advanced Security', 'Audit Logs', 'Analytics', 'Custom UI/UX']
+        },
+        'Custom Website': {
+          icon: '✨',
+          pages: ['Custom Home', 'Custom About', 'Custom Services', 'Custom Service Detail', 'Custom Contact', 'Custom FAQ', 'Custom Blog', 'Custom Portfolio', 'Custom Projects', 'Custom Project Detail', 'Custom Products', 'Custom Product Detail', 'Custom Categories', 'Custom Search', 'Custom Listing', 'Custom Listing Detail', 'Custom Dashboard', 'Custom User Profile', 'Custom Registration', 'Custom Login', 'Custom Account Settings', 'Custom Checkout', 'Custom Cart', 'Custom Booking', 'Custom Calendar', 'Custom Payments', 'Custom Subscription', 'Custom Membership', 'Custom Directory', 'Custom Marketplace', 'Custom Portal', 'Custom Reports', 'Custom Analytics', 'Custom Admin', 'Custom CMS', 'Custom Forms', 'Custom Workflow', 'Custom Approval', 'Custom Notifications', 'Custom Messaging'],
+          features: ['Custom File Storage', 'Custom Document Management', 'Custom Role Management', 'Custom Permissions', 'Custom Search Engine', 'Custom Maps', 'Custom Location Services', 'Custom Media Gallery', 'Custom Video', 'Custom Audio', 'Custom Chat', 'Custom AI Assistant', 'Custom Automation', 'Custom API', 'Custom Integrations', 'Custom Webhooks', 'Custom OAuth', 'Custom SSO', 'Custom SEO', 'Custom Schema', 'Custom Open Graph', 'Custom Performance Optimization', 'Custom Security', 'Custom Backup', 'Custom Audit Logs', 'Custom Activity History', 'Custom Reporting', 'Custom Export', 'Custom Import', 'Custom Bulk Upload', 'Custom Data Migration', 'Custom Multi-language', 'Custom Multi-currency', 'Custom Personalization', 'Custom A/B Testing', 'Custom Tracking', 'Custom CRM Integration', 'Custom Accounting Integration', 'Custom Email Automation', 'Custom WhatsApp Automation'],
+          addons: ['Custom SMS Automation', 'Custom Payment Gateway', 'Custom Shipping Integration', 'Custom ERP Integration', 'Custom POS Integration', 'Custom AI Features', 'Custom Mobile PWA', 'Custom Offline Mode', 'Custom UI/UX', 'Custom Accessibility', 'Custom Advanced Security', 'Custom Maintenance & Support', 'Custom Module', 'Custom Third-party Integration', 'Custom Performance Monitoring', 'Responsive Design', 'CMS', 'Contact Form', 'CTA Buttons', 'Search']
+        }
+      },
+      'Applications': {
+        'Mobile Application (iOS / Android)': {
+          icon: '📱',
+          pages: ['Splash Screen', 'Onboarding Walkthrough', 'Auth / Login / Register', 'Home Screen', 'Product / Item Catalog', 'Item Detail Screen', 'User Profile', 'Settings & Preferences', 'Notifications Center', 'Cart / Checkout Screen', 'Order Status / Tracking Screen'],
+          features: ['Native Device Camera & Photos', 'Push Notifications (FCM / APNs)', 'Biometric Auth (FaceID / Fingerprint)', 'Offline Storage & Local Cache (SQLite/WatermelonDB)', 'Deep Linking & Universal Links', 'GPS Location & Maps', 'Dark / Light Theme Engine', 'In-App Purchases (RevenueCat / StoreKit)', 'Social Login (Apple, Google)', 'Haptic Feedback & Micro-interactions', 'Gesture Driven Navigation'],
+          addons: ['Apple App Store Deployment & Review Handling', 'Google Play Store Setup & Compliance', 'Crashlytics & Sentry Telemetry', 'Live Chat Support in App', 'Real-time WebSocket Sync', 'Multi-lingual Localization (i18n)', 'App Icon & Splash Screen Asset Generation']
+        },
+        'Enterprise SaaS / Web App': {
+          icon: '💻',
+          pages: ['Landing & Marketing Site', 'Authentication & Multi-Tenant Login', 'Executive Dashboard', 'CRUD Resource Management Tables', 'Detailed Analytics & Charts', 'Billing & Plan Upgrade', 'Team & Permissions Manager', 'Audit Logs & Security Logins', 'API Keys & Webhooks Console'],
+          features: ['Role-Based Access Control (RBAC)', 'Real-time Data Subscriptions (Supabase/PostgreSQL)', 'Data Export (CSV, Excel, PDF)', 'Advanced Filtering & Full-Text Search', 'Automated Email Receipts & Invoicing', 'Stripe Billing & Subscription Lifecycle', 'Audit Logging for Compliance', 'Dark Mode & Custom Theming'],
+          addons: ['Single Sign-On (SAML / Okta / Azure AD)', 'SOC2 / HIPAA Compliance Hardening', 'Custom Domain White-labeling for Tenants', 'Automated Daily Database Backups', 'Dedicated Staging & Production CI/CD Pipeline']
+        },
+        'Internal Business Tool & Admin Panel': {
+          icon: '🛠️',
+          pages: ['Admin Login', 'Master Overview Dashboard', 'User Management Table', 'Transactions & Orders Ledger', 'CMS Content Editor', 'System Health & Metrics', 'Support Tickets Management'],
+          features: ['Bulk Data Operations & Imports', 'Granular Permission Matrix', 'Audit Trail Recording', 'Interactive Chart Widgets', 'Inline Editing Tables', 'One-Click Status Toggles'],
+          addons: ['Slack / Teams Notification Hooks', 'Automated Daily Health Reports via Email', 'Internal LDAP / Google Workspace Auth', 'High-volume Database Query Optimizer']
+        }
+      },
+      'AI Automations': {
+        'AI Customer Support & Sales Agents': {
+          icon: '🤖',
+          pages: ['Chatbot Embed Widget', 'Agent Conversation History Console', 'Knowledge Base & Document Uploader', 'Prompt & Persona Tuning Dashboard', 'Fallback & Human Handover Desk', 'Analytics & CSAT Rating Report'],
+          features: ['RAG (Retrieval-Augmented Generation) over Company Docs', 'Multi-turn Context Memory', 'Smart Lead Capture & CRM Sync', 'Human Agent Escalation Trigger', 'Sentiment Analysis & Tone Matching', 'Custom Action Calling (Check Order Status, Book Meeting)'],
+          addons: ['WhatsApp Business API AI Agent', 'Zendesk / Freshdesk / Intercom Integration', 'Multi-language Translation on the Fly', 'Custom Fine-Tuned Domain Model', 'Weekly Query Insights & Gap Analysis']
+        },
+        'Automated Business Workflows (n8n / Make)': {
+          icon: '⚡',
+          pages: ['Workflow Architecture Map', 'Trigger & Webhook Ingestion Point', 'Error Handling & Dead Letter Queue Dashboard', 'Execution Log & Health Monitor'],
+          features: ['CRM ↔ ERP Bi-directional Sync', 'Automated Lead Qualification & Enrichment', 'Instant WhatsApp & Email Follow-up Trigger', 'Automated Invoice Generation & Dispatch', 'Scheduled Database Reconciliation Jobs'],
+          addons: ['Self-hosted n8n Server Setup & SSL', 'Custom Python / JavaScript Webhook Parsers', 'High-Availability Failover & Retry Policies', 'Slack Channel Alerting on Failure']
+        },
+        'Document AI & OCR Processing': {
+          icon: '📄',
+          pages: ['Document Drag-and-Drop Portal', 'Extracted Data Review & Approval Screen', 'Batch Uploads History', 'Export to Accounting / DB Console'],
+          features: ['Automated Invoice / Receipt Line Item Extraction', 'Contract & ID Card Data Parsing', 'Validation Rules & Confidence Scoring', 'Direct Supabase / Database Ingestion'],
+          addons: ['Custom OCR Model Training for Proprietary Forms', 'GDPR / PII Data Redaction on Ingestion', 'Cloud Storage Archival with SHA-256 Checksums']
+        }
+      }
+    };
+
+    // Catalog State Variables
+    let currentCatalogCategory = 'Websites';
+    let currentCatalogSubCategory = 'Business Website';
+    let currentCatalogGroup = 'Pages';
+    let currentCatalogSearch = '';
+    let selectedCatalogItemName = 'Home';
+
+    function getCatalogDefaultRate(group) {
+      const cur = document.getElementById('inpCurrency') ? document.getElementById('inpCurrency').value : 'INR';
+      if (cur === 'USD') {
+        if (group === 'Pages') return 120;
+        if (group === 'Features') return 280;
+        return 450;
+      } else {
+        if (group === 'Pages') return 5000;
+        if (group === 'Features') return 12000;
+        return 22000;
+      }
+    }
+
+    function initCatalogUI() {
+      renderCatalogSubCategoryOptions();
+      renderCatalogItems();
+      const defaultRate = getCatalogDefaultRate(currentCatalogGroup);
+      document.getElementById('inpCustomModuleName').value = selectedCatalogItemName;
+      document.getElementById('inpCustomModulePrice').value = defaultRate;
+    }
+
+    function switchCatalogCategory(cat) {
+      currentCatalogCategory = cat;
+      ['btnCatWebsites', 'btnCatApps', 'btnCatAI'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.background = 'transparent';
+      });
+      if (cat === 'Websites') document.getElementById('btnCatWebsites').style.background = 'var(--primary)';
+      else if (cat === 'Applications') document.getElementById('btnCatApps').style.background = 'var(--primary)';
+      else document.getElementById('btnCatAI').style.background = 'var(--primary)';
+
+      const subs = Object.keys(CATALOG_DATA[cat] || {});
+      currentCatalogSubCategory = subs[0] || '';
+      renderCatalogSubCategoryOptions();
+      renderCatalogItems();
+    }
+
+    function renderCatalogSubCategoryOptions() {
+      const select = document.getElementById('selCatalogSubCategory');
+      if (!select) return;
+      select.innerHTML = '';
+      const subs = CATALOG_DATA[currentCatalogCategory] || {};
+      Object.keys(subs).forEach((subName, i) => {
+        const opt = document.createElement('option');
+        opt.value = subName;
+        opt.innerText = `${currentCatalogCategory === 'Websites' ? (i + 1) + '. ' : ''}${subs[subName].icon || '📦'} ${subName}`;
+        if (subName === currentCatalogSubCategory) opt.selected = true;
+        select.appendChild(opt);
+      });
+      const lbl = document.getElementById('lblCatalogSub');
+      if (lbl) {
+        lbl.innerText = `2. Select Subcategory / Template (${Object.keys(subs).length} Available)`;
+      }
+    }
+
+    function onCatalogSubCategoryChanged() {
+      const select = document.getElementById('selCatalogSubCategory');
+      if (select) currentCatalogSubCategory = select.value;
+      renderCatalogItems();
+    }
+
+    function switchCatalogGroup(grp) {
+      currentCatalogGroup = grp;
+      ['btnGrpPages', 'btnGrpFeatures', 'btnGrpAddons'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.background = 'transparent';
+      });
+      if (grp === 'Pages') document.getElementById('btnGrpPages').style.background = 'var(--primary)';
+      else if (grp === 'Features') document.getElementById('btnGrpFeatures').style.background = 'var(--primary)';
+      else document.getElementById('btnGrpAddons').style.background = 'var(--primary)';
+
+      renderCatalogItems();
+      const defaultRate = getCatalogDefaultRate(grp);
+      document.getElementById('inpCustomModulePrice').value = defaultRate;
+    }
+
+    function filterCatalogItems() {
+      currentCatalogSearch = document.getElementById('inpCatalogFilter').value.trim().toLowerCase();
+      renderCatalogItems();
+    }
+
+    function renderCatalogItems() {
+      const container = document.getElementById('catalogItemsChipContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const subData = CATALOG_DATA[currentCatalogCategory]?.[currentCatalogSubCategory];
+      if (!subData) return;
+
+      let items = [];
+      if (currentCatalogGroup === 'Pages') items = subData.pages || [];
+      else if (currentCatalogGroup === 'Features') items = subData.features || [];
+      else items = subData.addons || [];
+
+      const countLbl = document.getElementById('lblCatalogCount');
+      if (countLbl) countLbl.innerText = `${items.length} available`;
+
+      const badge = document.getElementById('badgeActiveCategory');
+      if (badge) badge.innerText = `${currentCatalogSubCategory} • ${currentCatalogGroup}`;
+
+      if (currentCatalogSearch) {
+        items = items.filter(it => it.toLowerCase().includes(currentCatalogSearch));
+      }
+
+      items.forEach(itemName => {
+        const chip = document.createElement('div');
+        chip.style.display = 'flex';
+        chip.style.alignItems = 'center';
+        chip.style.gap = '0.35rem';
+        chip.style.background = itemName === selectedCatalogItemName ? 'var(--primary)' : '#1e293b';
+        chip.style.color = '#f1f5f9';
+        chip.style.padding = '0.25rem 0.55rem';
+        chip.style.borderRadius = '5px';
+        chip.style.fontSize = '0.72rem';
+        chip.style.cursor = 'pointer';
+        chip.style.border = '1px solid #334155';
+
+        chip.onclick = () => selectModuleForEditing(itemName);
+
+        chip.innerHTML = `
+          <span>${itemName}</span>
+          <button type="button" title="Quick add with default price" onclick="event.stopPropagation(); quickAddCatalogItem('${itemName.replace(/'/g, "\\'")}')" style="background:#0f172a; color:#60a5fa; border:1px solid #3b82f6; border-radius:3px; padding:0 4px; font-size:0.65rem; font-weight:700; cursor:pointer;">+</button>
+        `;
+        container.appendChild(chip);
+      });
+    }
+
+    function selectModuleForEditing(name) {
+      selectedCatalogItemName = name;
+      document.getElementById('inpCustomModuleName').value = name;
+      const defaultRate = getCatalogDefaultRate(currentCatalogGroup);
+      document.getElementById('inpCustomModulePrice').value = defaultRate;
+      renderCatalogItems();
+    }
+
+    function quickAddCatalogItem(name) {
+      const cur = document.getElementById('inpCurrency').value;
+      const sym = cur === 'USD' ? '$' : '₹';
+      const defaultRate = getCatalogDefaultRate(currentCatalogGroup);
+      const formattedLabel = `[${currentCatalogSubCategory}] ${name}`;
+      costItems.push({ label: formattedLabel, qty: 1, unitPrice: defaultRate });
+      renderCostItems();
+      updateDoc();
+      showToast(`Added "${name}" (${sym}${defaultRate.toLocaleString()}) to Price Summary!`);
+    }
+
+    function addSelectedCatalogItemToPricing() {
+      const name = document.getElementById('inpCustomModuleName').value.trim();
+      if (!name) return;
+      const qty = parseFloat(document.getElementById('inpCustomModuleQty').value) || 1;
+      const rate = parseFloat(document.getElementById('inpCustomModulePrice').value) || 0;
+      const cur = document.getElementById('inpCurrency').value;
+      const sym = cur === 'USD' ? '$' : '₹';
+
+      const formattedLabel = `[${currentCatalogSubCategory}] ${name}`;
+      costItems.push({ label: formattedLabel, qty: qty, unitPrice: rate });
+      renderCostItems();
+      updateDoc();
+      showToast(`✓ Added "${name}" (${sym}${rate.toLocaleString()}) to Price Summary!`);
+    }
+
+    // State
+    let activeServices = ['Web Application'];
+    let scopes = [...SERVICE_PRESETS['Web Application'].scopes];
+    let phases = [...SERVICE_PRESETS['Web Application'].phases];
+    let deliverables = [...SERVICE_PRESETS['Web Application'].deliverables];
+    let exclusions = [...SERVICE_PRESETS['Web Application'].exclusions];
+    let costItems = [
+      { label: 'Web Application Engineering', qty: 1, unitPrice: 15000 }
+    ];
+    let milestones = [
+      { pct: '50%', label: 'Advance Deposit', trigger: 'Upon project commencement & kickoff' },
+      { pct: '25%', label: 'Alpha Milestone', trigger: 'Upon core feature delivery & staging demo' },
+      { pct: '25%', label: 'Final Settlement', trigger: 'Prior to production go-live & source code handoff' }
+    ];
+
+    // Initialize UI
+    function init() {
+      renderServicesPills();
+      initCatalogUI();
+      renderCostItems();
+      renderMilestones();
+      renderScopes();
+      renderPhases();
+      renderDeliverables();
+      renderExclusions();
+      updateDoc();
+    }
+
+    // Render Service Selection Pills
+    function renderServicesPills() {
+      const container = document.getElementById('servicesPillsContainer');
+      container.innerHTML = '';
+      Object.keys(SERVICE_PRESETS).forEach(srvName => {
+        const pill = document.createElement('div');
+        const isActive = activeServices.includes(srvName);
+        pill.className = `service-pill ${isActive ? 'active' : ''}`;
+        pill.innerHTML = `<span>${SERVICE_PRESETS[srvName].icon}</span> <span>${srvName}</span>`;
+        pill.onclick = () => toggleService(srvName);
+        container.appendChild(pill);
+      });
+    }
+
+    function toggleService(srvName) {
+      if (activeServices.includes(srvName)) {
+        if (activeServices.length > 1) {
+          activeServices = activeServices.filter(s => s !== srvName);
+        }
+      } else {
+        activeServices.push(srvName);
+      }
+
+      // Recompile scopes, phases, deliverables, costs while preserving custom catalog items
+      const presetLabels = Object.keys(SERVICE_PRESETS).map(s => `${s} Implementation`);
+      const customAddedItems = costItems.filter(c => !presetLabels.includes(c.label));
+
+      scopes = [];
+      phases = [];
+      deliverables = [];
+      exclusions = [];
+      costItems = [];
+
+      activeServices.forEach(s => {
+        const preset = SERVICE_PRESETS[s];
+        if (preset) {
+          scopes.push(...preset.scopes);
+          phases.push(...preset.phases);
+          deliverables.push(...preset.deliverables);
+          exclusions.push(...preset.exclusions);
+          costItems.push({ label: `${s} Implementation`, qty: 1, unitPrice: preset.price });
+        }
+      });
+
+      costItems.push(...customAddedItems);
+
+      // Deduplicate deliverables & exclusions
+      deliverables = Array.from(new Set(deliverables));
+      exclusions = Array.from(new Set(exclusions));
+
+      renderServicesPills();
+      renderCostItems();
+      renderScopes();
+      renderPhases();
+      renderDeliverables();
+      renderExclusions();
+      updateDoc();
+    }
+
+    // Dynamic Item Renderers
+    function renderCostItems() {
+      const container = document.getElementById('costItemsContainer');
+      container.innerHTML = '';
+      costItems.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+          <div class="item-row-header">
+            <span style="font-size:0.75rem; color:#94a3b8; font-weight:600;">Line Item #${idx + 1}</span>
+            <button class="btn-delete" onclick="removeCostItem(${idx})">✕ Remove</button>
+          </div>
+          <div class="form-group">
+            <input type="text" value="${item.label}" placeholder="Item description" oninput="costItems[${idx}].label=this.value; updateDoc();">
+          </div>
+          <div class="grid-2">
+            <div>
+              <label>Qty</label>
+              <input type="number" min="1" value="${item.qty || 1}" oninput="costItems[${idx}].qty=parseFloat(this.value)||1; updateDoc();">
+            </div>
+            <div>
+              <label>Unit Rate</label>
+              <input type="number" value="${item.unitPrice || 0}" oninput="costItems[${idx}].unitPrice=parseFloat(this.value)||0; updateDoc();">
+            </div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addCostItem() {
+      costItems.push({ label: 'Custom Engineering / Consultation', qty: 1, unitPrice: 5000 });
+      renderCostItems();
+      updateDoc();
+    }
+
+    function removeCostItem(idx) {
+      costItems.splice(idx, 1);
+      renderCostItems();
+      updateDoc();
+    }
+
+    function renderMilestones() {
+      const container = document.getElementById('milestonesContainer');
+      container.innerHTML = '';
+      milestones.forEach((m, idx) => {
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+          <div class="item-row-header">
+            <span style="font-size:0.75rem; color:#94a3b8; font-weight:600;">Milestone #${idx + 1}</span>
+            <button class="btn-delete" onclick="removeMilestone(${idx})">✕</button>
+          </div>
+          <div class="grid-2">
+            <div>
+              <label>Percentage</label>
+              <input type="text" value="${m.pct}" oninput="milestones[${idx}].pct=this.value; updateDoc();">
+            </div>
+            <div>
+              <label>Label</label>
+              <input type="text" value="${m.label}" oninput="milestones[${idx}].label=this.value; updateDoc();">
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:0.4rem;">
+            <label>Trigger Condition</label>
+            <input type="text" value="${m.trigger}" oninput="milestones[${idx}].trigger=this.value; updateDoc();">
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addPaymentMilestone() {
+      milestones.push({ pct: '10%', label: 'Additional Milestone', trigger: 'Upon client sign-off' });
+      renderMilestones();
+      updateDoc();
+    }
+
+    function removeMilestone(idx) {
+      milestones.splice(idx, 1);
+      renderMilestones();
+      updateDoc();
+    }
+
+    function renderScopes() {
+      const container = document.getElementById('scopeItemsContainer');
+      container.innerHTML = '';
+      scopes.forEach((sc, idx) => {
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+          <div class="item-row-header">
+            <span style="font-size:0.75rem; color:#94a3b8; font-weight:600;">Scope #${idx + 1}</span>
+            <button class="btn-delete" onclick="scopes.splice(${idx},1); renderScopes(); updateDoc();">✕</button>
+          </div>
+          <input type="text" value="${sc.title}" placeholder="Scope title" style="margin-bottom:0.4rem;" oninput="scopes[${idx}].title=this.value; updateDoc();">
+          <textarea placeholder="Description" oninput="scopes[${idx}].desc=this.value; updateDoc();">${sc.desc}</textarea>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addScopeItem() {
+      scopes.push({ title: 'New Module Architecture', desc: 'Detailed specifications and technical execution steps.' });
+      renderScopes();
+      updateDoc();
+    }
+
+    function renderPhases() {
+      const container = document.getElementById('phaseItemsContainer');
+      container.innerHTML = '';
+      phases.forEach((ph, idx) => {
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+          <div class="item-row-header">
+            <span style="font-size:0.75rem; color:#94a3b8; font-weight:600;">Phase #${idx + 1}</span>
+            <button class="btn-delete" onclick="phases.splice(${idx},1); renderPhases(); updateDoc();">✕</button>
+          </div>
+          <div class="grid-2" style="margin-bottom:0.4rem;">
+            <input type="text" value="${ph.name}" placeholder="Phase Name" oninput="phases[${idx}].name=this.value; updateDoc();">
+            <input type="text" value="${ph.days}" placeholder="Duration" oninput="phases[${idx}].days=this.value; updateDoc();">
+          </div>
+          <input type="text" value="${ph.tasks}" placeholder="Key Tasks" oninput="phases[${idx}].tasks=this.value; updateDoc();">
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addPhaseItem() {
+      phases.push({ name: 'Integration Phase', days: '10 Days', tasks: 'End-to-end user testing & security audit' });
+      renderPhases();
+      updateDoc();
+    }
+
+    function renderDeliverables() {
+      const container = document.getElementById('deliverablesContainer');
+      container.innerHTML = '';
+      deliverables.forEach((del, idx) => {
+        const div = document.createElement('div');
+        div.style.display = 'flex';
+        div.style.gap = '0.4rem';
+        div.style.marginBottom = '0.4rem';
+        div.innerHTML = `
+          <input type="text" value="${del}" oninput="deliverables[${idx}]=this.value; updateDoc();" style="flex:1;">
+          <button class="btn-delete" onclick="deliverables.splice(${idx},1); renderDeliverables(); updateDoc();">✕</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addDeliverableItem() {
+      deliverables.push('Source Code Repository & Architecture Runbook');
+      renderDeliverables();
+      updateDoc();
+    }
+
+    function renderExclusions() {
+      const container = document.getElementById('exclusionsContainer');
+      container.innerHTML = '';
+      exclusions.forEach((ex, idx) => {
+        const div = document.createElement('div');
+        div.style.display = 'flex';
+        div.style.gap = '0.4rem';
+        div.style.marginBottom = '0.4rem';
+        div.innerHTML = `
+          <input type="text" value="${ex}" oninput="exclusions[${idx}]=this.value; updateDoc();" style="flex:1;">
+          <button class="btn-delete" onclick="exclusions.splice(${idx},1); renderExclusions(); updateDoc();">✕</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addExclusionItem() {
+      exclusions.push('Third-party API premium token consumption charges');
+      renderExclusions();
+      updateDoc();
+    }
+
+    // Master Live Document Synchronization
+    function updateDoc() {
+      const currency = document.getElementById('inpCurrency').value;
+      const sym = currency === 'USD' ? '$' : '₹';
+      const loc = currency === 'USD' ? 'en-US' : 'en-IN';
+
+      // Meta Values
+      const projName = document.getElementById('inpProjectName').value;
+      const clientName = document.getElementById('inpClientName').value;
+      const clientContact = document.getElementById('inpClientContact').value;
+      const quoteNum = document.getElementById('inpQuoteNum').value;
+      const validity = document.getElementById('inpValidity').value;
+      const companyName = document.getElementById('inpCompanyName').value;
+      const companyAddress = document.getElementById('inpCompanyAddress').value;
+      const companyContact = document.getElementById('inpCompanyContact').value;
+      const signatureName = document.getElementById('inpSignatureName').value;
+      const signatureTitle = document.getElementById('inpSignatureTitle').value;
+      const execGoal = document.getElementById('inpExecutiveGoal').value;
+      const warranty = document.getElementById('inpWarranty').value;
+
+      document.getElementById('lblCompanyName').innerText = companyName;
+      document.getElementById('lblCompanyInfo').innerHTML = `${companyAddress}<br>${companyContact}`;
+      document.getElementById('lblQuoteNum').innerText = quoteNum;
+      document.getElementById('lblClientName').innerText = clientName;
+      document.getElementById('lblClientContact').innerText = clientContact;
+      document.getElementById('lblProjectName').innerText = projName;
+      document.getElementById('lblServicesSubtitle').innerText = activeServices.join(', ');
+      document.getElementById('lblValiditySub').innerText = `Valid for ${validity} Days`;
+      document.getElementById('lblExecutiveGoal').innerText = execGoal;
+      document.getElementById('lblClientNameInline').innerText = clientName;
+      document.getElementById('lblDocWarranty').innerText = warranty;
+      document.getElementById('lblDocSignerName').innerText = signatureName;
+      document.getElementById('lblDocSignerTitle').innerText = signatureTitle;
+      document.getElementById('lblDocClientOrg').innerText = clientName;
+
+      // Scopes in Document
+      const scopesContainer = document.getElementById('docScopesGrid');
+      scopesContainer.innerHTML = '';
+      scopes.forEach(sc => {
+        const card = document.createElement('div');
+        card.className = 'doc-scope-card';
+        card.innerHTML = `<h4>${sc.title}</h4><p>${sc.desc}</p>`;
+        scopesContainer.appendChild(card);
+      });
+
+      // Phases in Document
+      const phasesBody = document.getElementById('docPhasesTableBody');
+      phasesBody.innerHTML = '';
+      phases.forEach(ph => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><strong>${ph.name}</strong></td><td><span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">${ph.days}</span></td><td>${ph.tasks}</td>`;
+        phasesBody.appendChild(tr);
+      });
+
+      // Deliverables in Document
+      const delList = document.getElementById('docDeliverablesList');
+      delList.innerHTML = '';
+      deliverables.forEach(del => {
+        const li = document.createElement('li');
+        li.innerText = del;
+        delList.appendChild(li);
+      });
+
+      // Exclusions in Document
+      const exList = document.getElementById('docExclusionsList');
+      exList.innerHTML = '';
+      exclusions.forEach(ex => {
+        const li = document.createElement('li');
+        li.innerText = ex;
+        exList.appendChild(li);
+      });
+
+      // Cost Calculation
+      let subtotal = 0;
+      const costBody = document.getElementById('docCostTableBody');
+      costBody.innerHTML = '';
+
+      costItems.forEach(ci => {
+        const qty = parseFloat(ci.qty) || 1;
+        const rate = parseFloat(ci.unitPrice) || 0;
+        const total = qty * rate;
+        subtotal += total;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${ci.label}</strong></td>
+          <td style="text-align:center;">${qty}</td>
+          <td style="text-align:right;">${sym}${rate.toLocaleString(loc)}</td>
+          <td style="text-align:right; font-weight:600;">${sym}${total.toLocaleString(loc)}</td>
+        `;
+        costBody.appendChild(tr);
+      });
+
+      const discountPct = parseFloat(document.getElementById('inpDiscount').value) || 0;
+      const includeGST = document.getElementById('inpIncludeGST').value === 'true';
+
+      const discountAmount = Math.round(subtotal * (discountPct / 100));
+      const priceAfterDiscount = subtotal - discountAmount;
+      const gstAmount = includeGST ? Math.round(priceAfterDiscount * 0.18) : 0;
+      const grandTotal = priceAfterDiscount + gstAmount;
+
+      document.getElementById('lblDocSubtotal').innerText = `${sym}${subtotal.toLocaleString(loc)}`;
+
+      const rowDiscount = document.getElementById('rowDocDiscount');
+      if (discountPct > 0) {
+        rowDiscount.style.display = 'table-row';
+        document.getElementById('lblDocDiscountPct').innerText = discountPct;
+        document.getElementById('lblDocDiscountAmount').innerText = `-${sym}${discountAmount.toLocaleString(loc)}`;
+      } else {
+        rowDiscount.style.display = 'none';
+      }
+
+      const rowGST = document.getElementById('rowDocGST');
+      if (includeGST) {
+        rowGST.style.display = 'table-row';
+        document.getElementById('lblDocGSTAmount').innerText = `+${sym}${gstAmount.toLocaleString(loc)}`;
+      } else {
+        rowGST.style.display = 'none';
+      }
+
+      document.getElementById('lblDocGrandTotal').innerText = `${sym}${grandTotal.toLocaleString(loc)}`;
+
+      // Milestones in Document
+      const milContainer = document.getElementById('docMilestonesGrid');
+      milContainer.innerHTML = '';
+      milestones.forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'doc-milestone-card';
+        div.innerHTML = `
+          <div class="pct">${m.pct}</div>
+          <div class="lbl">${m.label}</div>
+          <div class="trig">${m.trigger}</div>
+        `;
+        milContainer.appendChild(div);
+      });
+    }
+
+    // Export Quotation JSON File
+    function exportJSON() {
+      const data = {
+        projectName: document.getElementById('inpProjectName').value,
+        clientName: document.getElementById('inpClientName').value,
+        clientContact: document.getElementById('inpClientContact').value,
+        quoteNum: document.getElementById('inpQuoteNum').value,
+        validity: document.getElementById('inpValidity').value,
+        companyName: document.getElementById('inpCompanyName').value,
+        companyAddress: document.getElementById('inpCompanyAddress').value,
+        companyContact: document.getElementById('inpCompanyContact').value,
+        signatureName: document.getElementById('inpSignatureName').value,
+        signatureTitle: document.getElementById('inpSignatureTitle').value,
+        executiveGoal: document.getElementById('inpExecutiveGoal').value,
+        warranty: document.getElementById('inpWarranty').value,
+        currency: document.getElementById('inpCurrency').value,
+        discount: document.getElementById('inpDiscount').value,
+        includeGST: document.getElementById('inpIncludeGST').value,
+        activeServices,
+        costItems,
+        milestones,
+        scopes,
+        phases,
+        deliverables,
+        exclusions
+      };
+
+      const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", jsonStr);
+      downloadAnchor.setAttribute("download", `quotation-${data.quoteNum || 'export'}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      showToast("Quotation data exported as JSON!");
+    }
+
+    // Import Quotation JSON File
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const d = JSON.parse(e.target.result);
+          if (d.projectName) document.getElementById('inpProjectName').value = d.projectName;
+          if (d.clientName) document.getElementById('inpClientName').value = d.clientName;
+          if (d.clientContact) document.getElementById('inpClientContact').value = d.clientContact;
+          if (d.quoteNum) document.getElementById('inpQuoteNum').value = d.quoteNum;
+          if (d.validity) document.getElementById('inpValidity').value = d.validity;
+          if (d.companyName) document.getElementById('inpCompanyName').value = d.companyName;
+          if (d.companyAddress) document.getElementById('inpCompanyAddress').value = d.companyAddress;
+          if (d.companyContact) document.getElementById('inpCompanyContact').value = d.companyContact;
+          if (d.signatureName) document.getElementById('inpSignatureName').value = d.signatureName;
+          if (d.signatureTitle) document.getElementById('inpSignatureTitle').value = d.signatureTitle;
+          if (d.executiveGoal) document.getElementById('inpExecutiveGoal').value = d.executiveGoal;
+          if (d.warranty) document.getElementById('inpWarranty').value = d.warranty;
+          if (d.currency) document.getElementById('inpCurrency').value = d.currency;
+          if (d.discount) document.getElementById('inpDiscount').value = d.discount;
+          if (d.includeGST) document.getElementById('inpIncludeGST').value = d.includeGST;
+
+          if (d.activeServices) activeServices = d.activeServices;
+          if (d.costItems) costItems = d.costItems;
+          if (d.milestones) milestones = d.milestones;
+          if (d.scopes) scopes = d.scopes;
+          if (d.phases) phases = d.phases;
+          if (d.deliverables) deliverables = d.deliverables;
+          if (d.exclusions) exclusions = d.exclusions;
+
+          init();
+          showToast("Quotation loaded successfully!");
+        } catch (err) {
+          alert("Invalid quotation JSON file.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Copy Proposal Summary to Clipboard
+    function copySummaryText() {
+      const currency = document.getElementById('inpCurrency').value;
+      const sym = currency === 'USD' ? '$' : '₹';
+      const projName = document.getElementById('inpProjectName').value;
+      const clientName = document.getElementById('inpClientName').value;
+      const grandTotal = document.getElementById('lblDocGrandTotal').innerText;
+      
+      let summary = `📋 *Commercial Quotation - ${document.getElementById('inpCompanyName').value}*\n`;
+      summary += `Project: ${projName}\n`;
+      summary += `Prepared For: ${clientName}\n`;
+      summary += `Total Investment: ${grandTotal}\n\n`;
+      summary += `🎯 *Key Deliverables:*\n`;
+      deliverables.slice(0, 5).forEach(d => summary += `• ${d}\n`);
+      summary += `\n💳 *Payment Terms:*\n`;
+      milestones.forEach(m => summary += `• ${m.pct} - ${m.label} (${m.trigger})\n`);
+      summary += `\nShared via OomaLabs Commercial Suite.`;
+
+      navigator.clipboard.writeText(summary).then(() => {
+        showToast("Proposal summary copied to clipboard!");
+      }).catch(() => {
+        alert("Clipboard copy failed. Please select text manually.");
+      });
+    }
+
+    // Toast Notification Display
+    function showToast(msg) {
+      const toast = document.getElementById('toastMessage');
+      toast.innerText = msg;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    // Mobile Tab Switcher
+    function switchMobileTab(tab) {
+      const editor = document.getElementById('editorSidebar');
+      const preview = document.getElementById('previewCanvas');
+      const btnEdit = document.getElementById('tabBtnEditor');
+      const btnPrev = document.getElementById('tabBtnPreview');
+
+      if (tab === 'editor') {
+        editor.style.display = 'flex';
+        preview.style.display = 'none';
+        btnEdit.classList.add('active');
+        btnPrev.classList.remove('active');
+      } else {
+        editor.style.display = 'none';
+        preview.style.display = 'flex';
+        btnPrev.classList.add('active');
+        btnEdit.classList.remove('active');
+      }
+    }
+
+    // Run on startup
+    window.onload = init;
+  </script>
+</body>
+</html>

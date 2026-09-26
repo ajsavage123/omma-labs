@@ -19,6 +19,7 @@ import { googleCalendarService } from '@/services/googleCalendarService';
 import { getTaskDueDate } from '@/utils/dateUtils';
 import CRMDuplicateLeadsModal from '@/components/crm/CRMDuplicateLeadsModal';
 import { findDuplicateLeads } from '@/utils/crmDuplicateFinder';
+import { resolveLeadCompanyName, resolveLeadContactPerson } from '@/utils/crmLeadUtils';
 
 const STAGES = [
   { 
@@ -95,6 +96,7 @@ export default function CRMPipeline() {
   const scoredLeads = useLeadScoring(leads, activities, tasks);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [mobileActiveStage, setMobileActiveStage] = useState('New Leads');
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Duplicate leads state (respects active My CRM vs Team CRM toggle)
@@ -274,7 +276,7 @@ export default function CRMPipeline() {
     const time12 = `${hours12.toString().padStart(2, '0')}:${minutes}`;
 
     setTaskFormData({
-      title: `Follow up with ${lead.company_name || lead.contact_person}`,
+      title: `Follow up with ${resolveLeadCompanyName(lead)}`,
       task_type: 'call',
       custom_task_type: '',
       scheduled_date: now.toISOString().split('T')[0],
@@ -507,9 +509,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   const openEditModal = useCallback((lead: Record<string, any>) => {
     setIsEditMode(true);
     setEditingLeadId(lead.id);
+    const resolvedCompany = resolveLeadCompanyName(lead);
+    const resolvedContact = resolveLeadContactPerson(lead);
     setFormData({
-      contact_person: lead.contact_person || '',
-      company_name: lead.company_name || '',
+      contact_person: (lead.contact_person && lead.contact_person !== 'Unknown Contact') ? lead.contact_person : resolvedContact,
+      company_name: (lead.company_name && lead.company_name !== 'Unknown Company') ? lead.company_name : resolvedCompany,
       email: lead.email || '',
       phone: lead.phone || '',
       estimated_value: lead.estimated_value === 0 ? '' : (lead.estimated_value || '').toString(),
@@ -657,17 +661,22 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
    
   const memoizedPipelineBoard = useMemo(() => (
-    <div className="flex-1 overflow-x-auto pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto">
-      <div className="flex gap-4 lg:gap-6 h-full min-w-max pb-4 px-4">
+    <div className="flex-1 overflow-x-auto pb-4 sm:pb-8 scroll-smooth custom-horizontal-scrollbar overflow-y-auto snap-x snap-mandatory">
+      <div className="flex gap-2.5 sm:gap-4 lg:gap-6 h-full min-w-max pb-4 px-2 sm:px-4">
         {STAGES.map((stage, sIdx) => {
           const rawLeads = sIdx === 0 
             ? [...getLeadsForStage(stage), ...unmappedLeads]
             : getLeadsForStage(stage);
           
-          let stageLeads = rawLeads.filter(l => 
-            (l.contact_person?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-            (l.company_name?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-          );
+          let stageLeads = rawLeads.filter(l => {
+            const resolvedCompany = resolveLeadCompanyName(l);
+            const resolvedContact = resolveLeadContactPerson(l);
+            const q = searchQuery.toLowerCase();
+            return (resolvedContact.toLowerCase() || '').includes(q) ||
+              (resolvedCompany.toLowerCase() || '').includes(q) ||
+              (l.contact_person?.toLowerCase() || '').includes(q) ||
+              (l.company_name?.toLowerCase() || '').includes(q);
+          });
           
           if (filterSortBy === "Score") {
              stageLeads = stageLeads.sort((a, b) => (b.propensityScore || 0) - (a.propensityScore || 0));
@@ -678,12 +687,16 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           const totalValue = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0);
 
           return (
-            <div key={stage.name} className={`flex-shrink-0 w-[85vw] sm:w-[380px] flex flex-col min-h-[850px] bg-card/40 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-border shadow-2xl overflow-hidden backdrop-blur-md`}>
+            <div 
+              key={stage.name} 
+              id={`pipeline-col-${stage.key}`}
+              className={`flex-shrink-0 w-[280px] sm:w-[380px] snap-center flex flex-col min-h-[500px] sm:min-h-[700px] lg:min-h-[850px] bg-card/40 rounded-2xl sm:rounded-[2.5rem] border-2 border-border shadow-xl sm:shadow-2xl overflow-hidden backdrop-blur-md`}
+            >
               {/* Stage Header */}
-              <div className="p-6 flex-shrink-0 relative bg-background/50 border-b-2 border-border backdrop-blur-md">
+              <div className="p-3 sm:p-6 flex-shrink-0 relative bg-background/50 border-b-2 border-border backdrop-blur-md">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <h3 className={`font-black ${stage.textColor} text-base tracking-tight truncate max-w-[200px] uppercase whitespace-nowrap`}>{stage.name}</h3>
+                    <h3 className={`font-black ${stage.textColor} text-sm sm:text-base tracking-tight truncate max-w-[160px] sm:max-w-[200px] uppercase whitespace-nowrap`}>{stage.name}</h3>
                     <button 
                       onClick={() => setShowInfoFor(showInfoFor === stage.key ? null : stage.key)}
                       className="text-muted-foreground hover:text-primary transition-colors bg-background/50 p-1.5 rounded-full"
@@ -704,7 +717,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               </div>
 
               {/* Stage Column */}
-              <div className={`p-4 space-y-5 flex-1 overflow-y-auto custom-scrollbar bg-background/20`}>
+              <div className={`p-3 sm:p-4 space-y-3 sm:space-y-5 flex-1 overflow-y-auto custom-scrollbar bg-background/20`}>
                 {stageLeads.map((lead) => {
                   const hasPhone = !!lead.phone && lead.phone.trim() !== '' && lead.phone.toLowerCase() !== 'none' && lead.phone.toLowerCase() !== 'n/a';
                   const hasEmail = !!lead.email && lead.email.trim() !== '' && lead.email.toLowerCase() !== 'none' && lead.email.toLowerCase() !== 'n/a';
@@ -714,7 +727,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   return (
                     <Card 
                       key={lead.id} 
-                      className={`bg-card/80 border-border border-2 p-4 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-md min-h-[300px] flex flex-col justify-between ${highlightClass} ${
+                      className={`bg-card/80 border-border border-2 p-3 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-xl sm:rounded-[2rem] overflow-hidden shadow-md min-h-[250px] sm:min-h-[300px] flex flex-col justify-between ${highlightClass} ${
                         glowingLeadId === lead.id
                           ? 'ring-4 ring-indigo-500 border-indigo-400 shadow-[0_0_35px_rgba(99,102,241,0.8)] scale-[1.02] bg-indigo-500/10 z-30 animate-pulse'
                           : ''
@@ -744,15 +757,19 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 pr-2">
                           {/* Primary Heading is Company Name */}
-                          <h4 className="font-bold text-foreground text-base tracking-tight leading-snug mb-0.5 break-words" title={lead.company_name || lead.contact_person}>
-                            {lead.company_name || lead.contact_person}
+                          <h4 className="font-bold text-foreground text-base tracking-tight leading-snug mb-0.5 break-words" title={resolveLeadCompanyName(lead)}>
+                            {resolveLeadCompanyName(lead)}
                           </h4>
                           {/* Secondary sub-heading is Contact Name */}
-                          {lead.contact_person && lead.contact_person !== lead.company_name && (
-                            <p className="text-[10px] text-muted-foreground font-black tracking-wider uppercase break-words">
-                              {lead.contact_person}
-                            </p>
-                          )}
+                          {(() => {
+                            const compName = resolveLeadCompanyName(lead);
+                            const contName = resolveLeadContactPerson(lead);
+                            return contName && contName !== compName && contName !== 'Unknown Contact' ? (
+                              <p className="text-[10px] text-muted-foreground font-black tracking-wider uppercase break-words">
+                                {contName}
+                              </p>
+                            ) : null;
+                          })()}
                           {lead.propensityScore !== undefined && (
                             <div className={`mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
                               lead.propensityScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' :
@@ -878,7 +895,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                            )}
                         </div>
                         <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${stage.color} flex items-center justify-center text-xs font-black text-white border-2 border-card shadow-xl`}>
-                          {(lead.company_name || lead.contact_person || 'U')[0].toUpperCase()}
+                          {(resolveLeadCompanyName(lead) || 'U')[0].toUpperCase()}
                         </div>
                       </div>
 
@@ -1026,10 +1043,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           background-clip: content-box !important;
         }
       `}</style>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 mb-2 sticky top-0 z-20 bg-background/90 backdrop-blur-md p-2.5 sm:p-4 border-b border-border shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-1.5 sm:mb-2 sticky top-0 z-20 bg-background/90 backdrop-blur-md p-2 sm:p-4 border-b border-border shadow-sm">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-foreground leading-none">Pipeline</h1>
+            <h1 className="text-base sm:text-2xl lg:text-3xl font-bold text-foreground leading-none">Pipeline</h1>
             {unmappedLeads.length > 0 && (
               <p className="text-[9px] sm:text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-0.5">
                 ⚠ {unmappedLeads.length} unmapped
@@ -1127,6 +1144,36 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             Add New Lead
           </Button>
         </div>
+      </div>
+
+      {/* Mobile Stage Quick-Jump Tabs */}
+      <div className="flex md:hidden items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1.5 -mt-2">
+        {STAGES.map((s) => {
+          const count = scoredLeads.filter(l => (l.status === s.key || s.aliases.includes(l.status))).length;
+          const isActive = mobileActiveStage === s.key;
+          return (
+            <button
+              key={s.key}
+              onClick={() => {
+                setMobileActiveStage(s.key);
+                const el = document.getElementById(`pipeline-col-${s.key}`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 active:scale-95 ${
+                isActive
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted/40 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span>{s.name}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                isActive ? 'bg-white/20 text-white' : 'bg-background/80 text-muted-foreground'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Pipeline Board */}
@@ -1323,7 +1370,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             <div className="p-5 sm:p-8 border-b border-border flex items-center justify-between bg-background/50">
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">Log Client Interaction</h2>
-                <p className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase mt-1">For {selectedLeadForNote.company_name}</p>
+                <p className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase mt-1">For {resolveLeadCompanyName(selectedLeadForNote)}</p>
               </div>
               <button onClick={() => setIsNoteModalOpen(false)} className="p-2 hover:bg-background rounded-xl transition-colors text-muted-foreground"><X size={20} /></button>
             </div>

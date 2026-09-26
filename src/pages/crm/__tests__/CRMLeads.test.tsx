@@ -109,8 +109,8 @@ describe('CRMLeads', () => {
 
   it('renders lead rows from data', () => {
     renderLeads();
-    expect(screen.getByText('Alpha Corp')).toBeInTheDocument();
-    expect(screen.getByText('Beta LLC')).toBeInTheDocument();
+    expect(screen.getAllByText('Alpha Corp').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Beta LLC').length).toBeGreaterThan(0);
   });
 
   it('shows Delete Leads button for admin users', () => {
@@ -143,7 +143,7 @@ describe('CRMLeads', () => {
     renderLeads();
     const searchInput = screen.getByPlaceholderText(/search/i);
     fireEvent.change(searchInput, { target: { value: 'Alpha' } });
-    expect(screen.getByText('Alpha Corp')).toBeInTheDocument();
+    expect(screen.getAllByText('Alpha Corp').length).toBeGreaterThan(0);
     expect(screen.queryByText('Beta LLC')).not.toBeInTheDocument();
   });
 
