@@ -532,7 +532,11 @@ export default function CRMLeads() {
             const budget = parseFloat(getField(['budget', 'estimated budget'])?.replace(/[^0-9.]/g, '') || '0');
             const status = getField(['status', 'stage', 'lead status']) || 'New Leads';
             const website = getField(['website', 'url', 'link', 'website link', 'website url', 'website_url', 'web url', 'weblink', 'domain']);
-            const businessType = getField(['business category', 'category', 'business type', 'business_type', 'industry', 'type']);
+            const businessType = getField([
+              'business category', 'business type', 'business_type', 'category',
+              'type of business', 'typeofbusiness', 'nature of business', 'business nature',
+              'industry', 'industry type', 'sector', 'vertical', 'niche', 'service type', 'type'
+            ]);
 
             let location = getField([
               'google map link', 'google maps link', 'google maps url', 'google map url', 
@@ -545,6 +549,18 @@ export default function CRMLeads() {
 
             const service = getField(['service', 'service interest', 'interest', 'service_interest']);
             const source = getField(['source', 'lead source']) || `CSV Import (${importFilename})`;
+            const tags = getField(['tags', 'tag', 'labels', 'label']);
+            const followUpRaw = getField([
+              'follow up date', 'followup date', 'follow-up date', 'follow_up_date',
+              'next follow up', 'next follow-up', 'next action date', 'callback date', 'follow up'
+            ]);
+            let followUpDate: string | null = null;
+            if (followUpRaw) {
+              const parsedFollowUp = new Date(String(followUpRaw));
+              if (!isNaN(parsedFollowUp.getTime())) {
+                followUpDate = parsedFollowUp.toISOString();
+              }
+            }
             const notes = getField(['notes', 'comment', 'description', 'reviews', 'rating']);
             const paymentStatus = getField(['payment status', 'payment_status']) || 'Pending';
             const amountPaid = parseFloat(getField(['amount paid', 'amount_paid'])?.replace(/[^0-9.]/g, '') || '0');
@@ -600,6 +616,8 @@ export default function CRMLeads() {
               service_interest: service || null,
               source: source,
               notes: notes || null,
+              tags: tags || null,
+              follow_up_date: followUpDate,
               payment_status: paymentStatus,
               amount_paid: amountPaid,
               custom_data: customData,
