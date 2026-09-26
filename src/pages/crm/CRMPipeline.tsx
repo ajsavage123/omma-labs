@@ -1369,6 +1369,85 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   </div>
                 )}
 
+                {/* Upcoming scheduled action — ALWAYS visible (desktop parity, no hunting) */}
+                {lead.crm_tasks?.filter((t: Record<string, any>) => t.status === 'Pending').length > 0 && (
+                  <div className="mt-2.5 p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Upcoming Action</p>
+                    {lead.crm_tasks
+                      .filter((t: Record<string, any>) => t.status === 'Pending')
+                      .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+                      .slice(0, 1)
+                      .map((task: Record<string, any>) => (
+                        <div key={task.id} className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Clock size={11} className="text-amber-500 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-bold text-foreground truncate">{task.title}</p>
+                                <p className="text-[9px] text-muted-foreground font-semibold uppercase">
+                                  {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                  {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <a
+                                href={googleCalendarService.generateGoogleCalendarLink(task)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded-lg text-[9px] font-black uppercase tracking-wider active:scale-95 transition-transform"
+                                title="Add to Google Calendar"
+                              >
+                                <Calendar size={10} /> Add
+                              </a>
+                              <a
+                                href={googleCalendarService.generateGmailComposeLink(
+                                  task,
+                                  lead.email || '',
+                                  googleCalendarService.generateGoogleCalendarLink(task)
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 px-2 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-[9px] font-black uppercase tracking-wider active:scale-95 transition-transform"
+                                title="Compose Gmail invitation"
+                              >
+                                <Mail size={10} /> Invite
+                              </a>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                className="p-1.5 hover:bg-red-500/10 rounded-lg text-muted-foreground hover:text-red-500 shrink-0"
+                                title="Delete Action"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* Recent note — ALWAYS visible, clamped to 3 lines (desktop parity) */}
+                {lead.notes && (
+                  <div className="mt-2 p-2 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                        <Clipboard size={10} /> Recent Note
+                      </p>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteRecentNote(lead); }}
+                        className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                        title="Delete Note"
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3 whitespace-pre-wrap">
+                      {lead.notes.split('\n\n---\n\n')[0].trim()}
+                    </p>
+                  </div>
+                )}
+
                 {/* Contact actions: Call / WhatsApp / Mail (desktop parity) */}
                 <div className="flex items-center gap-2 mt-2.5">
                   <button
@@ -1502,83 +1581,6 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                               <span className="text-foreground font-bold text-right break-words max-w-[55%]">{String(v)}</span>
                             </div>
                           ))}
-                      </div>
-                    )}
-
-                    {/* Next scheduled action */}
-                    {lead.crm_tasks?.filter((t: Record<string, any>) => t.status === 'Pending').length > 0 && (
-                      <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                        <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Upcoming Action</p>
-                        {lead.crm_tasks
-                          .filter((t: Record<string, any>) => t.status === 'Pending')
-                          .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
-                          .slice(0, 1)
-                          .map((task: Record<string, any>) => (
-                            <div key={task.id} className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <Clock size={11} className="text-amber-500 shrink-0" />
-                                <div className="min-w-0">
-                                  <p className="text-[11px] font-bold text-foreground truncate">{task.title}</p>
-                                  <p className="text-[9px] text-muted-foreground font-semibold uppercase">
-                                    {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                    {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <a
-                                  href={googleCalendarService.generateGoogleCalendarLink(task)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded-lg text-[9px] font-black uppercase tracking-wider active:scale-95 transition-transform"
-                                  title="Add to Google Calendar"
-                                >
-                                  <Calendar size={10} /> Add
-                                </a>
-                                <a
-                                  href={googleCalendarService.generateGmailComposeLink(
-                                    task,
-                                    lead.email || '',
-                                    googleCalendarService.generateGoogleCalendarLink(task)
-                                  )}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 px-2 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-[9px] font-black uppercase tracking-wider active:scale-95 transition-transform"
-                                  title="Compose Gmail invitation"
-                                >
-                                  <Mail size={10} /> Invite
-                                </a>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                                  className="p-1.5 hover:bg-red-500/10 rounded-lg text-muted-foreground hover:text-red-500 shrink-0"
-                                  title="Delete Action"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-
-                    {/* Recent note (with delete — desktop parity) */}
-                    {lead.notes && (
-                      <div className="p-2 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                            <Clipboard size={10} /> Recent Note
-                          </p>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); deleteRecentNote(lead); }}
-                            className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                            title="Delete Note"
-                          >
-                            <Trash2 size={10} />
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed max-h-[75px] overflow-y-auto custom-scrollbar whitespace-pre-wrap">
-                          {lead.notes.split('\n\n---\n\n')[0].trim()}
-                        </p>
                       </div>
                     )}
 

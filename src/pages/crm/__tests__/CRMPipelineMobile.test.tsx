@@ -59,7 +59,8 @@ const leads = [
     id: 'l1', company_name: 'Alpha Corp', contact_person: 'John', email: 'john@alpha.com',
     phone: '+919876543210', estimated_value: 50000, status: 'New Leads', is_pinned: false,
     service_interest: 'Web Dev', business_type: 'IT', website: 'alpha.com', external_link: '',
-    notes: '', created_at: '2026-01-15T10:00:00Z', crm_tasks: [],
+    notes: 'VIP client intro call went well', created_at: '2026-01-15T10:00:00Z',
+    crm_tasks: [{ id: 'tk1', title: 'Call back tomorrow', status: 'Pending', due_date: '2026-07-20', due_time: '10:00:00' }],
     assigned_to: 'user-1', assigned_user: { full_name: 'Admin', username: 'admin' },
   },
   {
@@ -139,6 +140,15 @@ describe('CRMPipeline (optimized mobile layout)', () => {
     expect(screen.queryByText('Alpha Corp')).not.toBeInTheDocument();
   });
 
+  it('shows upcoming action and recent note on the collapsed card — no expanding required', () => {
+    renderPipeline();
+    // Regression: these used to be hidden behind tap-to-expand, forcing users to hunt
+    expect(screen.getByText('Upcoming Action')).toBeInTheDocument();
+    expect(screen.getByText('Call back tomorrow')).toBeInTheDocument();
+    expect(screen.getByText('Recent Note')).toBeInTheDocument();
+    expect(screen.getByText('VIP client intro call went well')).toBeInTheDocument();
+  });
+
   it('shows every desktop parity action without opening a menu', () => {
     renderPipeline();
     // Contact actions
@@ -161,13 +171,13 @@ describe('CRMPipeline (optimized mobile layout)', () => {
     expect(screen.getByText('Delete')).toBeInTheDocument();
   });
 
-  it('expands the card to reveal value, owner and stage movement', () => {
+  it('expands the card to reveal owner and stage movement controls', () => {
     renderPipeline();
 
     // Tap the card body (company name) to expand
     fireEvent.click(screen.getByText('Alpha Corp'));
 
-    expect(screen.getAllByText('₹50,000').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Admin')).toBeInTheDocument();
     expect(screen.getByText('Move Back')).toBeInTheDocument();
     expect(screen.getByText('Move Forward')).toBeInTheDocument();
   });
