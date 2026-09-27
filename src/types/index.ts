@@ -160,3 +160,14 @@ export interface ClientContact {
   created_by: string;
   created_at: string;
 }
+
+export interface SupportLink {
+  id: string;
+  title: string;
+  category: string;
+  url: string;
+  description?: string;
+  icon?: string;
+  isDefault?: boolean;
+  created_at?: string;
+}

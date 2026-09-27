@@ -62,4 +62,30 @@ describe('notebookLMService', () => {
     );
     expect(mockFocus).toHaveBeenCalled();
   });
+
+  it('handles Dev Support URL storage and launches OOMA_DevSupport_Companion', async () => {
+    const listener = vi.fn();
+    window.addEventListener('workspace-dev-notebooklm-url-changed', listener);
+
+    const success = await notebookLMService.saveDevWorkspaceUrl('https://notebooklm.google.com/notebook/dev-support', 'ws-test');
+    expect(success).toBe(true);
+    expect(notebookLMService.getDevStoredUrl()).toBe('https://notebooklm.google.com/notebook/dev-support');
+    expect(listener).toHaveBeenCalled();
+
+    window.removeEventListener('workspace-dev-notebooklm-url-changed', listener);
+
+    const mockFocus = vi.fn();
+    const mockWindowOpen = vi.spyOn(window, 'open').mockReturnValue({
+      closed: false,
+      focus: mockFocus,
+    } as unknown as Window);
+
+    const popup = notebookLMService.openDevCompanionWindow();
+    expect(popup).not.toBeNull();
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      'https://notebooklm.google.com/notebook/dev-support',
+      'OOMA_DevSupport_Companion',
+      expect.stringContaining('width=390')
+    );
+  });
 });

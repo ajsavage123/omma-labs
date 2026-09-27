@@ -29,6 +29,8 @@ import { toast } from "sonner";
 import { getTaskDueDate } from "@/utils/dateUtils";
 import { notebookLMService } from "@/services/notebookLMService";
 import { resolveLeadCompanyName } from "@/utils/crmLeadUtils";
+import SupportChatWidget from "@/components/SupportChatWidget";
+import AdminSupportLinksManagerModal from "@/components/AdminSupportLinksManagerModal";
 
 interface LayoutProps {
   children: ReactNode;
@@ -78,6 +80,8 @@ export default function CRMLayout({ children }: LayoutProps) {
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('crm_notifications_muted') === 'true');
   const [bellRinging, setBellRinging] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [isSupportPickerOpen, setIsSupportPickerOpen] = useState(false);
+  const [isAdminLinksManagerOpen, setIsAdminLinksManagerOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 5000);
@@ -201,10 +205,7 @@ export default function CRMLayout({ children }: LayoutProps) {
 
   const handleOpenSalesAI = (e: React.MouseEvent) => {
     e.preventDefault();
-    const popup = notebookLMService.openCompanionWindow();
-    if (!popup || popup.closed) {
-      toast.error("Popup blocked! Please allow popups for this site in your browser to open Sales AI.");
-    }
+    setIsSupportPickerOpen(true);
   };
 
 
@@ -598,6 +599,17 @@ export default function CRMLayout({ children }: LayoutProps) {
         </main>
 
       </div>
+
+      <SupportChatWidget
+        isOpen={isSupportPickerOpen}
+        onClose={() => setIsSupportPickerOpen(false)}
+        onOpenAdminManager={() => setIsAdminLinksManagerOpen(true)}
+      />
+
+      <AdminSupportLinksManagerModal
+        isOpen={isAdminLinksManagerOpen}
+        onClose={() => setIsAdminLinksManagerOpen(false)}
+      />
     </div>
   );
 }

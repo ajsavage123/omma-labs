@@ -13,6 +13,8 @@ import { DashboardIcon, LiveHQIcon, TeamChatIcon, ToolsIcon, TeamLibraryIcon, Do
 import { Plus, LogOut, Search, Menu, X, Trash2, History, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationCenterWidget from '@/components/NotificationCenterWidget';
+import SupportChatWidget from '@/components/SupportChatWidget';
+import AdminSupportLinksManagerModal from '@/components/AdminSupportLinksManagerModal';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected' | 'internal' | 'client';
 
@@ -27,6 +29,8 @@ export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
+  const [isSupportPickerOpen, setIsSupportPickerOpen] = useState(false);
+  const [isAdminLinksManagerOpen, setIsAdminLinksManagerOpen] = useState(false);
   
   // Search + filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -218,6 +222,29 @@ export default function DashboardPage() {
           <DocsLibraryIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Docs Library
         </Link>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            setIsMobileMenuOpen(false);
+            setIsSupportPickerOpen(true);
+          }}
+          className="flex items-center justify-between px-4 py-3 text-[13px] font-bold text-gray-300 bg-purple-500/10 border border-purple-500/20 rounded-xl hover:bg-purple-500/20 hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group w-full text-left"
+          title="Support - Select Support Topic AI Assistant"
+          aria-label="Open Support Assistant"
+        >
+          <div className="flex items-center min-w-0">
+            <img
+              src="/robot-assistant.png"
+              alt="Support"
+              className="w-5 h-5 object-contain flex-shrink-0 mr-3 group-hover:scale-110 transition-transform"
+            />
+            <span className="truncate">Support</span>
+          </div>
+          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0 ml-2">
+            DEV AI
+          </span>
+        </button>
         {(() => {
           const needsAccessRequest = !(
             user?.role === 'admin' || 
@@ -646,6 +673,17 @@ export default function DashboardPage() {
 
       
       {creating && <LoadingOverlay message="Forging New Project..." />}
+
+      <SupportChatWidget
+        isOpen={isSupportPickerOpen}
+        onClose={() => setIsSupportPickerOpen(false)}
+        onOpenAdminManager={() => setIsAdminLinksManagerOpen(true)}
+      />
+
+      <AdminSupportLinksManagerModal
+        isOpen={isAdminLinksManagerOpen}
+        onClose={() => setIsAdminLinksManagerOpen(false)}
+      />
     </div>
   );
 }

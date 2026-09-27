@@ -16,6 +16,7 @@ import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
 import { DataErrorBanner } from '@/components/DataErrorBanner';
 import { Link, useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
+import { notebookLMService } from '@/services/notebookLMService';
 import { useToast } from '@/hooks/useToast';
 
 import { dataService } from '@/services/dataService';
@@ -132,6 +133,27 @@ export default function MeetingSchedulerPage() {
             <Plus className="mr-3 h-4 w-4 text-emerald-500" />
             Tools Space
           </Link>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              const popup = notebookLMService.openDevCompanionWindow();
+              if (!popup || popup.closed) {
+                toast.error("Popup blocked! Please allow popups for this site in your browser to open Support AI.");
+              }
+            }}
+            className="flex items-center justify-between px-4 py-3 text-[13px] font-bold text-gray-300 rounded-xl hover:bg-purple-500/10 hover:text-white transition-all duration-200 group w-full text-left"
+            title="Support - Developer & Technical Knowledge Assistant"
+            aria-label="Open Support Assistant"
+          >
+            <div className="flex items-center min-w-0">
+              <img src="/robot-assistant.png" alt="Support" className="w-4 h-4 object-contain mr-3 group-hover:scale-110 transition-transform" />
+              <span className="truncate">Support</span>
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
+              DEV AI
+            </span>
+          </button>
         </nav>
       </aside>
 
