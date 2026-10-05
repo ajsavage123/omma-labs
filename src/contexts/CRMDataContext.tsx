@@ -42,26 +42,41 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   const [activities, setActivities] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [crmViewMode, setCrmViewModeState] = useState<'mine' | 'team'>('mine');
-  const [selectedSalesRepId, setSelectedSalesRepIdState] = useState<string>('mine');
+  const [crmViewModeState, setCrmViewModeState] = useState<'mine' | 'team'>('mine');
+  const [selectedSalesRepIdState, setSelectedSalesRepIdState] = useState<string>('mine');
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
+  // Strict enforcement: Non-admins can NEVER view team mode or other reps
+  const crmViewMode = isAdmin ? crmViewModeState : 'mine';
+  const selectedSalesRepId = isAdmin ? selectedSalesRepIdState : 'mine';
 
   const setCrmViewMode = useCallback((mode: 'mine' | 'team') => {
+    if (!isAdmin) {
+      setCrmViewModeState('mine');
+      setSelectedSalesRepIdState('mine');
+      return;
+    }
     setCrmViewModeState(mode);
     if (mode === 'mine') {
       setSelectedSalesRepIdState('mine');
-    } else if (selectedSalesRepId === 'mine') {
+    } else if (selectedSalesRepIdState === 'mine') {
       setSelectedSalesRepIdState('all');
     }
-  }, [selectedSalesRepId]);
+  }, [isAdmin, selectedSalesRepIdState]);
 
   const setSelectedSalesRepId = useCallback((repId: string) => {
+    if (!isAdmin) {
+      setSelectedSalesRepIdState('mine');
+      setCrmViewModeState('mine');
+      return;
+    }
     setSelectedSalesRepIdState(repId);
     if (repId === 'mine') {
       setCrmViewModeState('mine');
     } else {
       setCrmViewModeState('team');
     }
-  }, []);
+  }, [isAdmin]);
 
   // Use refs to keep track of current states to avoid stale closures in subscriptions
   const leadsRef = useRef<any[]>([]);
@@ -82,7 +97,6 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
 
   const workspaceId = user?.workspace_id;
   const userId = user?.id;
-  const isAdmin = user?.role === 'admin';
 
   const fetchTeamMembers = useCallback(async () => {
     if (!workspaceId) return;
@@ -93,17 +107,24 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
         .eq('workspace_id', workspaceId);
       if (error) throw error;
 
-      // Strict CRM Authorization filter:
-      // Include only admins and Business/Marketing designation members.
+      // CRM Team Authorization filter:
+      // Include admins, sales, marketing, business development, and team members.
       // Exclude placeholder system admin accounts.
       const filtered = (data || []).filter(u => {
         const isPlaceholder = ['admin', 'oomadmin'].includes(u.username?.toLowerCase()) && u.id !== userId;
         if (isPlaceholder) return false;
 
         const isAdminUser = u.role === 'admin';
-        const isBizMarketing = (u.designation || '').toLowerCase().includes('business') ||
-                               (u.designation || '').toLowerCase().includes('marketing');
-        return isAdminUser || isBizMarketing;
+        const des = (u.designation || '').toLowerCase();
+        const isSalesOrBiz = des.includes('sales') ||
+                             des.includes('business') ||
+                             des.includes('marketing') ||
+                             des.includes('growth') ||
+                             des.includes('bde') ||
+                             des.includes('bdr') ||
+                             des.includes('executive') ||
+                             !u.designation; // Include members even if designation hasn't been configured yet
+        return isAdminUser || isSalesOrBiz;
       });
 
       setTeamMembers(filtered);
@@ -182,12 +203,8 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     try {
       let query = supabase
         .from('crm_activities')
-        .select('*, crm_leads!inner(company_name, contact_person, workspace_id, assigned_to)')
-        .eq('crm_leads.workspace_id', workspaceId);
-
-      if (!isAdmin && typeof query.eq === 'function') {
-        query = query.eq('crm_leads.assigned_to', userId);
-      }
+        .select('*, crm_leads(company_name, contact_person, workspace_id, assigned_to)')
+        .eq('workspace_id', workspaceId);
 
       if (typeof query.order === 'function') {
         query = query.order('created_at', { ascending: false });
@@ -196,7 +213,10 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await query;
       
       if (error) throw error;
-      setActivities(data || []);
+      const filtered = (!isAdmin && userId)
+        ? (data || []).filter((act: any) => act.user_id === userId || act.crm_leads?.assigned_to === userId)
+        : (data || []);
+      setActivities(filtered);
     } catch (err: any) {
       console.error("Error fetching activities:", err);
       toast.error(err?.message || "Failed to load activity log");
@@ -351,7 +371,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
 
   // Global filtering based on crmViewMode and selectedSalesRepId
   const filteredLeads = React.useMemo(() => {
-    if (!isAdmin) return leads;
+    if (!isAdmin) return leads.filter(l => l.assigned_to === userId);
     if (crmViewMode === 'mine' || selectedSalesRepId === 'mine') {
       return leads.filter(l => l.assigned_to === userId);
     }
@@ -362,7 +382,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   }, [leads, crmViewMode, selectedSalesRepId, isAdmin, userId]);
 
   const filteredTasks = React.useMemo(() => {
-    if (!isAdmin) return enrichedAllTasks;
+    if (!isAdmin) return enrichedAllTasks.filter(t => t.assigned_to === userId || t.created_by === userId);
     if (crmViewMode === 'mine' || selectedSalesRepId === 'mine') {
       return enrichedAllTasks.filter(t => t.assigned_to === userId || t.created_by === userId);
     }
@@ -373,7 +393,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   }, [enrichedAllTasks, crmViewMode, selectedSalesRepId, isAdmin, userId]);
 
   const filteredActivities = React.useMemo(() => {
-    if (!isAdmin) return enrichedAllActivities;
+    if (!isAdmin) return enrichedAllActivities.filter(a => a.user_id === userId || a.crm_leads?.assigned_to === userId);
     if (crmViewMode === 'mine' || selectedSalesRepId === 'mine') {
       return enrichedAllActivities.filter(a => a.user_id === userId || a.crm_leads?.assigned_to === userId);
     }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCRMData } from "@/contexts/CRMDataContext";
@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   Trash2, Phone, Clipboard, Search, Plus, X, Loader2, 
-  Smile, Calendar, Users, Inbox, ArrowRight
+  Smile, Calendar, Users, Inbox, ArrowRight, User as UserIcon
 } from "lucide-react";
 
 interface ParsedNote {
@@ -22,7 +22,7 @@ interface ParsedNote {
 }
 
 export default function CRMNotes() {
-  const { activities: notes, leads, loading, refreshActivities, refreshLeads, teamMembers, selectedSalesRepId, crmViewMode } = useCRMData();
+  const { activities: notes, leads, allLeads, loading, refreshActivities, refreshLeads, teamMembers, selectedSalesRepId, crmViewMode } = useCRMData();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -42,7 +42,7 @@ export default function CRMNotes() {
     additional_notes: ''
   });
 
-  const parseNote = (desc: string): ParsedNote => {
+  const parseNote = (desc: string, actType?: string): ParsedNote => {
     const result: ParsedNote = {
       type: 'Note',
       icon: '📝',
@@ -53,21 +53,26 @@ export default function CRMNotes() {
       isStructured: false
     };
 
-    if (!desc) return result;
+    if (!desc && !actType) return result;
 
-    if (desc.includes('📞') || desc.toLowerCase().includes('call')) {
+    const normalizedType = (actType || '').toLowerCase();
+    const normalizedDesc = (desc || '').toLowerCase();
+
+    if (normalizedType === 'call' || normalizedDesc.includes('📞') || normalizedDesc.includes('call')) {
       result.type = 'Call';
       result.icon = '📞';
-    } else if (desc.includes('📧') || desc.toLowerCase().includes('email')) {
+    } else if (normalizedType === 'email' || normalizedDesc.includes('📧') || normalizedDesc.includes('email')) {
       result.type = 'Email';
       result.icon = '📧';
-    } else if (desc.includes('🤝') || desc.toLowerCase().includes('meeting')) {
+    } else if (normalizedType === 'meeting' || normalizedDesc.includes('🤝') || normalizedDesc.includes('meeting')) {
       result.type = 'Meeting';
       result.icon = '🤝';
-    } else if (desc.includes('💬') || desc.toLowerCase().includes('whatsapp')) {
+    } else if (normalizedType === 'whatsapp' || normalizedDesc.includes('💬') || normalizedDesc.includes('whatsapp')) {
       result.type = 'WhatsApp';
       result.icon = '💬';
     }
+
+    if (!desc) return result;
 
     const lines = desc.split('\n');
     let foundStructured = false;
@@ -230,8 +235,18 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     }
   };
 
+  // Source leads: include leads assigned to current filter AND any leads that have notes in the current view
+  const displayLeadsPool = useMemo(() => {
+    const pool = (allLeads && allLeads.length > 0) ? allLeads : leads;
+    if (selectedSalesRepId === 'all' || selectedSalesRepId === 'mine' || crmViewMode === 'mine') {
+      return pool;
+    }
+    // For a specific rep, include their assigned leads plus any leads they logged notes on
+    return pool.filter(l => l.assigned_to === selectedSalesRepId || notes.some(n => n.lead_id === l.id));
+  }, [allLeads, leads, selectedSalesRepId, crmViewMode, notes]);
+
   // Get list of all leads in workspace with note counts
-  const uniqueLeads = leads
+  const uniqueLeads = displayLeadsPool
     .map(lead => ({
       id: lead.id,
       company_name: lead.company_name,
@@ -247,33 +262,35 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
   const filteredNotes = notes.filter(note => {
     if (selectedLeadId && note.lead_id !== selectedLeadId) return false;
     
-    const parsed = parseNote(note.description);
+    const parsed = parseNote(note.description, note.activity_type);
     
     // Type Filter
     if (activeFilter !== 'all') {
-      if (activeFilter === 'call' && parsed.type !== 'Call') return false;
-      if (activeFilter === 'email' && parsed.type !== 'Email') return false;
-      if (activeFilter === 'meeting' && parsed.type !== 'Meeting') return false;
-      if (activeFilter === 'whatsapp' && parsed.type !== 'WhatsApp') return false;
+      const typeMatches = (activeFilter === 'call' && (parsed.type === 'Call' || note.activity_type === 'call')) ||
+                          (activeFilter === 'email' && (parsed.type === 'Email' || note.activity_type === 'email')) ||
+                          (activeFilter === 'meeting' && (parsed.type === 'Meeting' || note.activity_type === 'meeting')) ||
+                          (activeFilter === 'whatsapp' && (parsed.type === 'WhatsApp' || note.activity_type === 'whatsapp'));
+      if (!typeMatches) return false;
     }
     
     // Search Filter (if looking at global feed)
     if (!selectedLeadId && searchQuery) {
-      const matchCompany = note.crm_leads?.company_name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchContact = note.crm_leads?.contact_person.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchContent = note.description.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCompany || matchContact || matchContent;
+      const matchCompany = note.crm_leads?.company_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchContact = note.crm_leads?.contact_person?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchContent = note.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchAuthor = (note.user?.full_name || note.user?.username || '').toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCompany || matchContact || matchContent || matchAuthor;
     }
 
     return true;
   });
 
-  const selectedLead = leads.find(l => l.id === selectedLeadId);
+  const selectedLead = (allLeads && allLeads.length > 0 ? allLeads : leads).find(l => l.id === selectedLeadId);
 
   // Dashboard Stats
   const totalNotesCount = notes.length;
-  const callsCount = notes.filter(n => n.description.toLowerCase().includes('📞') || n.description.toLowerCase().includes('call')).length;
-  const meetingsCount = notes.filter(n => n.description.toLowerCase().includes('🤝') || n.description.toLowerCase().includes('meeting')).length;
+  const callsCount = notes.filter(n => (n.description || '').toLowerCase().includes('📞') || (n.description || '').toLowerCase().includes('call') || n.activity_type === 'call').length;
+  const meetingsCount = notes.filter(n => (n.description || '').toLowerCase().includes('🤝') || (n.description || '').toLowerCase().includes('meeting') || n.activity_type === 'meeting').length;
   const positiveSentimentCount = notes.filter(n => {
     const parsed = parseNote(n.description);
     const sentiment = parsed.sentiment.toLowerCase();
@@ -486,7 +503,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
               <div className="space-y-6 z-10 relative">
                 {filteredNotes.map((note) => {
-                  const parsed = parseNote(note.description);
+                  const parsed = parseNote(note.description, note.activity_type);
                   const sentiment = getSentimentStyle(parsed.sentiment);
                   
                   return (
@@ -516,7 +533,16 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                             )}
                           </div>
                           
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+                            {(note.user || note.user_id) && (
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-[10px] font-bold text-foreground" title={`Logged by ${note.user?.full_name || note.user?.username || 'Team Member'}`}>
+                                <UserIcon size={11} className="text-primary shrink-0" />
+                                <span className="text-muted-foreground font-semibold uppercase text-[9px]">By</span>
+                                <span className="text-primary font-black truncate max-w-[120px]">
+                                  {note.user?.full_name || note.user?.username || (note.user_id === user?.id ? 'You' : 'Team Member')}
+                                </span>
+                              </div>
+                            )}
                             <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80 font-semibold uppercase">
                               <Calendar size={12} className="opacity-70" />
                               {new Date(note.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}

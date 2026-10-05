@@ -1,5 +1,5 @@
 import { type ReactNode, useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -69,9 +69,11 @@ const navItems: NavItem[] = [
 ];
 
 export default function CRMLayout({ children }: LayoutProps) {
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const { user, supabaseUser } = useAuth();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const location = useLocation();
+  const navigate = useNavigate();
+  const [globalSearch, setGlobalSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -82,6 +84,27 @@ export default function CRMLayout({ children }: LayoutProps) {
   const [now, setNow] = useState(new Date());
   const [isSupportPickerOpen, setIsSupportPickerOpen] = useState(false);
   const [isAdminLinksManagerOpen, setIsAdminLinksManagerOpen] = useState(false);
+
+  const displayName = user?.full_name || user?.username || supabaseUser?.email?.split('@')[0] || "User";
+  const displayEmail = (user as any)?.email || supabaseUser?.email || "";
+  const displayInitials = (() => {
+    if (user?.full_name) {
+      const parts = user.full_name.trim().split(/\s+/);
+      if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    if (user?.username) return user.username.slice(0, 2).toUpperCase();
+    if (supabaseUser?.email) return supabaseUser.email.slice(0, 2).toUpperCase();
+    return "U";
+  })();
+
+  const handleGlobalSearch = (e: React.FormEvent | React.KeyboardEvent) => {
+    if ('key' in e && e.key !== 'Enter') return;
+    e.preventDefault();
+    if (globalSearch.trim()) {
+      navigate(`/crm/leads?search=${encodeURIComponent(globalSearch.trim())}`);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 5000);
@@ -336,13 +359,13 @@ export default function CRMLayout({ children }: LayoutProps) {
         {/* User Profile */}
         <div className="p-4 border-t border-sidebar-border bg-sidebar/50">
           <div className={`flex items-center gap-3 ${!sidebarOpen && !isMobile && "justify-center"}`}>
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-sidebar-border shadow-md">
-              <span className="text-white font-black text-xs">OA</span>
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-sidebar-border shadow-md">
+              <span className="text-white font-black text-xs">{displayInitials}</span>
             </div>
             {(sidebarOpen || isMobile) && (
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-foreground truncate tracking-tight">OomaLabs Admin</span>
-                <span className="text-[10px] text-muted-foreground truncate font-medium">admin@oomalabs.com</span>
+                <span className="text-sm font-bold text-foreground truncate tracking-tight">{displayName}</span>
+                <span className="text-[10px] text-muted-foreground truncate font-medium">{displayEmail}</span>
               </div>
             )}
           </div>
@@ -365,14 +388,23 @@ export default function CRMLayout({ children }: LayoutProps) {
                   <Menu size={20} />
                 </button>
               )}
-              <div className="relative flex-1 max-w-md group hidden md:block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
+              <form onSubmit={handleGlobalSearch} className="relative flex-1 max-w-md group hidden md:block">
+                <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
+                  <Search size={16} />
+                </button>
                 <input
                   type="search"
-                  placeholder="Search anything..."
+                  value={globalSearch}
+                  onChange={(e) => setGlobalSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleGlobalSearch(e);
+                    }
+                  }}
+                  placeholder="Search anything (leads, companies)..."
                   className="w-full pl-9 pr-4 py-1.5 bg-background/50 border border-input rounded-xl text-xs sm:text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
-              </div>
+              </form>
               {/* Mobile Header Title */}
               {isMobile && (
                 <div className="flex items-center gap-1.5 shrink-0">

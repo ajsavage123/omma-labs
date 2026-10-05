@@ -208,7 +208,7 @@ export default function CRMLeads() {
   const [filterSortBy, setFilterSortBy] = useState("Newest");
 
   // Role check: admin sees all, all non-admins see only their own assigned leads
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const isSalesperson = !isAdmin;
   
   // Lead Form State
@@ -309,7 +309,7 @@ export default function CRMLeads() {
         business_type: formData.business_type.trim() || null,
         website: formData.website.trim() || null,
         external_link: formData.external_link.trim() || null,
-        assigned_to: formData.assigned_to || null,
+        assigned_to: isAdmin ? (formData.assigned_to || null) : (user?.id || null),
         budget: budgetNum,
         source: formData.source.trim() || 'Manual Entry',
         payment_status: formData.payment_status,
@@ -345,7 +345,7 @@ export default function CRMLeads() {
   };
 
   const deleteLead = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this lead?")) return;
+    if (!confirm("Are you sure you want to delete this lead? This action cannot be undone.")) return;
     
     try {
       const { error } = await supabase.from('crm_leads').delete().eq('id', id);
@@ -504,6 +504,11 @@ export default function CRMLeads() {
       },
       complete: async (results) => {
         try {
+          if (!results.data || results.data.length === 0) {
+            toast.error("The selected CSV file is empty. Please check the file content.");
+            return;
+          }
+
           const newLeads = (results.data as Record<string, any>[]).map((row) => {
             const matchedKeys: string[] = [];
             const getField = (keys: string[]) => {
@@ -602,6 +607,10 @@ export default function CRMLeads() {
               }
             });
 
+            if (tags) {
+              customData.tags = tags;
+            }
+
             return {
               contact_person: name,
               company_name: company,
@@ -616,7 +625,6 @@ export default function CRMLeads() {
               service_interest: service || null,
               source: source,
               notes: notes || null,
-              tags: tags || null,
               follow_up_date: followUpDate,
               payment_status: paymentStatus,
               amount_paid: amountPaid,
@@ -676,9 +684,10 @@ export default function CRMLeads() {
           }
 
           refreshLeads();
-        } catch (error) {
-          toast.error("Failed to import leads. Check CSV format.");
-          console.error(error);
+        } catch (error: any) {
+          const detail = error?.message || error?.details || "Please check that your CSV has valid rows and headers.";
+          toast.error(`Failed to import leads: ${detail}`);
+          console.error("CSV Import error:", error);
         } finally {
           setImporting(false);
           if (e.target) e.target.value = ''; // Reset input
@@ -1203,11 +1212,11 @@ export default function CRMLeads() {
                     {/* Expandable details panel */}
                     {isExpanded && (
                       <tr className="bg-muted/15 border-b border-border">
-                        <td colSpan={12} className="p-6 md:p-8">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-foreground">
+                        <td colSpan={12} className="p-4 sm:p-6 md:p-8 max-w-full overflow-hidden">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm text-foreground min-w-0 max-w-full">
                             
                             {/* Panel Column 1: Financial & Core Info */}
-                            <div className="space-y-3">
+                            <div className="space-y-3 min-w-0">
                               <h4 className="text-[10px] font-black text-primary uppercase tracking-wider mb-2">Financial Summary</h4>
                               <div className="flex justify-between py-1.5 border-b border-border/50">
                                 <span className="text-muted-foreground font-medium">Estimated Value:</span>
@@ -1234,7 +1243,7 @@ export default function CRMLeads() {
                             </div>
 
                             {/* Panel Column 2: Lead Metadata */}
-                            <div className="space-y-3">
+                            <div className="space-y-3 min-w-0">
                               <h4 className="text-[10px] font-black text-primary uppercase tracking-wider mb-2">Lead Metadata</h4>
                               <div className="flex justify-between py-1.5 border-b border-border/50">
                                 <span className="text-muted-foreground font-medium">Source:</span>
@@ -1252,7 +1261,7 @@ export default function CRMLeads() {
                               </div>
                               <div className="flex justify-between py-1.5 border-b border-border/50">
                                 <span className="text-muted-foreground font-medium">Tags:</span>
-                                <span className="font-bold">{lead.tags || '—'}</span>
+                                <span className="font-bold">{lead.tags || lead.custom_data?.tags || '—'}</span>
                               </div>
                               <div className="flex justify-between py-1.5 border-b border-border/50">
                                 <span className="text-muted-foreground font-medium">Business Category:</span>
@@ -1281,7 +1290,7 @@ export default function CRMLeads() {
                             </div>
 
                             {/* Panel Column 3: Notes & Custom Fields */}
-                            <div className="space-y-3">
+                            <div className="space-y-3 min-w-0">
                               <h4 className="text-[10px] font-black text-primary uppercase tracking-wider mb-2">Interaction Notes</h4>
                               <div className="p-3 bg-background border border-border/50 rounded-xl max-h-[120px] overflow-y-auto text-xs text-muted-foreground">
                                 {lead.notes ? (
@@ -1713,22 +1722,24 @@ export default function CRMLeads() {
                 </div>
               </div>
 
-              {/* Owner Assignment */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Assigned Owner / Salesperson</label>
-                <select 
-                  value={formData.assigned_to}
-                  onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
-                  className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium appearance-none cursor-pointer"
-                >
-                  <option value="" className="bg-background text-foreground">Select a salesperson...</option>
-                  {workspaceUsers.map(u => (
-                    <option key={u.id} value={u.id} className="bg-background text-foreground">
-                      {u.full_name || u.username} {u.id === user?.id ? '(You)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Owner Assignment - Admin Only */}
+              {isAdmin && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Assigned Owner / Salesperson</label>
+                  <select 
+                    value={formData.assigned_to}
+                    onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium appearance-none cursor-pointer"
+                  >
+                    <option value="" className="bg-background text-foreground">Select a salesperson...</option>
+                    {workspaceUsers.map(u => (
+                      <option key={u.id} value={u.id} className="bg-background text-foreground">
+                        {u.full_name || u.username} {u.id === user?.id ? '(You)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Interaction Notes */}
               <div className="space-y-1">

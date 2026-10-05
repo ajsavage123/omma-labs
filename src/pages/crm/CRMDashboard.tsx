@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { Loader2, TrendingUp, Clock, AlertCircle, Briefcase, IndianRupee, CheckCircle2 } from "lucide-react";
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { resolveLeadCompanyName } from "@/utils/crmLeadUtils";
+import { classifyTaskBucket } from "@/utils/dateUtils";
 
 export default function CRMDashboard() {
   const { leads, tasks, loading, crmViewMode, selectedSalesRepId, teamMembers } = useCRMData();
@@ -22,11 +23,9 @@ export default function CRMDashboard() {
   const closedWonValue = displayLeads.filter(l => ['Won (Converted)', 'Completed'].includes(l.status)).reduce((s, l) => s + (l.estimated_value || 0), 0);
   
   const now = new Date();
-  const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
-  const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999);
   
-  const tasksDueToday = displayTasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) >= todayStart && new Date(t.due_date) <= todayEnd);
-  const overdueTasks = displayTasks.filter(t => t.status !== 'Completed' && new Date(t.due_date) < todayStart);
+  const tasksDueToday = displayTasks.filter(t => t.status !== 'Completed' && classifyTaskBucket(t, now) === 'today');
+  const overdueTasks = displayTasks.filter(t => t.status !== 'Completed' && classifyTaskBucket(t, now) === 'overdue');
 
   const pipelineData = [
     { name: "New Leads", value: displayLeads.filter(l => l.status === 'New Leads').length, color: "#3B82F6" },

@@ -252,7 +252,7 @@ export default function CRMPipeline() {
   }, [taskFormData.lead_id, leads]);
 
   // Role check: admin sees all, non-admins see only their own leads
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const isSalesperson = !isAdmin;
   // Render one layout at a time (avoids duplicate DOM and keeps the mobile
   // single-stage view light). Below 768px we show the optimized mobile view.
@@ -582,7 +582,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         website: formData.website.trim() || null,
         external_link: formData.external_link.trim() || null,
         workspace_id: user?.workspace_id,
-        assigned_to: formData.assigned_to || null
+        assigned_to: isAdmin ? (formData.assigned_to || null) : (user?.id || null)
       };
 
       if (isEditMode && editingLeadId) {
@@ -1757,23 +1757,25 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label htmlFor="lead_assigned_to" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Owner Assignment</label>
-                <select 
-                  id="lead_assigned_to"
-                  name="assigned_to"
-                  value={formData.assigned_to}
-                  onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
-                  className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium appearance-none cursor-pointer"
-                >
-                  <option value="" className="bg-background text-foreground">Select a salesperson...</option>
-                  {workspaceUsers.map(u => (
-                    <option key={u.id} value={u.id} className="bg-background text-foreground">
-                      {u.full_name || u.username} {u.id === user?.id ? '(You)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isAdmin && (
+                <div className="space-y-1">
+                  <label htmlFor="lead_assigned_to" className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 cursor-pointer">Owner Assignment</label>
+                  <select 
+                    id="lead_assigned_to"
+                    name="assigned_to"
+                    value={formData.assigned_to}
+                    onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
+                    className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium appearance-none cursor-pointer"
+                  >
+                    <option value="" className="bg-background text-foreground">Select a salesperson...</option>
+                    {workspaceUsers.map(u => (
+                      <option key={u.id} value={u.id} className="bg-background text-foreground">
+                        {u.full_name || u.username} {u.id === user?.id ? '(You)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Button 

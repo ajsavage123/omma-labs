@@ -290,10 +290,10 @@ export default function CRMCalendar() {
               <div className="p-3.5 bg-background border border-border rounded-xl text-xs space-y-2 leading-relaxed text-muted-foreground">
                 <p className="font-bold text-foreground">How to generate a Client ID:</p>
                 <ol className="list-decimal list-inside space-y-1.5">
-                  <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" className="text-primary hover:underline font-semibold">Google Cloud Console</a>.</li>
-                  <li>Create a Project and enable the **Google Calendar API**.</li>
-                  <li>Create credentials under **OAuth Client ID** (select **Web Application**).</li>
-                  <li>Add <code className="bg-muted px-1.5 py-0.5 rounded font-mono">http://localhost:5173</code> to **Authorized JavaScript Origins**.</li>
+                  <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">Google Cloud Console</a>.</li>
+                  <li>Create a Project and enable the <strong className="text-foreground">Google Calendar API</strong>.</li>
+                  <li>Create credentials under <strong className="text-foreground">OAuth Client ID</strong> (select <strong className="text-foreground">Web Application</strong>).</li>
+                  <li>Add <code className="bg-muted px-1.5 py-0.5 rounded font-mono">{typeof window !== 'undefined' ? window.location.origin : 'https://oomaworkspace.vercel.app'}</code> to <strong className="text-foreground">Authorized JavaScript Origins</strong>.</li>
                   <li>Paste the generated Client ID in the field below.</li>
                 </ol>
               </div>

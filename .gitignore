@@ -31,3 +31,8 @@ dist-ssr
 *.zip
 quotation-generator-package/
 Modular quotation/
+
+# Test output
+playwright-report/
+test-results/
+.freebuff/

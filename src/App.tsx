@@ -55,6 +55,8 @@ import CommissionCalculatorPage from '@/pages/CommissionCalculatorPage';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
+import { Toaster } from 'sonner';
+
 function App() {
   useEffect(() => {
     pushNotificationService.validateEnvironment();
@@ -66,6 +68,7 @@ function App() {
       <AuthProvider>
       <BrowserRouter>
         <CRMDataProvider>
+          <Toaster richColors position="top-right" closeButton />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/onboarding" element={<OnboardingRoute />} />

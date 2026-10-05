@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -36,13 +36,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        supabase.auth.signOut().catch(() => {});
+        setSupabaseUser(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      const session = data?.session;
       setSupabaseUser(session?.user ?? null);
       if (session?.user) {
         fetchUserProfile(session.user.id);
       } else {
         setLoading(false);
       }
+    }).catch(() => {
+      supabase.auth.signOut().catch(() => {});
+      setSupabaseUser(null);
+      setUser(null);
+      setLoading(false);
     });
 
     // Listen for auth changes
@@ -59,33 +72,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const inflightProfileFetch = useRef<Map<string, Promise<void>>>(new Map());
+
   const fetchUserProfile = async (id: string) => {
-    try {
-      // Use maybeSingle because a newly signed up user might not have a public.users record yet
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (userError) throw userError;
-
-      if (userData && userData.workspace_id) {
-        const { data: workspaceData } = await supabase
-          .from('workspaces')
-          .select('name')
-          .eq('id', userData.workspace_id)
-          .single();
-          
-        setUser({ ...userData, workspaceName: workspaceData?.name });
-      } else {
-        setUser(userData);
-      }
-    } catch (error) {
-      logError('Error fetching user profile', error);
-    } finally {
-      setLoading(false);
+    if (inflightProfileFetch.current.has(id)) {
+      return inflightProfileFetch.current.get(id);
     }
+
+    setLoading(true);
+    const promise = (async () => {
+      try {
+        // Use maybeSingle because a newly signed up user might not have a public.users record yet
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (userError) throw userError;
+
+        if (userData && userData.workspace_id) {
+          const { data: workspaceData } = await supabase
+            .from('workspaces')
+            .select('name')
+            .eq('id', userData.workspace_id)
+            .maybeSingle();
+            
+          setUser({ ...userData, workspaceName: workspaceData?.name });
+        } else {
+          setUser(userData);
+        }
+      } catch (error) {
+        logError('Error fetching user profile', error);
+      } finally {
+        inflightProfileFetch.current.delete(id);
+        setLoading(false);
+      }
+    })();
+
+    inflightProfileFetch.current.set(id, promise);
+    return promise;
   };
 
   const refreshUser = async () => {

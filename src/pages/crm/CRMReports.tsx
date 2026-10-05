@@ -18,7 +18,7 @@ import {
 export default function CRMReports() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const crmData = useCRMData();
   
   const loading = (crmData?.loading ?? false) || authLoading;

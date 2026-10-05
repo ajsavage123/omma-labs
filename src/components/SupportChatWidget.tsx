@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
-  X, Send, RefreshCw, ExternalLink, Settings, ArrowRight
+  X, Send, RefreshCw, ExternalLink, Settings, ArrowRight, Minus, Maximize2
 } from 'lucide-react';
 import { supportLinksService, DEPARTMENTS } from '@/services/supportLinksService';
 import type { SupportLink } from '@/types';
@@ -34,6 +34,7 @@ export default function SupportChatWidget({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const initGreeting = () => {
@@ -168,6 +169,25 @@ export default function SupportChatWidget({
     }, 500);
   };
 
+  if (!isOpen) return null;
+
+  if (isMinimized) {
+    return (
+      <div 
+        onClick={() => setIsMinimized(false)}
+        className="fixed bottom-4 right-4 z-[9999] bg-[#13131e] hover:bg-[#1a1a2c] border border-purple-500/40 text-white px-3.5 py-2 rounded-2xl shadow-xl flex items-center gap-2 cursor-pointer transition-all active:scale-95 group animate-in fade-in"
+        title="Restore AI Support Bot"
+      >
+        <div className="w-6 h-6 rounded-full bg-purple-600/30 flex items-center justify-center p-1">
+          <img src="/robot-assistant.png" alt="Bot" className="w-4 h-4 object-contain" />
+        </div>
+        <span className="text-xs font-bold text-gray-200 group-hover:text-white">Support Bot</span>
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <Maximize2 size={13} className="text-purple-400 ml-1 group-hover:scale-110 transition-transform" />
+      </div>
+    );
+  }
+
   return (
     <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[9999] w-[calc(100%-32px)] sm:w-[390px] h-[580px] max-h-[85vh] bg-[#0c0c12] border border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col font-sans text-gray-200 animate-in slide-in-from-bottom-5 duration-200">
       
@@ -192,6 +212,14 @@ export default function SupportChatWidget({
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            title="Minimize Assistant"
+          >
+            <Minus size={14} />
+          </button>
+
           <button
             onClick={initGreeting}
             className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"

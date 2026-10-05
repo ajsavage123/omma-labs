@@ -21,7 +21,7 @@ export default function CRMSettings() {
   const [devNotebookUrl, setDevNotebookUrl] = useState(() => notebookLMService.getDevStoredUrl());
   const [savingDevUrl, setSavingDevUrl] = useState(false);
   const [isAdminLinksManagerOpen, setIsAdminLinksManagerOpen] = useState(false);
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   useEffect(() => {
     if (user?.workspace_id) {
@@ -69,8 +69,10 @@ export default function CRMSettings() {
     const success = await pushNotificationService.subscribeToPushNotifications();
     if (success) {
       setPushStatus('granted');
+      toast.success("Push notifications enabled! 🔔");
     } else {
       setPushStatus(Notification.permission);
+      toast.info(`Notification permission: ${Notification.permission}`);
     }
     setIsSubscribing(false);
   };
@@ -81,6 +83,7 @@ export default function CRMSettings() {
       tag: 'test-push',
       requireInteraction: false
     });
+    toast.success("Local test notification dispatched! 🔔");
   };
 
   return (
@@ -206,7 +209,7 @@ export default function CRMSettings() {
           </div>
           
           <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
-            {isAdmin ? 'Admin Config' : 'Workspace Active'}
+            {isAdmin ? 'Admin Config' : 'Admin Managed (Read Only)'}
           </span>
         </div>
 
@@ -216,8 +219,9 @@ export default function CRMSettings() {
 
         <form onSubmit={handleSaveNotebookUrl} className="space-y-3 pt-1">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-              NotebookLM Chat View URL
+            <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center justify-between">
+              <span>NotebookLM Chat View URL</span>
+              {!isAdmin && <span className="text-[9px] text-purple-400 font-semibold lowercase tracking-normal">(configured by workspace admin)</span>}
             </label>
             <input
               type="url"
@@ -274,7 +278,7 @@ export default function CRMSettings() {
           </div>
           
           <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
-            {isAdmin ? 'Admin Config' : 'Workspace Active'}
+            {isAdmin ? 'Admin Config' : 'Admin Managed (Read Only)'}
           </span>
         </div>
 
@@ -284,8 +288,9 @@ export default function CRMSettings() {
 
         <form onSubmit={handleSaveDevNotebookUrl} className="space-y-3 pt-1">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-              Developer Support Notebook / Docs URL
+            <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center justify-between">
+              <span>Developer Support Notebook / Docs URL</span>
+              {!isAdmin && <span className="text-[9px] text-blue-400 font-semibold lowercase tracking-normal">(configured by workspace admin)</span>}
             </label>
             <input
               type="url"

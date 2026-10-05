@@ -10,36 +10,20 @@ import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { googleCalendarService } from "@/services/googleCalendarService";
 
-import { getTaskDueDate } from "@/utils/dateUtils";
+import { getTaskDueDate, classifyTaskBucket } from "@/utils/dateUtils";
 
-type CRMLead = Record<string, any>;
 type GoogleAccount = { email: string; name: string; expiresAt: number; [key: string]: any };
 
 export default function CRMTasks() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { tasks, loading, refreshTasks, refreshLeads, teamMembers, selectedSalesRepId, crmViewMode } = useCRMData();
-  const [leads, setLeads] = useState<CRMLead[]>([]);
+  const { tasks = [], leads = [], loading, refreshTasks, refreshLeads, teamMembers = [], selectedSalesRepId, crmViewMode } = useCRMData();
   const [activeTab, setActiveTab] = useState("today");
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
   const [checkedTasks, setCheckedTasks] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [glowingTaskId] = useState<string | null>(null);
-
-  const fetchLeads = async () => {
-    if (!user?.workspace_id) return;
-    let query = supabase
-      .from('crm_leads')
-      .select('id, company_name, contact_person, email')
-      .eq('workspace_id', user?.workspace_id);
-
-    if (user?.role !== 'admin') {
-      query = query.eq('assigned_to', user?.id);
-    }
-    const { data } = await query;
-    setLeads(data || []);
-  };
 
   const [linkedAccounts, setLinkedAccounts] = useState<GoogleAccount[]>([]);
   const [syncToGoogle, setSyncToGoogle] = useState(false);
@@ -86,7 +70,7 @@ export default function CRMTasks() {
 
   useEffect(() => {
     if (formData.lead_id) {
-      const selectedLead = leads.find(l => l.id === formData.lead_id);
+      const selectedLead = (leads || []).find(l => l.id === formData.lead_id);
       if (selectedLead?.email) {
         setAttendeesInput(String(selectedLead.email));
       } else {
@@ -227,44 +211,18 @@ export default function CRMTasks() {
   };
 
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const todayStr = `${year}-${month}-${day}`;
-
-  // Helper: classify task using full datetime when due_time is set, date-only otherwise
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const classifyTask = (task: any) => {
-    if (!task.due_date) return 'today'; // No date — treat as today bucket
-
-    const isToday = task.due_date === todayStr;
-
-    if (task.due_time) {
-      // Has explicit time — compare full datetime
-      const fullDue = getTaskDueDate(task.due_date, task.due_time);
-      if (!fullDue) return isToday ? 'today' : task.due_date < todayStr ? 'overdue' : 'upcoming';
-      if (fullDue < now) return 'overdue';   // datetime already passed
-      if (isToday) return 'today';           // today, time not yet reached
-      return 'upcoming';
-    }
-
-    // No time set — use date-only comparison
-    if (isToday) return 'today';
-    if (task.due_date < todayStr) return 'overdue';
-    return 'upcoming';
-  };
 
   const counts = {
-    today:     tasks.filter(t => t.status !== 'Completed' && classifyTask(t) === 'today').length,
-    upcoming:  tasks.filter(t => t.status !== 'Completed' && classifyTask(t) === 'upcoming').length,
-    overdue:   tasks.filter(t => t.status !== 'Completed' && classifyTask(t) === 'overdue').length,
+    today:     tasks.filter(t => t.status !== 'Completed' && classifyTaskBucket(t, now) === 'today').length,
+    upcoming:  tasks.filter(t => t.status !== 'Completed' && classifyTaskBucket(t, now) === 'upcoming').length,
+    overdue:   tasks.filter(t => t.status !== 'Completed' && classifyTaskBucket(t, now) === 'overdue').length,
     completed: tasks.filter(t => t.status === 'Completed').length,
   };
 
   const filteredTasks = tasks.filter((task) => {
     if (activeTab === 'completed') return task.status === 'Completed';
     if (task.status === 'Completed') return false;
-    return classifyTask(task) === activeTab;
+    return classifyTaskBucket(task, now) === activeTab;
   }).sort((a, b) => {
     if (sortBy === 'newest') return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     if (sortBy === 'oldest') return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
@@ -313,7 +271,6 @@ export default function CRMTasks() {
         </div>
         <Button 
           onClick={() => {
-            fetchLeads();
             setIsModalOpen(true);
           }}
           className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto rounded-xl font-bold shadow-lg shadow-primary/20"
@@ -425,7 +382,7 @@ export default function CRMTasks() {
                     className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all appearance-none cursor-pointer"
                   >
                     <option value="" className="bg-background text-foreground">No lead linked</option>
-                    {leads.map(lead => (
+                    {(leads || []).map(lead => (
                       <option key={String(lead.id)} value={String(lead.id)} className="bg-background text-foreground">
                         {String(lead.company_name || lead.contact_person || '')} {lead.contact_person && lead.contact_person !== lead.company_name ? `(${lead.contact_person})` : ''}
                       </option>

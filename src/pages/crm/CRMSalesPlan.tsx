@@ -148,7 +148,7 @@ const DAY_THEMES: Record<number, {
 export default function CRMSalesPlan() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const { teamMembers, refreshLeads, refreshActivities, refreshTasks } = useCRMData();
 
   // Cycle navigation state
@@ -307,9 +307,7 @@ export default function CRMSalesPlan() {
         taskId,
         currentVal
       );
-      if (result) {
-        toast.success("Task updated!");
-      }
+      toast.success(result ? "Goal marked as completed! 🎯" : "Goal marked as incomplete");
     } catch {
       setProgressMap(prev => ({ ...prev, [taskId]: currentVal }));
       toast.error("Could not update task");

@@ -98,7 +98,7 @@ describe('CRMDataContext', () => {
       user: { id: 'u1', workspace_id: 'ws-1' },
     });
 
-    const mockLeads = [{ id: 'l1', company_name: 'Test', status: 'New Leads' }];
+    const mockLeads = [{ id: 'l1', company_name: 'Test', status: 'New Leads', assigned_to: 'u1' }];
     setMockLeads(mockLeads);
 
     renderWithProvider();
@@ -107,6 +107,27 @@ describe('CRMDataContext', () => {
       expect(screen.getByTestId('loading').textContent).toBe('false');
     });
 
+    expect(screen.getByTestId('leads-count').textContent).toBe('1');
+  });
+
+  it('isolates leads so non-admin users cannot see other sales persons leads', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'rep-1', workspace_id: 'ws-1', role: 'partner' },
+    });
+
+    const mockLeads = [
+      { id: 'l1', company_name: 'My Lead', assigned_to: 'rep-1' },
+      { id: 'l2', company_name: 'Other Rep Lead', assigned_to: 'rep-2' },
+    ];
+    setMockLeads(mockLeads);
+
+    renderWithProvider();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('false');
+    });
+
+    // Only 1 lead (rep-1's own lead) should be visible to rep-1
     expect(screen.getByTestId('leads-count').textContent).toBe('1');
   });
 
