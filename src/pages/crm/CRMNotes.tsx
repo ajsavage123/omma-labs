@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/useToast";
-
 import { useAuth } from "@/hooks/useAuth";
 import { 
   Trash2, Phone, Clipboard, Search, Plus, X, Loader2, 
-  Smile, Calendar, Users, Inbox, ArrowRight, User as UserIcon
+  Smile, Calendar, Users, Inbox, ArrowRight, User as UserIcon,
+  Building2, Clock, Check, Edit3
 } from "lucide-react";
 
 interface ParsedNote {
@@ -29,6 +29,13 @@ export default function CRMNotes() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [sidebarTab, setSidebarTab] = useState<'recent' | 'leads'>('recent');
+  const [onlyLeadsWithNotes, setOnlyLeadsWithNotes] = useState(false);
+
+  // Business Comment Quick Edit State
+  const [isBusinessCommentModalOpen, setIsBusinessCommentModalOpen] = useState(false);
+  const [editingBusinessComment, setEditingBusinessComment] = useState("");
+  const [savingBusinessComment, setSavingBusinessComment] = useState(false);
   
   // Note Modal State
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -104,6 +111,25 @@ export default function CRMNotes() {
     return result;
   };
 
+  const formatRelativeTime = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    if (diffMs < 0) return 'Just now';
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay === 1) return 'Yesterday';
+    if (diffDay < 7) return `${diffDay}d ago`;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+
   const getSentimentStyle = (sentiment: string) => {
     const s = sentiment.toLowerCase();
     if (s.includes('very interested') || s.includes('very_interested') || s.includes('🟢')) {
@@ -131,8 +157,9 @@ export default function CRMNotes() {
   };
 
   const openLogModal = (leadId: string | null) => {
+    const defaultLead = leads.find(l => l.id === leadId) || leads[0];
     setNoteFormData({
-      lead_id: leadId || (leads.length > 0 ? leads[0].id : ""),
+      lead_id: defaultLead?.id || "",
       interaction_type: 'call',
       discussion_points: '',
       sentiment: 'Interested',
@@ -245,47 +272,127 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
     return pool.filter(l => l.assigned_to === selectedSalesRepId || notes.some(n => n.lead_id === l.id));
   }, [allLeads, leads, selectedSalesRepId, crmViewMode, notes]);
 
-  // Get list of all leads in workspace with note counts
-  const uniqueLeads = displayLeadsPool
-    .map(lead => ({
-      id: lead.id,
-      company_name: lead.company_name,
-      contact_person: lead.contact_person,
-      noteCount: notes.filter(x => x.lead_id === lead.id).length
-    }))
-    .filter(lead => 
-      lead.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (lead.contact_person && lead.contact_person.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+  // Ensure newly created notes appear at the very first (descending sort by created_at)
+  const sortedNotes = useMemo(() => {
+    return [...notes].sort((a, b) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [notes]);
 
-  // Filter notes based on selection, search, type
-  const filteredNotes = notes.filter(note => {
-    if (selectedLeadId && note.lead_id !== selectedLeadId) return false;
-    
-    const parsed = parseNote(note.description, note.activity_type);
-    
-    // Type Filter
-    if (activeFilter !== 'all') {
-      const typeMatches = (activeFilter === 'call' && (parsed.type === 'Call' || note.activity_type === 'call')) ||
-                          (activeFilter === 'email' && (parsed.type === 'Email' || note.activity_type === 'email')) ||
-                          (activeFilter === 'meeting' && (parsed.type === 'Meeting' || note.activity_type === 'meeting')) ||
-                          (activeFilter === 'whatsapp' && (parsed.type === 'WhatsApp' || note.activity_type === 'whatsapp'));
-      if (!typeMatches) return false;
+  // Map each lead to their latest note timestamp
+  const leadLatestNoteTime = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const n of notes) {
+      if (n.lead_id) {
+        const t = new Date(n.created_at || 0).getTime();
+        const current = map.get(n.lead_id) || 0;
+        if (t > current) map.set(n.lead_id, t);
+      }
     }
-    
-    // Search Filter (if looking at global feed)
-    if (!selectedLeadId && searchQuery) {
-      const matchCompany = note.crm_leads?.company_name?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchContact = note.crm_leads?.contact_person?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchContent = note.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchAuthor = (note.user?.full_name || note.user?.username || '').toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCompany || matchContact || matchContent || matchAuthor;
-    }
+    return map;
+  }, [notes]);
 
-    return true;
-  });
+  // Get list of all leads sorted with recent active leads first
+  const uniqueLeads = useMemo(() => {
+    return displayLeadsPool
+      .map(lead => ({
+        id: lead.id,
+        company_name: lead.company_name,
+        contact_person: lead.contact_person,
+        noteCount: notes.filter(x => x.lead_id === lead.id).length,
+        latestNoteTime: leadLatestNoteTime.get(lead.id) || 0,
+        comment_on_business: lead.comment_on_business || lead.custom_data?.comment_on_business || ''
+      }))
+      .filter(lead => {
+        if (onlyLeadsWithNotes && lead.noteCount === 0) return false;
+        const q = searchQuery.toLowerCase();
+        if (!q) return true;
+        return (
+          lead.company_name.toLowerCase().includes(q) ||
+          (lead.contact_person && lead.contact_person.toLowerCase().includes(q)) ||
+          lead.comment_on_business.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        // Leads with newer notes first
+        if (b.latestNoteTime !== a.latestNoteTime) {
+          return b.latestNoteTime - a.latestNoteTime;
+        }
+        // Then by note count
+        if (b.noteCount !== a.noteCount) {
+          return b.noteCount - a.noteCount;
+        }
+        return a.company_name.localeCompare(b.company_name);
+      });
+  }, [displayLeadsPool, notes, leadLatestNoteTime, onlyLeadsWithNotes, searchQuery]);
+
+  // Filter notes based on selection, search, type (newest first)
+  const filteredNotes = useMemo(() => {
+    return sortedNotes.filter(note => {
+      if (selectedLeadId && note.lead_id !== selectedLeadId) return false;
+      
+      const parsed = parseNote(note.description, note.activity_type);
+      
+      // Type Filter
+      if (activeFilter !== 'all') {
+        const typeMatches = (activeFilter === 'call' && (parsed.type === 'Call' || note.activity_type === 'call')) ||
+                            (activeFilter === 'email' && (parsed.type === 'Email' || note.activity_type === 'email')) ||
+                            (activeFilter === 'meeting' && (parsed.type === 'Meeting' || note.activity_type === 'meeting')) ||
+                            (activeFilter === 'whatsapp' && (parsed.type === 'WhatsApp' || note.activity_type === 'whatsapp'));
+        if (!typeMatches) return false;
+      }
+      
+      // Search Filter
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchCompany = note.crm_leads?.company_name?.toLowerCase().includes(q);
+        const matchContact = note.crm_leads?.contact_person?.toLowerCase().includes(q);
+        const matchContent = note.description?.toLowerCase().includes(q);
+        const matchAuthor = (note.user?.full_name || note.user?.username || '').toLowerCase().includes(q);
+        const matchSentiment = parsed.sentiment.toLowerCase().includes(q);
+        return Boolean(matchCompany || matchContact || matchContent || matchAuthor || matchSentiment);
+      }
+
+      return true;
+    });
+  }, [sortedNotes, selectedLeadId, activeFilter, searchQuery]);
 
   const selectedLead = (allLeads && allLeads.length > 0 ? allLeads : leads).find(l => l.id === selectedLeadId);
+  const selectedLeadBusinessComment = useMemo(() => {
+    if (!selectedLead) return '';
+    return selectedLead.comment_on_business || selectedLead.custom_data?.comment_on_business || '';
+  }, [selectedLead]);
+
+  const handleSaveBusinessComment = async () => {
+    if (!selectedLead) return;
+    setSavingBusinessComment(true);
+    try {
+      const existingCustom = selectedLead.custom_data || {};
+      const updatedCustom = {
+        ...existingCustom,
+        comment_on_business: editingBusinessComment.trim() || null
+      };
+
+      const { error } = await supabase
+        .from('crm_leads')
+        .update({
+          custom_data: updatedCustom
+        })
+        .eq('id', selectedLead.id);
+
+      if (error) throw error;
+      toast.success("Business comment saved!");
+      setIsBusinessCommentModalOpen(false);
+      refreshLeads();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save comment on business");
+    } finally {
+      setSavingBusinessComment(false);
+    }
+  };
 
   // Dashboard Stats
   const totalNotesCount = notes.length;
@@ -379,12 +486,57 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       {/* Main Grid split */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Left column: Leads list (4/12 span) */}
+        {/* Left column: Organized Notes & Leads navigation (4/12 span) */}
         <div className="lg:col-span-4 space-y-4">
           <Card className="bg-card/40 backdrop-blur-md border border-border p-5 rounded-3xl space-y-4 shadow-md">
-            <div>
-              <h3 className="font-black text-sm uppercase text-foreground tracking-wider mb-1">Leads Directory</h3>
-              <p className="text-[11px] text-muted-foreground font-medium">Select a lead to isolate their interaction thread.</p>
+            
+            {/* Header with View Tabs */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-black text-sm uppercase text-foreground tracking-wider mb-0.5">Directory & Feeds</h3>
+                  <p className="text-[11px] text-muted-foreground font-medium">Newest logs shown first</p>
+                </div>
+                {sidebarTab === 'leads' && (
+                  <button
+                    onClick={() => setOnlyLeadsWithNotes(!onlyLeadsWithNotes)}
+                    className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg border transition-all ${
+                      onlyLeadsWithNotes
+                        ? 'bg-primary/10 text-primary border-primary/20'
+                        : 'text-muted-foreground border-border/60 hover:text-foreground'
+                    }`}
+                    title="Toggle leads with recorded notes only"
+                  >
+                    {onlyLeadsWithNotes ? "Notes Only" : "All Leads"}
+                  </button>
+                )}
+              </div>
+
+              {/* Sidebar Tabs */}
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-background/60 border border-border/60 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setSidebarTab('recent')}
+                  className={`py-2 px-3 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    sidebarTab === 'recent'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <Clock size={13} /> Recent Stream
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSidebarTab('leads')}
+                  className={`py-2 px-3 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    sidebarTab === 'leads'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <Users size={13} /> By Lead
+                </button>
+              </div>
             </div>
 
             {/* Search Bar */}
@@ -399,63 +551,141 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               />
             </div>
 
-            {/* Unique Leads List */}
-            <div className="space-y-2 max-h-[480px] overflow-y-auto custom-scrollbar pr-1">
-              
-              {/* Global Feed Option */}
-              <button 
-                onClick={() => setSelectedLeadId(null)}
-                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
-                  selectedLeadId === null 
-                    ? 'bg-primary/10 border-primary/20 text-primary-foreground shadow-lg shadow-primary/5' 
-                    : 'bg-background/20 border-border/40 hover:bg-muted/40 text-foreground'
-                }`}
-              >
-                <div>
-                  <h4 className="font-black text-sm tracking-tight flex items-center gap-1.5">
-                    🌐 Global Activity Feed
-                  </h4>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">All lead notes timeline</p>
-                </div>
-                <div className="px-2.5 py-1 bg-background border border-border rounded-xl text-[10px] font-black text-muted-foreground uppercase">
-                  {notes.length} logs
-                </div>
-              </button>
+            {/* Global Feed Quick Option */}
+            <button 
+              onClick={() => setSelectedLeadId(null)}
+              className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                selectedLeadId === null 
+                  ? 'bg-primary/10 border-primary/20 text-primary-foreground shadow-lg shadow-primary/5' 
+                  : 'bg-background/20 border-border/40 hover:bg-muted/40 text-foreground'
+              }`}
+            >
+              <div>
+                <h4 className="font-black text-xs sm:text-sm tracking-tight flex items-center gap-1.5">
+                  🌐 Global Activity Feed
+                </h4>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">All lead interactions timeline</p>
+              </div>
+              <div className="px-2.5 py-1 bg-background border border-border rounded-xl text-[10px] font-black text-muted-foreground uppercase">
+                {notes.length} logs
+              </div>
+            </button>
 
-              {/* Individual Lead Options */}
-              {uniqueLeads.map((lead) => (
-                <button
-                  key={lead.id}
-                  onClick={() => setSelectedLeadId(lead.id)}
-                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between group ${
-                    selectedLeadId === lead.id 
-                      ? 'bg-primary/10 border-primary/20 text-primary-foreground shadow-lg shadow-primary/5' 
-                      : 'bg-background/20 border-border/40 hover:bg-muted/40 text-foreground'
-                  }`}
-                >
-                  <div className="min-w-0 pr-2">
-                    <h4 className="font-black text-sm tracking-tight truncate group-hover:text-primary transition-colors">
-                      {lead.company_name}
-                    </h4>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate mt-0.5">
-                      {lead.contact_person || '—'}
-                    </p>
-                  </div>
-                  <div className={`px-2.5 py-1 bg-background border rounded-xl text-[10px] font-black uppercase shrink-0 transition-colors ${
-                    selectedLeadId === lead.id ? 'border-primary/20 text-primary' : 'border-border text-muted-foreground'
-                  }`}>
-                    {lead.noteCount} logs
-                  </div>
-                </button>
-              ))}
+            {/* TAB 1: Recent Notes Stream (Newest First) */}
+            {sidebarTab === 'recent' && (
+              <div className="space-y-2 max-h-[460px] overflow-y-auto custom-scrollbar pr-1">
+                {sortedNotes.map((note) => {
+                  const parsed = parseNote(note.description, note.activity_type);
+                  const isSelected = selectedLeadId === note.lead_id;
+                  const companyName = note.crm_leads?.company_name || 'Unassigned Lead';
+                  const contactPerson = note.crm_leads?.contact_person;
 
-              {uniqueLeads.length === 0 && (
-                <div className="p-8 text-center border border-dashed border-border/40 rounded-2xl bg-background/5">
-                  <Inbox className="mx-auto text-muted-foreground/40 mb-2" size={24} />
-                  <p className="text-xs text-muted-foreground font-semibold">No active leads found.</p>
-                </div>
-              )}
-            </div>
+                  return (
+                    <button
+                      key={note.id}
+                      onClick={() => setSelectedLeadId(note.lead_id)}
+                      className={`w-full p-3 rounded-2xl border text-left transition-all flex flex-col gap-2 group ${
+                        isSelected 
+                          ? 'bg-primary/10 border-primary/25 shadow-md shadow-primary/5' 
+                          : 'bg-background/30 border-border/40 hover:bg-muted/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-sm shrink-0">{parsed.icon}</span>
+                          <span className="font-black text-xs text-foreground truncate group-hover:text-primary transition-colors">
+                            {companyName}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">
+                          {formatRelativeTime(note.created_at)}
+                        </span>
+                      </div>
+
+                      {contactPerson && (
+                        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider truncate">
+                          {contactPerson}
+                        </p>
+                      )}
+
+                      <p className="text-[11px] text-foreground/80 line-clamp-2 leading-snug font-medium bg-background/40 p-2 rounded-xl border border-border/30">
+                        {parsed.discussionPoints || '—'}
+                      </p>
+
+                      <div className="flex items-center justify-between text-[9px] pt-0.5">
+                        <span className="font-black text-primary uppercase tracking-wider">
+                          {parsed.type}
+                        </span>
+                        {parsed.sentiment && (
+                          <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${getSentimentStyle(parsed.sentiment)}`}>
+                            {parsed.sentiment.replace(/[🟢🔴🟡⚪🟠]/gu, '').trim()}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {sortedNotes.length === 0 && (
+                  <div className="p-8 text-center border border-dashed border-border/40 rounded-2xl bg-background/5">
+                    <Inbox className="mx-auto text-muted-foreground/40 mb-2" size={24} />
+                    <p className="text-xs text-muted-foreground font-semibold">No recent logs found.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: Unique Leads Directory (Sorted by recent note activity) */}
+            {sidebarTab === 'leads' && (
+              <div className="space-y-2 max-h-[460px] overflow-y-auto custom-scrollbar pr-1">
+                {uniqueLeads.map((lead) => (
+                  <button
+                    key={lead.id}
+                    onClick={() => setSelectedLeadId(lead.id)}
+                    className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between group ${
+                      selectedLeadId === lead.id 
+                        ? 'bg-primary/10 border-primary/20 text-primary-foreground shadow-lg shadow-primary/5' 
+                        : 'bg-background/20 border-border/40 hover:bg-muted/40 text-foreground'
+                    }`}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-black text-xs sm:text-sm tracking-tight truncate group-hover:text-primary transition-colors">
+                          {lead.company_name}
+                        </h4>
+                        {lead.comment_on_business && (
+                          <span title="Has Business Comment" className="text-amber-400">
+                            <Building2 size={12} />
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate mt-0.5">
+                        {lead.contact_person || '—'}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <div className={`px-2 py-0.5 bg-background border rounded-lg text-[9px] font-black uppercase transition-colors ${
+                        selectedLeadId === lead.id ? 'border-primary/20 text-primary' : 'border-border text-muted-foreground'
+                      }`}>
+                        {lead.noteCount} {lead.noteCount === 1 ? 'log' : 'logs'}
+                      </div>
+                      {lead.latestNoteTime > 0 && (
+                        <span className="text-[9px] text-muted-foreground font-bold">
+                          {formatRelativeTime(new Date(lead.latestNoteTime).toISOString())}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+
+                {uniqueLeads.length === 0 && (
+                  <div className="p-8 text-center border border-dashed border-border/40 rounded-2xl bg-background/5">
+                    <Inbox className="mx-auto text-muted-foreground/40 mb-2" size={24} />
+                    <p className="text-xs text-muted-foreground font-semibold">No leads found matching your criteria.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
         </div>
 
@@ -473,7 +703,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   {selectedLeadId ? selectedLead?.company_name : "Global Activity Timeline"}
                 </h2>
                 <p className="text-xs text-muted-foreground mt-1 font-medium">
-                  {selectedLeadId ? `Primary Contact: ${selectedLead?.contact_person || '—'}` : "Showing all logged interactions across all accounts"}
+                  {selectedLeadId ? `Primary Contact: ${selectedLead?.contact_person || '—'}` : "Showing all logged interactions across accounts (newest first)"}
                 </p>
               </div>
 
@@ -494,6 +724,48 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 ))}
               </div>
             </div>
+
+            {/* Selected Lead's "Comment on the Business" Key Points Card */}
+            {selectedLead && (
+              <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 rounded-2xl p-4 sm:p-5 mb-6 shadow-sm">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                      <Building2 size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">
+                        Comment on the Business (Key Points)
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground font-medium">
+                        Core operational notes, business model, &amp; company insights
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingBusinessComment(selectedLeadBusinessComment);
+                      setIsBusinessCommentModalOpen(true);
+                    }}
+                    className="h-8 px-3 text-[11px] font-bold text-amber-400 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 rounded-xl flex items-center gap-1.5"
+                  >
+                    <Edit3 size={13} />
+                    {selectedLeadBusinessComment ? "Edit Key Points" : "+ Add Comment"}
+                  </Button>
+                </div>
+                {selectedLeadBusinessComment ? (
+                  <div className="mt-3 p-3.5 rounded-xl bg-background/50 border border-amber-500/15 text-xs text-foreground leading-relaxed whitespace-pre-wrap font-medium">
+                    {selectedLeadBusinessComment}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic mt-2">
+                    No business comments or company insights recorded yet. Click &quot;+ Add Comment&quot; to note key business points for this account.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Thread Content */}
             <div className="flex-1 relative">
@@ -522,9 +794,12 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                               {parsed.type} Interaction
                             </h4>
                             {!selectedLeadId && note.crm_leads && (
-                              <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/10">
+                              <button
+                                onClick={() => setSelectedLeadId(note.lead_id)}
+                                className="text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded border border-primary/20 transition-colors"
+                              >
                                 @ {note.crm_leads.company_name}
-                              </span>
+                              </button>
                             )}
                             {parsed.sentiment && (
                               <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border rounded-lg ${sentiment}`}>
@@ -543,6 +818,10 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                                 </span>
                               </div>
                             )}
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80 font-bold uppercase bg-background/60 px-2 py-0.5 rounded-md border border-border/40">
+                              <Clock size={11} className="text-primary" />
+                              {formatRelativeTime(note.created_at)}
+                            </div>
                             <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80 font-semibold uppercase">
                               <Calendar size={12} className="opacity-70" />
                               {new Date(note.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -560,7 +839,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                         {/* Note Fields rendering */}
                         <div className="space-y-3.5 text-sm text-foreground">
                           <div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Discussion & Outcomes</p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Discussion &amp; Outcomes</p>
                             <p className="leading-relaxed whitespace-pre-wrap text-foreground font-medium text-xs bg-muted/20 p-3 rounded-xl border border-border/30">
                               {parsed.discussionPoints || '—'}
                             </p>
@@ -610,6 +889,67 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           </Card>
         </div>
       </div>
+
+      {/* Edit Business Comment Modal */}
+      {isBusinessCommentModalOpen && selectedLead && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-card border-2 border-border w-full max-w-lg mx-auto rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-border flex items-center justify-between bg-background/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-foreground tracking-tight">Comment on the Business</h2>
+                  <p className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase mt-0.5">{selectedLead.company_name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsBusinessCommentModalOpen(false)} 
+                className="p-2 hover:bg-background rounded-xl transition-colors text-muted-foreground"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                  Company Key Points &amp; Insights
+                </label>
+                <textarea
+                  value={editingBusinessComment}
+                  onChange={(e) => setEditingBusinessComment(e.target.value)}
+                  placeholder="e.g. Enterprise logistics company with 50+ trucks, migrating to custom ERP in Q4, decision maker is cautious about onboarding time."
+                  rows={5}
+                  className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-amber-500/10 transition-all font-medium custom-scrollbar"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Saved directly to the company profile and visible across Leads, Pipeline, and Notes.
+                </p>
+              </div>
+
+              <div className="pt-2 grid grid-cols-2 gap-3">
+                <Button 
+                  onClick={handleSaveBusinessComment}
+                  disabled={savingBusinessComment} 
+                  className="w-full py-5 bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {savingBusinessComment ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                  Save Comment
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={() => setIsBusinessCommentModalOpen(false)}
+                  className="w-full py-5 bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl font-black uppercase tracking-wider active:scale-95 transition-all"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Log Interaction Modal */}
       {isNoteModalOpen && (
@@ -736,8 +1076,6 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           </div>
         </div>
       )}
-
-      
     </div>
   );
 }

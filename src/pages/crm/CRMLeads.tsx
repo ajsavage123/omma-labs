@@ -5,7 +5,7 @@ import { useWorkspaceUsers } from "@/hooks/useWorkspaceUsers";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake, AlertTriangle, CheckSquare, History, RotateCcw, FileSpreadsheet, Layers, Phone, MessageCircle, Mail } from "lucide-react";
+import { Search, Plus, X, Loader2, Trash2, Edit2, Download, Upload, Globe, MapPin, ChevronDown, ChevronUp, Zap, Flame, Snowflake, AlertTriangle, CheckSquare, History, RotateCcw, FileSpreadsheet, Layers, Phone, MessageCircle, Mail, Building2 } from "lucide-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
@@ -227,7 +227,8 @@ export default function CRMLeads() {
     source: '',
     payment_status: 'Pending',
     amount_paid: '',
-    notes: ''
+    notes: '',
+    comment_on_business: ''
   });
 
 
@@ -240,16 +241,17 @@ export default function CRMLeads() {
       email: '', 
       phone: '', 
       estimated_value: '', 
-      service_interest: '',
-      business_type: '',
-      website: '',
+      service_interest: '', 
+      business_type: '', 
+      website: '', 
       external_link: '',
       assigned_to: user?.id || '',
       budget: '',
       source: '',
       payment_status: 'Pending',
       amount_paid: '0',
-      notes: ''
+      notes: '',
+      comment_on_business: ''
     });
     setIsModalOpen(true);
   };
@@ -274,7 +276,8 @@ export default function CRMLeads() {
       source: lead.source || '',
       payment_status: lead.payment_status || 'Pending',
       amount_paid: (lead.amount_paid || 0).toString(),
-      notes: lead.notes || ''
+      notes: lead.notes || '',
+      comment_on_business: lead.comment_on_business || lead.custom_data?.comment_on_business || ''
     });
     setIsModalOpen(true);
   };
@@ -299,7 +302,10 @@ export default function CRMLeads() {
         finalContact = finalCompany;
       }
 
-      const savePayload = {
+      const existingLead = isEditMode && editingLeadId ? leads.find(l => l.id === editingLeadId) : null;
+      const existingCustom = existingLead?.custom_data || {};
+
+      const savePayload: Record<string, any> = {
         contact_person: finalContact,
         company_name: finalCompany,
         email: formData.email.trim() || null,
@@ -314,7 +320,11 @@ export default function CRMLeads() {
         source: formData.source.trim() || 'Manual Entry',
         payment_status: formData.payment_status,
         amount_paid: amountPaidNum,
-        notes: formData.notes.trim() || null
+        notes: formData.notes.trim() || null,
+        custom_data: {
+          ...existingCustom,
+          comment_on_business: formData.comment_on_business.trim() || null
+        }
       };
 
       if (isEditMode && editingLeadId) {
@@ -1291,6 +1301,33 @@ export default function CRMLeads() {
 
                             {/* Panel Column 3: Notes & Custom Fields */}
                             <div className="space-y-3 min-w-0">
+                              {/* Comment on the Business / Key Points */}
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <h4 className="text-[10px] font-black text-primary uppercase tracking-wider flex items-center gap-1.5">
+                                    <Building2 size={12} className="text-primary" />
+                                    Comment on the Business
+                                  </h4>
+                                  <button
+                                    onClick={() => openEditModal(lead)}
+                                    className="text-[9px] font-bold text-primary hover:underline"
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                                <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl text-xs text-foreground">
+                                  {lead.comment_on_business || lead.custom_data?.comment_on_business ? (
+                                    <p className="whitespace-pre-wrap leading-relaxed font-medium">
+                                      {lead.comment_on_business || lead.custom_data?.comment_on_business}
+                                    </p>
+                                  ) : (
+                                    <p className="italic text-muted-foreground text-[11px]">
+                                      No business comments added yet. Click edit to add company key points.
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
                               <h4 className="text-[10px] font-black text-primary uppercase tracking-wider mb-2">Interaction Notes</h4>
                               <div className="p-3 bg-background border border-border/50 rounded-xl max-h-[120px] overflow-y-auto text-xs text-muted-foreground">
                                 {lead.notes ? (
@@ -1528,6 +1565,16 @@ export default function CRMLeads() {
                         <span className="font-bold text-amber-500">{new Date(lead.follow_up_date).toLocaleDateString()}</span>
                       </div>
                     )}
+                    {(lead.comment_on_business || lead.custom_data?.comment_on_business) && (
+                      <div className="pt-1">
+                        <span className="text-primary font-bold text-[10px] uppercase flex items-center gap-1 mb-1">
+                          <Building2 size={11} /> Comment on Business:
+                        </span>
+                        <p className="p-2.5 bg-primary/5 rounded-lg border border-primary/20 text-[11px] whitespace-pre-wrap font-medium text-foreground">
+                          {lead.comment_on_business || lead.custom_data?.comment_on_business}
+                        </p>
+                      </div>
+                    )}
                     {lead.notes && (
                       <div className="pt-1">
                         <span className="text-muted-foreground font-bold text-[10px] uppercase block mb-1">Notes:</span>
@@ -1740,6 +1787,21 @@ export default function CRMLeads() {
                   </select>
                 </div>
               )}
+
+              {/* Comment on the Business / Key Points */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-primary uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                  <Building2 size={12} className="text-primary" />
+                  Comment on the Business (Key Points)
+                </label>
+                <textarea 
+                  value={formData.comment_on_business}
+                  onChange={(e) => setFormData({...formData, comment_on_business: e.target.value})}
+                  placeholder="Key points about this business (e.g. business model, pain points, company highlights, special requirements)..."
+                  rows={3}
+                  className="w-full px-5 py-3.5 bg-background border border-primary/20 focus:border-primary rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium custom-scrollbar" 
+                />
+              </div>
 
               {/* Interaction Notes */}
               <div className="space-y-1">

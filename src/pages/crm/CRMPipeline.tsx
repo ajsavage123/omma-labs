@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake, MoreHorizontal, ArrowUpDown, ChevronDown, Info } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake, MoreHorizontal, ArrowUpDown, ChevronDown, Info, Building2 } from "lucide-react";
 
 import { useWorkspaceUsers } from '@/hooks/useWorkspaceUsers';
 import { useToast } from '@/hooks/useToast';
@@ -270,7 +270,8 @@ export default function CRMPipeline() {
     business_type: '',
     website: '',
     external_link: '',
-    assigned_to: ''
+    assigned_to: '',
+    comment_on_business: ''
   });
 
   const [activeMoreMenuLeadId, setActiveMoreMenuLeadId] = useState<string | null>(null);
@@ -529,7 +530,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       business_type: '',
       website: '',
       external_link: '',
-      assigned_to: user?.id || ''
+      assigned_to: user?.id || '',
+      comment_on_business: ''
     });
     setIsModalOpen(true);
   };
@@ -549,7 +551,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       business_type: lead.business_type || '',
       website: lead.website || '',
       external_link: lead.external_link || '',
-      assigned_to: lead.assigned_to || ''
+      assigned_to: lead.assigned_to || '',
+      comment_on_business: lead.comment_on_business || lead.custom_data?.comment_on_business || ''
     });
     setIsModalOpen(true);
   }, []);
@@ -571,6 +574,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       const finalCompany = formData.company_name.trim();
       const finalContact = formData.contact_person.trim() || finalCompany;
 
+      const existingLead = isEditMode && editingLeadId ? leads.find(l => l.id === editingLeadId) : null;
+      const existingCustom = existingLead?.custom_data || {};
+
       const dataToSave = { 
         contact_person: finalContact,
         company_name: finalCompany, 
@@ -582,7 +588,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         website: formData.website.trim() || null,
         external_link: formData.external_link.trim() || null,
         workspace_id: user?.workspace_id,
-        assigned_to: isAdmin ? (formData.assigned_to || null) : (user?.id || null)
+        assigned_to: isAdmin ? (formData.assigned_to || null) : (user?.id || null),
+        custom_data: {
+          ...existingCustom,
+          comment_on_business: formData.comment_on_business.trim() || null
+        }
       };
 
       if (isEditMode && editingLeadId) {
@@ -1556,6 +1566,16 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     {lead.source && (
                       <p className="text-[11px] text-muted-foreground truncate"><span className="font-bold uppercase tracking-wider text-[9px]">Source:</span> {lead.source}</p>
                     )}
+                    {(lead.comment_on_business || lead.custom_data?.comment_on_business) && (
+                      <div className="p-2.5 bg-primary/5 border border-primary/20 rounded-xl space-y-1">
+                        <p className="text-[9px] font-black text-primary uppercase tracking-wider flex items-center gap-1">
+                          <Building2 size={11} /> Comment on Business
+                        </p>
+                        <p className="text-[11px] text-foreground font-medium whitespace-pre-wrap leading-relaxed">
+                          {lead.comment_on_business || lead.custom_data?.comment_on_business}
+                        </p>
+                      </div>
+                    )}
                     {Number(lead.budget || 0) > 0 && (
                       <p className="text-[11px] text-muted-foreground"><span className="font-bold uppercase tracking-wider text-[9px]">Budget:</span> ₹{Number(lead.budget || 0).toLocaleString()}</p>
                     )}
@@ -1755,6 +1775,23 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     className="w-full px-5 py-3.5 bg-background border border-input rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
                   />
                 </div>
+              </div>
+
+              {/* Comment on the Business / Key Points */}
+              <div className="space-y-1">
+                <label htmlFor="lead_comment_on_business" className="text-[10px] font-black text-primary uppercase tracking-widest ml-1 flex items-center gap-1.5 cursor-pointer">
+                  <Building2 size={12} className="text-primary" />
+                  Comment on the Business (Key Points)
+                </label>
+                <textarea 
+                  id="lead_comment_on_business"
+                  name="comment_on_business"
+                  value={formData.comment_on_business}
+                  onChange={(e) => setFormData({...formData, comment_on_business: e.target.value})}
+                  placeholder="Key points about this business (e.g. business model, pain points, company highlights, special requirements)..."
+                  rows={3}
+                  className="w-full px-5 py-3.5 bg-background border border-primary/20 focus:border-primary rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium custom-scrollbar" 
+                />
               </div>
 
               {isAdmin && (
