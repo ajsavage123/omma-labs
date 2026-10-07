@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake, MoreHorizontal, ArrowUpDown, ChevronDown, Info, Building2 } from "lucide-react";
+import { Phone, MessageCircle, Mail, ChevronRight, ChevronLeft, Plus, Loader2, X, HelpCircle, Trash2, Edit2, Pin, Clock, Globe, MapPin, Clipboard, Search, Calendar, Zap, Flame, Snowflake, MoreHorizontal, ArrowUpDown, ChevronDown, Info, Building2, Layers, Check } from "lucide-react";
 
 import { useWorkspaceUsers } from '@/hooks/useWorkspaceUsers';
 import { useToast } from '@/hooks/useToast';
@@ -279,6 +279,54 @@ export default function CRMPipeline() {
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
 
+  // Dedicated Desktop View Type: 'compact' (sleek uniform cards with minimized activity pills) vs 'expanded' (full inline boxes)
+  const [pipelineCardViewMode, setPipelineCardViewMode] = useState<'compact' | 'expanded'>('expanded');
+
+  // Full Lead Intel & Activity Popup Modal State
+  const [activeDetailsLead, setActiveDetailsLead] = useState<Record<string, any> | null>(null);
+  const [activeDetailsTab, setActiveDetailsTab] = useState<'all' | 'comment' | 'schedule' | 'notes'>('all');
+  const [detailsEditingComment, setDetailsEditingComment] = useState('');
+  const [isSavingDetailsComment, setIsSavingDetailsComment] = useState(false);
+
+  const openLeadDetails = useCallback((lead: Record<string, any>, tab: 'all' | 'comment' | 'schedule' | 'notes' = 'all') => {
+    setActiveDetailsLead(lead);
+    setActiveDetailsTab(tab);
+    setDetailsEditingComment(lead.comment_on_business || lead.custom_data?.comment_on_business || '');
+  }, []);
+
+  const handleSaveDetailsComment = async () => {
+    if (!activeDetailsLead) return;
+    setIsSavingDetailsComment(true);
+    try {
+      const existingCustom = activeDetailsLead.custom_data || {};
+      const updatedCustom = {
+        ...existingCustom,
+        comment_on_business: detailsEditingComment.trim() || null
+      };
+
+      const { error } = await supabase
+        .from('crm_leads')
+        .update({
+          custom_data: updatedCustom
+        })
+        .eq('id', activeDetailsLead.id);
+
+      if (error) throw error;
+      toast.success("Business comment updated!");
+      setActiveDetailsLead(prev => prev ? {
+        ...prev,
+        comment_on_business: detailsEditingComment.trim() || null,
+        custom_data: updatedCustom
+      } : null);
+      refreshLeads();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to save comment");
+    } finally {
+      setIsSavingDetailsComment(false);
+    }
+  };
+
 
 
   const togglePin = useCallback(async (leadId: string, currentStatus: boolean) => {
@@ -315,7 +363,7 @@ export default function CRMPipeline() {
       lead_id: lead.id
     });
     setIsTaskModalOpen(true);
-  }, [toast]);
+  }, []);
 
   const openNoteModal = useCallback((lead: Record<string, any>) => {
     setSelectedLeadForNote(lead);
@@ -327,7 +375,7 @@ export default function CRMPipeline() {
       additional_notes: ''
     });
     setIsNoteModalOpen(true);
-  }, [toast]);
+  }, []);
 
   const handleNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -655,7 +703,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         fullError: error
       });
     }
-  }, [refreshLeads, toast]);
+  }, []);
 
   const deleteLead = useCallback(async (id: string) => {
     if (!confirm("Are you sure you want to delete this lead?")) return;
@@ -800,7 +848,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   return (
                     <Card 
                       key={lead.id} 
-                      className={`bg-card/80 border-border border-2 p-3 sm:p-6 hover:shadow-2xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-xl sm:rounded-[2rem] overflow-hidden shadow-md min-h-[250px] sm:min-h-[300px] flex flex-col justify-between ${highlightClass} ${
+                      className={`bg-card/85 border-border border-2 p-3 sm:p-4 hover:shadow-xl transition-all relative group border-t-4 border-t-transparent hover:border-t-primary rounded-xl sm:rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between ${highlightClass} ${
                         glowingLeadId === lead.id
                           ? 'ring-4 ring-indigo-500 border-indigo-400 shadow-[0_0_35px_rgba(99,102,241,0.8)] scale-[1.02] bg-indigo-500/10 z-30 animate-pulse'
                           : ''
@@ -972,103 +1020,154 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                         </div>
                       </div>
 
-                      {/* Display Next Scheduled Action */}
-                      {lead.crm_tasks && lead.crm_tasks.some((t: Record<string, any>) => t.status === 'Pending') && (
-                        <div className="mt-2.5 p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                          <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Upcoming Action</p>
-                          {lead.crm_tasks
-                            .filter((t: Record<string, any>) => t.status === 'Pending')
-                            .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
-                            .slice(0, 1)
-                            .map((task: Record<string, any>) => (
-                              <div key={task.id} className="space-y-1.5">
-                                <div className="flex items-center justify-between gap-1.5">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <Clock size={11} className="text-amber-500 shrink-0" />
-                                    <div className="min-w-0">
-                                      <p className="text-[10px] font-bold text-foreground truncate">{task.title}</p>
-                                      <p className="text-[8px] text-muted-foreground font-semibold uppercase">
-                                        {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                        {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
-                                      </p>
+                      {/* Minimized Order vs Expanded Order */}
+                      {pipelineCardViewMode === 'compact' ? (
+                        /* Compact View: Sleek Minimized Activity Badges */
+                        <div className="mt-2 pt-2 border-t border-border/40 space-y-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {/* 1. Comment on Business Mini Pill */}
+                            {(lead.comment_on_business || lead.custom_data?.comment_on_business) && (
+                              <button
+                                onClick={() => openLeadDetails(lead, 'comment')}
+                                className="px-2 py-0.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-md text-[10px] font-bold text-amber-400 flex items-center gap-1 transition-colors active:scale-95"
+                                title="Click to view full Business Comment in popup"
+                              >
+                                <Building2 size={11} className="text-amber-400" />
+                                <span>Comment</span>
+                              </button>
+                            )}
+
+                            {/* 2. Upcoming Action Mini Pill */}
+                            {lead.crm_tasks && lead.crm_tasks.some((t: Record<string, any>) => t.status === 'Pending') && (() => {
+                              const nextTask = lead.crm_tasks
+                                .filter((t: Record<string, any>) => t.status === 'Pending')
+                                .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0];
+                              const dateStr = new Date(nextTask.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                              return (
+                                <button
+                                  onClick={() => openLeadDetails(lead, 'schedule')}
+                                  className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 rounded-md text-[10px] font-bold text-sky-400 flex items-center gap-1 transition-colors active:scale-95"
+                                  title={`Upcoming Action: ${nextTask.title} on ${dateStr}`}
+                                >
+                                  <Clock size={11} className="text-sky-400" />
+                                  <span>{dateStr}</span>
+                                </button>
+                              );
+                            })()}
+
+                            {/* 3. Log Notes Mini Pill */}
+                            {lead.notes && (
+                              <button
+                                onClick={() => openLeadDetails(lead, 'notes')}
+                                className="px-2 py-0.5 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 rounded-md text-[10px] font-bold text-indigo-400 flex items-center gap-1 transition-colors active:scale-95"
+                                title="Click to view logged interaction notes in popup"
+                              >
+                                <Clipboard size={11} className="text-indigo-400" />
+                                <span>Notes</span>
+                              </button>
+                            )}
+
+                            {/* Open Details Button */}
+                            <button
+                              onClick={() => openLeadDetails(lead, 'all')}
+                              className="ml-auto px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-md text-[10px] font-bold text-slate-200 flex items-center gap-1 transition-colors active:scale-95"
+                              title="Open Full Lead Intel & Details Popup"
+                            >
+                              <Info size={11} className="text-slate-400" />
+                              <span>Details</span>
+                            </button>
+                          </div>
+
+                          {/* Quick Actions Footer */}
+                          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                            <button 
+                              onClick={() => openNoteModal(lead)}
+                              className="py-1.5 px-2 bg-background/60 hover:bg-muted border border-border/60 rounded-lg font-bold text-[9px] uppercase tracking-wider text-muted-foreground transition-all active:scale-95 flex items-center justify-center gap-1"
+                            >
+                              <Clipboard size={10} />
+                              Log Note
+                            </button>
+                            <button 
+                              onClick={() => openTaskModal(lead)}
+                              className={`py-1.5 px-2 bg-gradient-to-r ${stage.color} hover:brightness-110 text-white rounded-lg font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1`}
+                            >
+                              <Plus size={10} />
+                              Action
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Expanded View: Full inline boxes */
+                        <div className="space-y-2 mt-2 pt-2 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
+                          {/* Business Comment */}
+                          {(lead.comment_on_business || lead.custom_data?.comment_on_business) && (
+                            <div className="p-2.5 bg-slate-900 border border-amber-500/40 rounded-xl space-y-1">
+                              <p className="text-[9px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                                <Building2 size={11} /> Comment on Business
+                              </p>
+                              <p className="text-[11px] text-white font-medium whitespace-pre-wrap leading-relaxed line-clamp-3">
+                                {lead.comment_on_business || lead.custom_data?.comment_on_business}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Display Next Scheduled Action */}
+                          {lead.crm_tasks && lead.crm_tasks.some((t: Record<string, any>) => t.status === 'Pending') && (
+                            <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                              <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Upcoming Action</p>
+                              {lead.crm_tasks
+                                .filter((t: Record<string, any>) => t.status === 'Pending')
+                                .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+                                .slice(0, 1)
+                                .map((task: Record<string, any>) => (
+                                  <div key={task.id} className="space-y-1">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <div className="flex items-center gap-1 min-w-0">
+                                        <Clock size={11} className="text-amber-500 shrink-0" />
+                                        <p className="text-[10px] font-bold text-foreground truncate">{task.title}</p>
+                                      </div>
+                                      <button onClick={() => deleteTask(task.id)} className="p-0.5 text-muted-foreground hover:text-red-500">
+                                        <Trash2 size={10} />
+                                      </button>
                                     </div>
+                                    <p className="text-[8px] text-muted-foreground font-semibold uppercase">
+                                      {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                      {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
+                                    </p>
                                   </div>
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                                    className="p-1 hover:bg-red-500/10 rounded text-muted-foreground hover:text-red-500 shrink-0"
-                                    title="Delete Action"
-                                  >
-                                    <Trash2 size={11} />
-                                  </button>
-                                </div>
-                                <div className="flex items-center gap-2 pt-1 border-t border-border/10" onClick={(e) => e.stopPropagation()}>
-                                  <a 
-                                    href={googleCalendarService.generateGoogleCalendarLink(task)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white rounded text-[8px] font-black uppercase tracking-wider transition-all"
-                                    title="Add to Google Calendar directly (No API keys required)"
-                                  >
-                                    <Calendar size={8} /> Add
-                                  </a>
-                                  <a 
-                                    href={googleCalendarService.generateGmailComposeLink(
-                                      task,
-                                      lead.email || '',
-                                      googleCalendarService.generateGoogleCalendarLink(task)
-                                    )}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded text-[8px] font-black uppercase tracking-wider transition-all"
-                                    title="Compose prefilled Gmail invitation to send"
-                                  >
-                                    <Mail size={8} /> Invite
-                                  </a>
-                                </div>
-                              </div>
-                            ))}
+                                ))}
+                            </div>
+                          )}
+
+                          {/* Display Logged Notes */}
+                          {lead.notes && (
+                            <div className="p-2 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
+                              <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                <Clipboard size={10} /> Recent Note
+                              </p>
+                              <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">
+                                {lead.notes.split('\n\n---\n\n')[0].trim()}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Structured Note logger & Scheduler actions */}
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <button 
+                              onClick={() => openNoteModal(lead)}
+                              className="px-2 py-2 bg-background border border-border hover:bg-muted/50 rounded-xl font-black text-[9px] uppercase tracking-wider text-muted-foreground transition-all active:scale-95 flex items-center justify-center gap-1"
+                            >
+                              <Clipboard size={11} /> Log Note
+                            </button>
+                            <button 
+                              onClick={() => openTaskModal(lead)}
+                              className={`px-2 py-2 bg-gradient-to-r ${stage.color} text-white rounded-xl font-black text-[9px] uppercase tracking-wider shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1`}
+                            >
+                              <Plus size={11} /> Action
+                            </button>
+                          </div>
                         </div>
                       )}
-
-                       {/* Display Logged Notes */}
-                       {lead.notes && (
-                         <div className="mt-2.5 p-2.5 bg-indigo-500/5 border border-indigo-500/10 rounded-xl group/note relative">
-                           <div className="flex items-center justify-between mb-1">
-                             <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                               <Clipboard size={10} className="text-indigo-400" /> Recent Note
-                             </p>
-                             <button 
-                               onClick={(e) => { e.stopPropagation(); deleteRecentNote(lead); }}
-                               className="p-0.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded opacity-0 group-hover/note:opacity-100 transition-opacity"
-                               title="Delete Note"
-                             >
-                               <Trash2 size={10} />
-                             </button>
-                           </div>
-                           <div className="text-[10px] text-muted-foreground leading-relaxed max-h-[75px] overflow-y-auto custom-scrollbar whitespace-pre-wrap font-medium">
-                             {lead.notes.split('\n\n---\n\n')[0].trim()}
-                           </div>
-                         </div>
-                       )}
-
-                      {/* Structured Note logger & Scheduler actions */}
-                      <div className="grid grid-cols-2 gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-                        <button 
-                          onClick={() => openNoteModal(lead)}
-                          className="px-2 py-2.5 bg-background border border-border hover:bg-muted/50 rounded-xl font-black text-[9px] uppercase tracking-wider text-muted-foreground transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                        >
-                          <Clipboard size={12} />
-                          Log Note
-                        </button>
-                        
-                        <button 
-                          onClick={() => openTaskModal(lead)}
-                          className={`px-2 py-2.5 bg-gradient-to-r ${stage.color} hover:brightness-110 text-white rounded-xl font-black text-[9px] uppercase tracking-wider shadow-lg shadow-indigo-600/15 transition-all active:scale-95 flex items-center justify-center gap-1`}
-                        >
-                          <Plus size={12} />
-                          {lead.crm_tasks && lead.crm_tasks.some((t: Record<string, any>) => t.status === 'Pending') ? 'Update Action' : 'Schedule Action'}
-                        </button>
-                      </div>
 
                     </Card>
                   );
@@ -1086,7 +1185,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         })}
       </div>
     </div>
-  ), [scoredLeads, searchQuery, unmappedLeads, showInfoFor, glowingLeadId, filterSortBy, user, currentTime, getLeadsForStage, handleAction, togglePin, openEditModal, deleteLead, updateLeadStage, openNoteModal, openTaskModal, deleteTask, deleteRecentNote]);
+  ), [scoredLeads, searchQuery, unmappedLeads, showInfoFor, glowingLeadId, filterSortBy, user, currentTime, getLeadsForStage, handleAction, togglePin, openEditModal, deleteLead, updateLeadStage, openNoteModal, openTaskModal, deleteTask, deleteRecentNote, getLeadHighlightClass, openLeadDetails, pipelineCardViewMode]);
 
   if (loading) return (
     <div className="h-full flex items-center justify-center">
@@ -1190,6 +1289,36 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             <option value="Score" className="bg-background text-foreground">Score</option>
             <option value="Newest" className="bg-background text-foreground">Date</option>
           </select>
+        </div>
+
+        {/* Dedicated Desktop View Type Switcher */}
+        <div className="hidden md:flex items-center gap-1 bg-background border border-input rounded-xl p-0.5 shadow-sm shrink-0">
+          <button
+            type="button"
+            onClick={() => setPipelineCardViewMode('compact')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              pipelineCardViewMode === 'compact'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            title="Compact View: sleek uniform tiles with minimized activity badges"
+          >
+            <Layers size={13} />
+            Compact View
+          </button>
+          <button
+            type="button"
+            onClick={() => setPipelineCardViewMode('expanded')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              pipelineCardViewMode === 'expanded'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            title="Detailed View: expanded inline activity previews directly on tiles"
+          >
+            <Clipboard size={13} />
+            Detailed View
+          </button>
         </div>
       </div>
 
@@ -1567,11 +1696,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                       <p className="text-[11px] text-muted-foreground truncate"><span className="font-bold uppercase tracking-wider text-[9px]">Source:</span> {lead.source}</p>
                     )}
                     {(lead.comment_on_business || lead.custom_data?.comment_on_business) && (
-                      <div className="p-2.5 bg-primary/5 border border-primary/20 rounded-xl space-y-1">
-                        <p className="text-[9px] font-black text-primary uppercase tracking-wider flex items-center gap-1">
-                          <Building2 size={11} /> Comment on Business
+                      <div className="p-3 bg-slate-900/95 border-2 border-amber-500/50 rounded-xl space-y-1 shadow-md">
+                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <Building2 size={13} className="text-amber-400" /> Comment on Business
                         </p>
-                        <p className="text-[11px] text-foreground font-medium whitespace-pre-wrap leading-relaxed">
+                        <p className="text-xs text-white font-semibold whitespace-pre-wrap leading-relaxed">
                           {lead.comment_on_business || lead.custom_data?.comment_on_business}
                         </p>
                       </div>
@@ -1778,9 +1907,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               </div>
 
               {/* Comment on the Business / Key Points */}
-              <div className="space-y-1">
-                <label htmlFor="lead_comment_on_business" className="text-[10px] font-black text-primary uppercase tracking-widest ml-1 flex items-center gap-1.5 cursor-pointer">
-                  <Building2 size={12} className="text-primary" />
+              <div className="space-y-1.5">
+                <label htmlFor="lead_comment_on_business" className="text-xs font-black text-amber-400 uppercase tracking-widest ml-1 flex items-center gap-1.5 cursor-pointer">
+                  <Building2 size={14} className="text-amber-400" />
                   Comment on the Business (Key Points)
                 </label>
                 <textarea 
@@ -1790,7 +1919,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   onChange={(e) => setFormData({...formData, comment_on_business: e.target.value})}
                   placeholder="Key points about this business (e.g. business model, pain points, company highlights, special requirements)..."
                   rows={3}
-                  className="w-full px-5 py-3.5 bg-background border border-primary/20 focus:border-primary rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium custom-scrollbar" 
+                  className="w-full px-5 py-3.5 bg-slate-900 border-2 border-slate-700 focus:border-amber-400 rounded-2xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-4 focus:ring-amber-500/20 transition-all font-semibold custom-scrollbar" 
                 />
               </div>
 
@@ -2140,6 +2269,395 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           </div>
         </div>
       )}
+
+      {/* Dedicated Lead Intel & Activity Details Popup Modal (Clean Glassmorphic & Solid Color System) */}
+      {activeDetailsLead && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150"
+          onClick={() => setActiveDetailsLead(null)}
+        >
+          <div 
+            className="relative bg-slate-900/90 backdrop-blur-xl border border-slate-700/60 w-full max-w-2xl mx-auto rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-800 bg-slate-950/40 backdrop-blur-md flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                  <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold text-white bg-gradient-to-r ${(STAGES.find(s => s.key === activeDetailsLead.status) || STAGES[0]).color}`}>
+                    {activeDetailsLead.status}
+                  </span>
+                  {activeDetailsLead.business_type && (
+                    <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                      {activeDetailsLead.business_type}
+                    </span>
+                  )}
+                  {activeDetailsLead.service_interest && (
+                    <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                      {activeDetailsLead.service_interest}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">
+                  {resolveLeadCompanyName(activeDetailsLead)}
+                </h2>
+                {resolveLeadContactPerson(activeDetailsLead) && resolveLeadContactPerson(activeDetailsLead) !== resolveLeadCompanyName(activeDetailsLead) && (
+                  <p className="text-xs text-slate-400 font-medium mt-1">
+                    Contact: {resolveLeadContactPerson(activeDetailsLead)}
+                  </p>
+                )}
+              </div>
+              <button 
+                onClick={() => setActiveDetailsLead(null)}
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors shrink-0"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick Action & Contact Strip */}
+            <div className="px-5 sm:px-6 py-3 bg-slate-950/20 border-b border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                {activeDetailsLead.phone && (
+                  <>
+                    <button 
+                      onClick={() => handleAction('call', activeDetailsLead.phone)}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+                    >
+                      <Phone size={12} /> Call
+                    </button>
+                    <button 
+                      onClick={() => handleAction('wa', activeDetailsLead.phone)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+                    >
+                      <MessageCircle size={12} /> WhatsApp
+                    </button>
+                  </>
+                )}
+                {activeDetailsLead.email && (
+                  <button 
+                    onClick={() => handleAction('mail', activeDetailsLead.email)}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+                  >
+                    <Mail size={12} /> Email
+                  </button>
+                )}
+                {activeDetailsLead.website && (
+                  <a 
+                    href={formatUrl(activeDetailsLead.website)} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+                  >
+                    <Globe size={12} /> Website
+                  </a>
+                )}
+                {activeDetailsLead.external_link && (
+                  <a 
+                    href={formatUrl(activeDetailsLead.external_link)} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+                  >
+                    <MapPin size={12} /> Maps
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const leadToEdit = activeDetailsLead;
+                    setActiveDetailsLead(null);
+                    openEditModal(leadToEdit);
+                  }}
+                  className="h-8 px-3 text-xs font-medium gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+                >
+                  <Edit2 size={12} /> Edit Lead
+                </Button>
+              </div>
+            </div>
+
+            {/* Clean Segmented Tabs */}
+            <div className="px-5 sm:px-6 pt-3 pb-2 border-b border-slate-800 bg-slate-950/20">
+              <div className="p-1 bg-slate-950/80 backdrop-blur-md rounded-xl border border-slate-800 flex items-center gap-1 overflow-x-auto custom-scrollbar">
+                <button
+                  onClick={() => setActiveDetailsTab('all')}
+                  className={`px-3.5 py-1.5 text-xs rounded-lg transition-colors shrink-0 font-medium ${
+                    activeDetailsTab === 'all'
+                      ? 'bg-slate-800 text-white font-semibold border border-slate-700'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  All Details
+                </button>
+                <button
+                  onClick={() => setActiveDetailsTab('comment')}
+                  className={`px-3.5 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-1.5 shrink-0 font-medium ${
+                    activeDetailsTab === 'comment'
+                      ? 'bg-slate-800 text-white font-semibold border border-slate-700'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <Building2 size={13} className="text-amber-400" />
+                  Comment on Business
+                </button>
+                <button
+                  onClick={() => setActiveDetailsTab('schedule')}
+                  className={`px-3.5 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-1.5 shrink-0 font-medium ${
+                    activeDetailsTab === 'schedule'
+                      ? 'bg-slate-800 text-white font-semibold border border-slate-700'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <Clock size={13} className="text-sky-400" />
+                  Schedules &amp; Actions
+                </button>
+                <button
+                  onClick={() => setActiveDetailsTab('notes')}
+                  className={`px-3.5 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-1.5 shrink-0 font-medium ${
+                    activeDetailsTab === 'notes'
+                      ? 'bg-slate-800 text-white font-semibold border border-slate-700'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <Clipboard size={13} className="text-indigo-400" />
+                  Logged Notes
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Tab Content */}
+            <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar space-y-4 flex-1">
+              
+              {/* 1. Comment on Business Section */}
+              {(activeDetailsTab === 'all' || activeDetailsTab === 'comment') && (
+                <div className="bg-slate-950/50 backdrop-blur-md border border-slate-800/80 rounded-xl p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <Building2 size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                          Comment on the Business
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-normal">Key highlights, operational requirements and notes</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <textarea 
+                      value={detailsEditingComment}
+                      onChange={(e) => setDetailsEditingComment(e.target.value)}
+                      placeholder="Add key highlights about this business, pain points, company requirements, operational details..."
+                      rows={4}
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-slate-600 rounded-lg text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-700 transition-colors font-normal custom-scrollbar"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleSaveDetailsComment}
+                        disabled={isSavingDetailsComment}
+                        className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-1.5"
+                      >
+                        {isSavingDetailsComment ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                        Save Comment
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Scheduled Actions & Calendar Section */}
+              {(activeDetailsTab === 'all' || activeDetailsTab === 'schedule') && (
+                <div className="bg-slate-950/50 backdrop-blur-md border border-slate-800/80 rounded-xl p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                        <Clock size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                          Scheduled Actions &amp; Calendar
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-normal">Upcoming actions and scheduled reminders</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const targetLead = activeDetailsLead;
+                        openTaskModal(targetLead);
+                      }}
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs rounded-lg transition-colors gap-1.5"
+                    >
+                      <Plus size={13} /> Schedule Action
+                    </Button>
+                  </div>
+
+                  {activeDetailsLead.crm_tasks && activeDetailsLead.crm_tasks.filter((t: any) => t.status === 'Pending').length > 0 ? (
+                    <div className="space-y-2 pt-1">
+                      {activeDetailsLead.crm_tasks
+                        .filter((t: any) => t.status === 'Pending')
+                        .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+                        .map((task: any) => (
+                          <div 
+                            key={task.id} 
+                            className="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors"
+                          >
+                            <div className="space-y-0.5 min-w-0">
+                              <p className="text-sm font-semibold text-white truncate">{task.title}</p>
+                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                <span className="text-sky-400 font-medium">
+                                  {new Date(task.due_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                                {task.due_time && <span>@ {task.due_time.substring(0, 5)}</span>}
+                                {task.priority && (
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] uppercase font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                    {task.priority}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <a 
+                                href={googleCalendarService.generateGoogleCalendarLink(task)}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md text-xs font-medium transition-colors flex items-center gap-1"
+                              >
+                                <Calendar size={12} /> Google Cal
+                              </a>
+                              <a 
+                                href={googleCalendarService.generateGmailComposeLink(
+                                  task,
+                                  activeDetailsLead.email || '',
+                                  googleCalendarService.generateGoogleCalendarLink(task)
+                                )}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md text-xs font-medium transition-colors flex items-center gap-1"
+                              >
+                                <Mail size={12} /> Invite
+                              </a>
+                              <button 
+                                onClick={async () => {
+                                  await deleteTask(task.id);
+                                  setActiveDetailsLead(prev => prev ? {
+                                    ...prev,
+                                    crm_tasks: (prev.crm_tasks || []).filter((t: any) => t.id !== task.id)
+                                  } : null);
+                                }}
+                                className="p-1.5 hover:bg-red-500/10 text-slate-400 hover:text-red-400 rounded-md transition-colors"
+                                title="Delete Action"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic py-2">
+                      No upcoming actions scheduled for this lead.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* 3. Logged Interaction Notes Section */}
+              {(activeDetailsTab === 'all' || activeDetailsTab === 'notes') && (
+                <div className="bg-slate-950/50 backdrop-blur-md border border-slate-800/80 rounded-xl p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        <Clipboard size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                          Logged Notes &amp; History
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-normal">Recorded interaction notes and discussion history</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const targetLead = activeDetailsLead;
+                        openNoteModal(targetLead);
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-lg transition-colors gap-1.5"
+                    >
+                      <Plus size={13} /> Log Note
+                    </Button>
+                  </div>
+
+                  {activeDetailsLead.notes ? (
+                    <div className="space-y-2.5 pt-1">
+                      {activeDetailsLead.notes.split('\n\n---\n\n').map((noteEntry: string, idx: number) => (
+                        <div key={idx} className="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-normal">
+                          {noteEntry}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic py-2">
+                      No interaction notes recorded yet.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* 4. Financial & Overview Section */}
+              {activeDetailsTab === 'all' && (
+                <div className="bg-slate-950/50 backdrop-blur-md border border-slate-800/80 rounded-xl p-4 sm:p-5 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Financial &amp; Account Overview
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3 bg-slate-900/70 border border-slate-800 rounded-lg">
+                      <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Est. Value</p>
+                      <p className="text-base font-bold text-white mt-0.5">₹{Number(activeDetailsLead.estimated_value || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 bg-slate-900/70 border border-slate-800 rounded-lg">
+                      <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Budget</p>
+                      <p className="text-base font-bold text-white mt-0.5">₹{Number(activeDetailsLead.budget || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 bg-slate-900/70 border border-slate-800 rounded-lg">
+                      <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Score</p>
+                      <p className="text-base font-bold text-emerald-400 mt-0.5 flex items-center gap-1">
+                        <Flame size={14} className="text-emerald-400" />
+                        {activeDetailsLead.propensityScore || 50}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-slate-900/70 border border-slate-800 rounded-lg">
+                      <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Owner</p>
+                      <p className="text-xs font-semibold text-slate-200 mt-1 truncate">{activeDetailsLead.assigned_user?.full_name || activeDetailsLead.assigned_user?.username || 'Unassigned'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-950/40 backdrop-blur-md flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setActiveDetailsLead(null)}
+                className="h-8 px-4 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+              >
+                Close
+              </Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* Duplicate Leads Manager Modal */}
       <CRMDuplicateLeadsModal
         isOpen={isDuplicateModalOpen}

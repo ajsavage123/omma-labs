@@ -654,8 +654,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                           {lead.company_name}
                         </h4>
                         {lead.comment_on_business && (
-                          <span title="Has Business Comment" className="text-amber-400">
-                            <Building2 size={12} />
+                          <span title="Has Business Comment" className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black tracking-wider flex items-center gap-1 shrink-0">
+                            <Building2 size={10} />
+                            Comment
                           </span>
                         )}
                       </div>
@@ -727,17 +728,18 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
             {/* Selected Lead's "Comment on the Business" Key Points Card */}
             {selectedLead && (
-              <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 rounded-2xl p-4 sm:p-5 mb-6 shadow-sm">
+              <div className="bg-slate-900 border-2 border-amber-500/40 rounded-2xl p-4 sm:p-5 mb-6 shadow-md">
                 <div className="flex items-center justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                      <Building2 size={16} />
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                      <Building2 size={18} />
                     </div>
                     <div>
-                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">
-                        Comment on the Business (Key Points)
+                      <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                        Comment on the Business
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">Key Points</span>
                       </h4>
-                      <p className="text-[10px] text-muted-foreground font-medium">
+                      <p className="text-xs text-slate-300 font-medium">
                         Core operational notes, business model, &amp; company insights
                       </p>
                     </div>
@@ -749,20 +751,20 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                       setEditingBusinessComment(selectedLeadBusinessComment);
                       setIsBusinessCommentModalOpen(true);
                     }}
-                    className="h-8 px-3 text-[11px] font-bold text-amber-400 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 rounded-xl flex items-center gap-1.5"
+                    className="h-9 px-4 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl flex items-center gap-1.5 shadow-xs"
                   >
-                    <Edit3 size={13} />
+                    <Edit3 size={14} />
                     {selectedLeadBusinessComment ? "Edit Key Points" : "+ Add Comment"}
                   </Button>
                 </div>
                 {selectedLeadBusinessComment ? (
-                  <div className="mt-3 p-3.5 rounded-xl bg-background/50 border border-amber-500/15 text-xs text-foreground leading-relaxed whitespace-pre-wrap font-medium">
+                  <div className="mt-3 p-4 rounded-xl bg-slate-950/90 border border-amber-500/30 text-sm text-white leading-relaxed whitespace-pre-wrap font-semibold">
                     {selectedLeadBusinessComment}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground italic mt-2">
+                  <div className="mt-2 p-3.5 bg-slate-950/50 rounded-xl border border-dashed border-slate-700 text-xs text-slate-300 italic">
                     No business comments or company insights recorded yet. Click &quot;+ Add Comment&quot; to note key business points for this account.
-                  </p>
+                  </div>
                 )}
               </div>
             )}
@@ -913,8 +915,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             </div>
             
             <div className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Building2 size={14} />
                   Company Key Points &amp; Insights
                 </label>
                 <textarea
@@ -922,9 +925,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   onChange={(e) => setEditingBusinessComment(e.target.value)}
                   placeholder="e.g. Enterprise logistics company with 50+ trucks, migrating to custom ERP in Q4, decision maker is cautious about onboarding time."
                   rows={5}
-                  className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-amber-500/10 transition-all font-medium custom-scrollbar"
+                  className="w-full px-4 py-3 bg-slate-950 border-2 border-slate-700 focus:border-amber-400 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-4 focus:ring-amber-500/20 transition-all font-semibold custom-scrollbar"
                 />
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-slate-300 font-medium">
                   Saved directly to the company profile and visible across Leads, Pipeline, and Notes.
                 </p>
               </div>

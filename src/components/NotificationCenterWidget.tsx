@@ -316,107 +316,118 @@ export default function NotificationCenterWidget() {
 
         {/* Dropdown Menu */}
         {isOpen && (
-          <div
-            role="menu"
-            aria-label="Notifications panel"
-            className="absolute top-full right-0 mt-3 w-80 md:w-96 bg-card/95 backdrop-blur-3xl border border-border rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden animate-slide-in-right flex flex-col z-[999]"
-          >
-            {/* Header */}
-            <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <Bell className="h-4 w-4 text-primary" />
-                <h3 className="font-black text-foreground uppercase tracking-widest text-[11px]">Notifications</h3>
+          <>
+            <div 
+              className="fixed inset-0 z-[998] bg-black/60 sm:hidden" 
+              onClick={() => setIsOpen(false)} 
+            />
+            <div
+              role="menu"
+              aria-label="Notifications panel"
+              className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:top-full sm:right-0 sm:mt-3 w-auto sm:w-96 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in flex flex-col z-[999]"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-slate-800 bg-slate-950 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-primary" />
+                  <h3 className="font-black text-white uppercase tracking-widest text-[11px]">Notifications</h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Only show Enable Push on supporting browsers */}
+                  {pushSupported && (
+                    <button
+                      onClick={handleSubscribe}
+                      disabled={isSubscribing}
+                      aria-label="Enable browser push notifications"
+                      className="text-[10px] font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-wider flex items-center gap-1 bg-slate-800 px-2 py-1 rounded"
+                    >
+                      {isSubscribing ? 'Enabling...' : 'Enable Push'}
+                    </button>
+                  )}
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      aria-label="Mark all notifications as read"
+                      className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider flex items-center gap-1"
+                    >
+                      <Check className="h-3 w-3" /> Mark Read
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={clearAllNotifications}
+                      aria-label="Clear all notifications"
+                      className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-wider flex items-center gap-1 ml-2"
+                    >
+                      <Trash2 className="h-3 w-3" /> Clear All
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="sm:hidden p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                    aria-label="Close notifications"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                {/* Only show Enable Push on supporting browsers */}
-                {pushSupported && (
-                  <button
-                    onClick={handleSubscribe}
-                    disabled={isSubscribing}
-                    aria-label="Enable browser push notifications"
-                    className="text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider flex items-center gap-1 bg-muted px-2 py-1 rounded"
-                  >
-                    {isSubscribing ? 'Enabling...' : 'Enable Push'}
-                  </button>
-                )}
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllAsRead}
-                    aria-label="Mark all notifications as read"
-                    className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider flex items-center gap-1"
-                  >
-                    <Check className="h-3 w-3" /> Mark Read
-                  </button>
-                )}
-                {notifications.length > 0 && (
-                  <button
-                    onClick={clearAllNotifications}
-                    aria-label="Clear all notifications"
-                    className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-wider flex items-center gap-1 ml-2"
-                  >
-                    <Trash2 className="h-3 w-3" /> Clear All
-                  </button>
-                )}
-              </div>
-            </div>
 
-            {/* List */}
-            <div role="list" className="flex-1 overflow-y-auto custom-scrollbar max-h-[60vh]">
-              {notifications.length > 0 ? (
-                <div className="divide-y divide-border">
-                  {notifications.map((notif) => (
+              {/* List */}
+              <div role="list" className="flex-1 overflow-y-auto custom-scrollbar max-h-[60vh] bg-slate-900 divide-y divide-slate-800">
+                {notifications.length > 0 ? (
+                  notifications.map((notif) => (
                     <div
                       key={notif.id}
                       role="menuitem"
                       tabIndex={0}
                       onClick={() => handleNotificationClick(notif as any)}
                       onKeyDown={(e) => e.key === 'Enter' && handleNotificationClick(notif as any)}
-                      className={`p-4 cursor-pointer transition-all hover:bg-muted/50 flex items-start gap-3 relative overflow-hidden group ${!notif.isRead ? 'bg-primary/5' : ''}`}
+                      className={`p-4 cursor-pointer transition-all hover:bg-slate-800/60 flex items-start gap-3 relative overflow-hidden group ${!notif.isRead ? 'bg-primary/10' : ''}`}
                     >
                       {!notif.isRead && (
                         <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
                       )}
                       
-                      <div className={`p-2 rounded-xl shrink-0 ${!notif.isRead ? 'bg-primary/10 border border-primary/20' : 'bg-muted border border-border'}`}>
+                      <div className={`p-2 rounded-xl shrink-0 ${!notif.isRead ? 'bg-primary/20 border border-primary/30 text-primary' : 'bg-slate-800 border border-slate-700 text-slate-400'}`}>
                         {getIconForCategory(notif.category)}
                       </div>
                       
                       <div className="flex-1 min-w-0 pr-4">
-                        <h4 className={`text-[12px] font-bold truncate ${!notif.isRead ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <h4 className={`text-[12px] font-bold truncate ${!notif.isRead ? 'text-white' : 'text-slate-400'}`}>
                           {notif.title}
                         </h4>
-                        <p className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-0.5 leading-snug">
+                        <p className="text-[11px] text-slate-300 line-clamp-2 mt-0.5 leading-snug">
                           {notif.body}
                         </p>
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2 block">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-2 block">
                           {notif.createdAt ? new Date(notif.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                         </span>
                       </div>
 
                       {notif.targetUrl && (
                         <div className="absolute top-4 right-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ExternalLink className="h-3 w-3 text-gray-500" />
+                          <ExternalLink className="h-3 w-3 text-slate-400" />
                         </div>
                       )}
                       
                       <button 
                         onClick={(e) => clearNotification(e, notif.id)}
-                        className="absolute top-3 right-3 p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-all"
+                        className="absolute top-3 right-3 p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                         aria-label="Clear notification"
                       >
                         <X className="h-3 w-3" />
                       </button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center flex flex-col items-center justify-center h-40">
-                  <Bell className="h-8 w-8 text-muted-foreground/50 mb-3" />
-                  <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest">All Caught Up</p>
-                </div>
-              )}
+                  ))
+                ) : (
+                  <div className="p-8 text-center flex flex-col items-center justify-center h-40">
+                    <Bell className="h-8 w-8 text-slate-600 mb-3" />
+                    <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest">All Caught Up</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

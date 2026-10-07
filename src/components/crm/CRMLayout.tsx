@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   Volume2,
   VolumeX,
-  CalendarCheck2
+  CalendarCheck2,
+  ChevronRight
 } from "lucide-react";
 import { notificationService } from "@/utils/notificationService";
 import { OomaLogo } from "@/components/OomaLogo";
@@ -476,96 +477,112 @@ export default function CRMLayout({ children }: LayoutProps) {
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-full mt-3 w-[290px] sm:w-96 bg-card/95 backdrop-blur-md border border-border/80 shadow-[0_10px_50px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-[100] flex flex-col max-h-[85vh] transition-all duration-300 animate-in">
-                  <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between sticky top-0">
-                    <h3 className="font-black text-sm text-foreground uppercase tracking-wider">Notifications</h3>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={toggleMute}
-                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
-                        title={isMuted ? "Unmute sounds" : "Mute sounds"}
-                      >
-                        {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                      </button>
-                      {tasks.length > 0 && (
-                        <button
-                          onClick={handleMarkAllCompleted}
-                          className="text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Clear All
-                        </button>
-                      )}
-                      <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">{tasks.length} Pending</span>
-                    </div>
-                  </div>
-                  
-                  <div className="overflow-y-auto custom-scrollbar flex-1">
-                    {tasks.length === 0 ? (
-                      <div className="px-4 py-8 text-center flex flex-col items-center gap-2">
-                        <CheckCircle2 size={32} className="text-muted-foreground/30" />
-                        <p className="text-sm font-medium text-muted-foreground">You're all caught up!</p>
+                <>
+                  {/* Mobile backdrop */}
+                  <div 
+                    className="fixed inset-0 z-[90] bg-black/60 sm:hidden"
+                    onClick={() => setNotificationsOpen(false)}
+                  />
+                  <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-3 w-auto sm:w-96 bg-slate-900 border border-slate-700/80 shadow-[0_20px_50px_rgba(0,0,0,0.8)] rounded-2xl overflow-hidden z-[100] flex flex-col max-h-[80vh] transition-all duration-200 animate-in fade-in zoom-in-95">
+                    <div className="px-4 py-3 border-b border-slate-800 bg-slate-950 flex items-center justify-between sticky top-0 z-10">
+                      <div className="flex items-center gap-2">
+                        <Bell size={16} className="text-primary" />
+                        <h3 className="font-bold text-sm text-white uppercase tracking-wider">Notifications</h3>
                       </div>
-                    ) : (
-                      <div className="divide-y divide-border/30">
-                        {tasks
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={toggleMute}
+                          className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                          title={isMuted ? "Unmute sounds" : "Mute sounds"}
+                        >
+                          {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                        </button>
+                        {tasks.length > 0 && (
+                          <button
+                            onClick={handleMarkAllCompleted}
+                            className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-colors"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                        <span className="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/30">{tasks.length} Pending</span>
+                        <button
+                          onClick={() => setNotificationsOpen(false)}
+                          className="sm:hidden p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-1"
+                          aria-label="Close notifications"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="overflow-y-auto custom-scrollbar flex-1 bg-slate-900 divide-y divide-slate-800">
+                      {tasks.length === 0 ? (
+                        <div className="px-4 py-10 text-center flex flex-col items-center gap-2">
+                          <CheckCircle2 size={32} className="text-slate-600" />
+                          <p className="text-sm font-medium text-slate-400">You're all caught up!</p>
+                        </div>
+                      ) : (
+                        tasks
                           .sort((a: CRMTask, b: CRMTask) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-                          .slice(0, 5)
+                          .slice(0, 8)
                           .map((task: CRMTask) => (
                           <Link 
                             key={task.id} 
                             to="/crm/tasks"
                             onClick={() => setNotificationsOpen(false)}
-                            className="p-4 hover:bg-primary/5 dark:hover:bg-primary/10 transition-all flex items-start gap-3 group border-l-2 border-transparent hover:border-primary"
+                            className="p-3.5 hover:bg-slate-800/60 transition-colors flex items-start gap-3 group"
                           >
-                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-all duration-200">
+                            <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-all duration-200 border border-primary/30">
                               <Bell size={14} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">{task.title}</p>
+                                <p className="text-sm font-semibold text-slate-100 truncate group-hover:text-primary transition-colors">{task.title}</p>
                                 <button
                                   onClick={(e) => handleMarkCompleted(e, task.id)}
-                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-all duration-200"
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
                                   title="Mark as completed"
                                 >
                                   <CheckCircle2 size={16} />
                                 </button>
                               </div>
                               {task.crm_leads && (
-                                <p className="text-xs text-muted-foreground truncate font-medium mt-0.5">{resolveLeadCompanyName(task.crm_leads)}</p>
+                                <p className="text-xs text-slate-400 truncate font-medium mt-0.5">{resolveLeadCompanyName(task.crm_leads)}</p>
                               )}
                               <div className="flex flex-wrap items-center gap-2 mt-2">
-                                <span className={`text-[9px] flex-shrink-0 font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                                  task.priority === 'High' ? 'text-red-500 border-red-500/30 bg-red-500/10' : 
-                                  task.priority === 'Low' ? 'text-green-500 border-green-500/30 bg-green-500/10' : 
-                                  'text-amber-500 border-amber-500/30 bg-amber-500/10'
+                                <span className={`text-[9px] flex-shrink-0 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                                  task.priority === 'High' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 
+                                  task.priority === 'Low' ? 'text-green-400 border-green-500/30 bg-green-500/10' : 
+                                  'text-amber-400 border-amber-500/30 bg-amber-500/10'
                                 }`}>
                                   {task.priority || 'Medium'}
                                 </span>
-                                <span className="text-[10px] font-bold text-primary truncate">
+                                <span className="text-[10px] font-semibold text-slate-300 truncate">
                                   Due: {task.due_date ? new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Date'} 
                                   {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
                                 </span>
                               </div>
                             </div>
                           </Link>
-                        ))}
+                        ))
+                      )}
+                    </div>
+                    
+                    {tasks.length > 0 && (
+                      <div className="p-2.5 border-t border-slate-800 bg-slate-950 sticky bottom-0">
+                        <Link 
+                          to="/crm/tasks"
+                          onClick={() => setNotificationsOpen(false)}
+                          className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          View All Tasks ({tasks.length})
+                          <ChevronRight size={14} />
+                        </Link>
                       </div>
                     )}
                   </div>
-                  
-                  {tasks.length > 0 && (
-                    <div className="p-2 border-t border-border bg-card sticky bottom-0">
-                      <Link 
-                        to="/crm/tasks"
-                        onClick={() => setNotificationsOpen(false)}
-                        className="block w-full py-2 text-center text-xs font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                      >
-                        View All Tasks
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                </>
               )}
             </div>
             <Link 

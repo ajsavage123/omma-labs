@@ -26,6 +26,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const userRef = useRef<AuthenticatedUser | null>(null);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   useEffect(() => {
     // Get initial session
     if (MOCK_MODE) {
@@ -47,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const session = data?.session;
       setSupabaseUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        fetchUserProfile(session.user.id, true);
       } else {
         setLoading(false);
       }
@@ -59,10 +64,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSupabaseUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        // Prevent full app unmount on tab-focus token refreshes
+        if (event === 'TOKEN_REFRESHED' && userRef.current?.id === session.user.id) {
+          return;
+        }
+        // Only trigger loading spinner if we don't already have an active user in memory
+        fetchUserProfile(session.user.id, !userRef.current);
       } else {
         setUser(null);
         setLoading(false);
@@ -74,12 +84,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const inflightProfileFetch = useRef<Map<string, Promise<void>>>(new Map());
 
-  const fetchUserProfile = async (id: string) => {
+  const fetchUserProfile = async (id: string, showLoadingSpinner = true) => {
     if (inflightProfileFetch.current.has(id)) {
       return inflightProfileFetch.current.get(id);
     }
 
-    setLoading(true);
+    if (showLoadingSpinner && !userRef.current) {
+      setLoading(true);
+    }
     const promise = (async () => {
       try {
         // Use maybeSingle because a newly signed up user might not have a public.users record yet

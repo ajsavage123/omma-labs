@@ -475,6 +475,7 @@ export default function CRMLeads() {
       'Payment Status': l.payment_status || 'Pending',
       'Amount Paid': l.amount_paid || 0,
       'Notes': l.notes || '',
+      'Comment on Business': l.comment_on_business || l.custom_data?.comment_on_business || '',
       'Website': l.website || '',
       'Google Maps Link': l.external_link || '',
       'Date Added': new Date(l.created_at).toLocaleDateString(),
@@ -576,7 +577,11 @@ export default function CRMLeads() {
                 followUpDate = parsedFollowUp.toISOString();
               }
             }
-            const notes = getField(['notes', 'comment', 'description', 'reviews', 'rating']);
+            const commentOnBusiness = getField([
+              'comment on business', 'comment on the business', 'business comment', 'business comments',
+              'comment_on_business', 'key points', 'company highlights', 'business notes'
+            ]);
+            const notes = getField(['notes', 'discussion notes', 'description', 'reviews', 'rating', 'comment']);
             const paymentStatus = getField(['payment status', 'payment_status']) || 'Pending';
             const amountPaid = parseFloat(getField(['amount paid', 'amount_paid'])?.replace(/[^0-9.]/g, '') || '0');
             
@@ -620,6 +625,9 @@ export default function CRMLeads() {
             if (tags) {
               customData.tags = tags;
             }
+            if (commentOnBusiness) {
+              customData.comment_on_business = commentOnBusiness.trim();
+            }
 
             return {
               contact_person: name,
@@ -635,6 +643,7 @@ export default function CRMLeads() {
               service_interest: service || null,
               source: source,
               notes: notes || null,
+              comment_on_business: commentOnBusiness ? commentOnBusiness.trim() : null,
               follow_up_date: followUpDate,
               payment_status: paymentStatus,
               amount_paid: amountPaid,
@@ -1304,25 +1313,25 @@ export default function CRMLeads() {
                               {/* Comment on the Business / Key Points */}
                               <div>
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <h4 className="text-[10px] font-black text-primary uppercase tracking-wider flex items-center gap-1.5">
-                                    <Building2 size={12} className="text-primary" />
+                                  <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Building2 size={14} className="text-amber-400" />
                                     Comment on the Business
                                   </h4>
                                   <button
                                     onClick={() => openEditModal(lead)}
-                                    className="text-[9px] font-bold text-primary hover:underline"
+                                    className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 transition-all shadow-xs"
                                   >
-                                    Edit
+                                    Edit Comment
                                   </button>
                                 </div>
-                                <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl text-xs text-foreground">
+                                <div className="p-3.5 bg-slate-900 border-2 border-amber-500/40 rounded-xl text-sm shadow-md">
                                   {lead.comment_on_business || lead.custom_data?.comment_on_business ? (
-                                    <p className="whitespace-pre-wrap leading-relaxed font-medium">
+                                    <p className="whitespace-pre-wrap leading-relaxed font-semibold text-white">
                                       {lead.comment_on_business || lead.custom_data?.comment_on_business}
                                     </p>
                                   ) : (
-                                    <p className="italic text-muted-foreground text-[11px]">
-                                      No business comments added yet. Click edit to add company key points.
+                                    <p className="italic text-slate-400 text-xs">
+                                      No business comments added yet. Click &quot;Edit Comment&quot; to add company key points.
                                     </p>
                                   )}
                                 </div>
@@ -1567,10 +1576,10 @@ export default function CRMLeads() {
                     )}
                     {(lead.comment_on_business || lead.custom_data?.comment_on_business) && (
                       <div className="pt-1">
-                        <span className="text-primary font-bold text-[10px] uppercase flex items-center gap-1 mb-1">
-                          <Building2 size={11} /> Comment on Business:
+                        <span className="text-amber-400 font-black text-xs uppercase flex items-center gap-1.5 mb-1">
+                          <Building2 size={13} className="text-amber-400" /> Comment on Business:
                         </span>
-                        <p className="p-2.5 bg-primary/5 rounded-lg border border-primary/20 text-[11px] whitespace-pre-wrap font-medium text-foreground">
+                        <p className="p-3 bg-slate-900 rounded-xl border-2 border-amber-500/40 text-xs whitespace-pre-wrap font-semibold text-white shadow-sm leading-relaxed">
                           {lead.comment_on_business || lead.custom_data?.comment_on_business}
                         </p>
                       </div>
@@ -1789,9 +1798,9 @@ export default function CRMLeads() {
               )}
 
               {/* Comment on the Business / Key Points */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-primary uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                  <Building2 size={12} className="text-primary" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-amber-400 uppercase tracking-widest ml-1 flex items-center gap-1.5 cursor-pointer">
+                  <Building2 size={14} className="text-amber-400" />
                   Comment on the Business (Key Points)
                 </label>
                 <textarea 
@@ -1799,7 +1808,7 @@ export default function CRMLeads() {
                   onChange={(e) => setFormData({...formData, comment_on_business: e.target.value})}
                   placeholder="Key points about this business (e.g. business model, pain points, company highlights, special requirements)..."
                   rows={3}
-                  className="w-full px-5 py-3.5 bg-background border border-primary/20 focus:border-primary rounded-2xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium custom-scrollbar" 
+                  className="w-full px-5 py-3.5 bg-slate-900 border-2 border-slate-700 focus:border-amber-400 rounded-2xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-4 focus:ring-amber-500/20 transition-all font-semibold custom-scrollbar" 
                 />
               </div>
 

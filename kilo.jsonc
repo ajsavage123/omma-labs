@@ -8,10 +8,10 @@
       ],
       "env": {
         "SUPABASE_URL": "https://uswknwkxdzkrkaimwqvf.supabase.co",
-        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzd2tud2t4ZHprcmthaW13cXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMTUsImV4cCI6MjA4ODY0MzIxNX0.4wj3FC4lgQ_0er8z8xSsIuVXO9VPoexyFQoCSYl67dE"
-        // Optional: If you want the agent to operate as a specific logged-in sales rep:
-        // "CRM_USER_EMAIL": "your-email@oomalabs.com",
-        // "CRM_USER_PASSWORD": "your-password"
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzd2tud2t4ZHprcmthaW13cXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMTUsImV4cCI6MjA4ODY0MzIxNX0.4wj3FC4lgQ_0er8z8xSsIuVXO9VPoexyFQoCSYl67dE",
+        "CRM_USER_EMAIL": "atlas@oomalabs.com",
+        "CRM_USER_PASSWORD": "123456789",
+        "CRM_WORKSPACE_ID": "aefde15d-1658-4652-8ce5-1b294af6f55f"
       }
     }
   }

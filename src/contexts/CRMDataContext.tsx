@@ -30,7 +30,7 @@ interface CRMDataContextType {
   toggleTaskComplete: (taskId: string, currentStatus: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   addActivityNote: (leadId: string, formattedNote: string, leadNotes?: string) => Promise<void>;
-  deleteActivityNote: (activityId: string, leadId?: string) => Promise<void>;
+  deleteActivityNote: (activityId: string) => Promise<void>;
 }
 
 const CRMDataContext = createContext<CRMDataContextType | undefined>(undefined);
@@ -274,7 +274,6 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
       .subscribe();
 
     const setupHeavySubscriptions = () => {
-      if (document.visibilityState === 'hidden') return;
       if (activeWorkspaceChannel) return;
 
       activeWorkspaceChannel = supabase
@@ -322,15 +321,18 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
 
     setupHeavySubscriptions();
 
+    // Track when tab was hidden to only background-sync if away for a prolonged period (> 5 minutes)
+    let lastHiddenTimestamp = 0;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        cleanupHeavySubscriptions();
+        lastHiddenTimestamp = Date.now();
       } else {
-        setupHeavySubscriptions();
-        fetchLeads();
-        fetchTasks();
-        fetchActivities();
-        fetchTeamMembers();
+        const awayTime = lastHiddenTimestamp ? Date.now() - lastHiddenTimestamp : 0;
+        if (awayTime > 5 * 60 * 1000) {
+          throttledFetchLeads();
+          throttledFetchTasks();
+          throttledFetchActivities();
+        }
       }
     };
 
@@ -556,7 +558,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     fetchLeads();
   }, [user, fetchActivities, fetchLeads]);
 
-  const deleteActivityNote = useCallback(async (activityId: string, _leadId?: string) => {
+  const deleteActivityNote = useCallback(async (activityId: string) => {
     const { error } = await supabase.from('crm_activities').delete().eq('id', activityId);
     if (error) throw error;
     toast.success("Note deleted");

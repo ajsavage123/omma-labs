@@ -38,9 +38,9 @@ loadEnvFallback();
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://uswknwkxdzkrkaimwqvf.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzd2tud2t4ZHprcmthaW13cXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMTUsImV4cCI6MjA4ODY0MzIxNX0.4wj3FC4lgQ_0er8z8xSsIuVXO9VPoexyFQoCSYl67dE';
-const USER_EMAIL = process.env.CRM_USER_EMAIL || '';
-const USER_PASSWORD = process.env.CRM_USER_PASSWORD || '';
-const WORKSPACE_ID = process.env.CRM_WORKSPACE_ID || '';
+const USER_EMAIL = process.env.CRM_USER_EMAIL || 'atlas@oomalabs.com';
+const USER_PASSWORD = process.env.CRM_USER_PASSWORD || '123456789';
+const WORKSPACE_ID = process.env.CRM_WORKSPACE_ID || 'aefde15d-1658-4652-8ce5-1b294af6f55f';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false }
@@ -84,11 +84,12 @@ await initAuth();
 const TOOLS = [
   {
     name: 'crm_search_leads',
-    description: 'Search and filter leads in OOMA CRM by company name, contact person, phone, email, or pipeline stage.',
+    description: 'Search and filter leads in OOMA CRM by company name, contact person, phone, email, assigned person/sales rep, or pipeline stage.',
     inputSchema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Search term to match against company name, contact person, email, or phone' },
+        query: { type: 'string', description: 'Search term to match against company name, contact person, email, phone, or any team member name' },
+        assignee: { type: 'string', description: 'Filter by ANY team member name (e.g. "Manasa", "Sourav", "Umamageshwari", "Ayisha", "Aman"), user UUID, or "unassigned" for unclaimed leads' },
         stage: { 
           type: 'string', 
           description: 'Filter by pipeline stage (e.g. "New Leads", "Contacted", "Interested", "Proposal Sent", "Negotiation", "Won (Converted)", "Not Interested")',
@@ -143,6 +144,7 @@ const TOOLS = [
         contact_person: { type: 'string' },
         phone: { type: 'string' },
         email: { type: 'string' },
+        assigned_to: { type: 'string', description: 'UUID or username/name of the sales rep to assign this lead to' },
         estimated_value: { type: 'number' },
         confidence: { type: 'number' },
         service_interest: { type: 'string' },
@@ -247,6 +249,16 @@ const TOOLS = [
         limit: { type: 'number', description: 'Max number of duplicate groups to inspect (default 20)' }
       }
     }
+  },
+  {
+    name: 'crm_list_team_members',
+    description: 'List sales reps and team members in the CRM workspace with their user IDs, full names, usernames, and roles.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Optional search term to match against team member name or username' }
+      }
+    }
   }
 ];
 
@@ -255,12 +267,46 @@ async function executeTool(name, args) {
   try {
     switch (name) {
       case 'crm_search_leads': {
-        let query = supabase.from('crm_leads').select('id, company_name, contact_person, phone, email, status, estimated_value, confidence, service_interest, tags, custom_data, created_at');
+        let query = supabase.from('crm_leads').select('id, company_name, contact_person, phone, email, status, estimated_value, confidence, service_interest, custom_data, created_at, assigned_to, assigned_user:assigned_to(id, full_name, username)');
         if (args.stage) query = query.eq('status', args.stage);
-        if (args.temperature) query = query.ilike('tags', `%${args.temperature}%`);
+        if (args.temperature) query = query.filter('custom_data->>temperature', 'ilike', `%${args.temperature}%`);
+        if (args.assignee) {
+          const a = args.assignee.trim();
+          if (a.toLowerCase() === 'unassigned' || a.toLowerCase() === 'none') {
+            query = query.is('assigned_to', null);
+          } else {
+            // Find matching user IDs from public.users table (matches ANY person's username or full_name)
+            const { data: matchedUsers } = await supabase
+              .from('users')
+              .select('id, full_name, username')
+              .or(`full_name.ilike.%${a}%,username.ilike.%${a}%`);
+            
+            const matchedIds = (matchedUsers || []).map(u => u.id);
+            // If search term is already a UUID format, include it directly
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a)) {
+              matchedIds.push(a);
+            }
+            if (matchedIds.length > 0) {
+              query = query.in('assigned_to', matchedIds);
+            } else {
+              return { count: 0, leads: [], message: `No team member found matching "${args.assignee}". Use crm_list_team_members to see available members.` };
+            }
+          }
+        }
         if (args.query) {
           const q = args.query.trim();
-          query = query.or(`company_name.ilike.%${q}%,contact_person.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`);
+          // Also check if q matches any team member to include their assigned leads!
+          const { data: matchedUsers } = await supabase
+            .from('users')
+            .select('id')
+            .or(`full_name.ilike.%${q}%,username.ilike.%${q}%`);
+          const matchedUserIds = (matchedUsers || []).map(u => u.id);
+
+          let orFilter = `company_name.ilike.%${q}%,contact_person.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`;
+          if (matchedUserIds.length > 0) {
+            orFilter += `,assigned_to.in.(${matchedUserIds.join(',')})`;
+          }
+          query = query.or(orFilter);
         }
         query = query.order('created_at', { ascending: false }).limit(args.limit || 20);
         const { data, error } = await query;
@@ -271,7 +317,7 @@ async function executeTool(name, args) {
       case 'crm_get_lead_details': {
         const { data: lead, error: lErr } = await supabase
           .from('crm_leads')
-          .select('*')
+          .select('*, assigned_user:assigned_to(id, full_name, username)')
           .eq('id', args.lead_id)
           .single();
         if (lErr) throw lErr;
@@ -305,7 +351,6 @@ async function executeTool(name, args) {
           service_interest: args.service_interest || 'Custom Software',
           website: args.website || null,
           external_link: args.address || null,
-          tags: args.temperature || 'Warm',
           notes: args.notes || '',
           custom_data: {
             source: 'MCP Agent',
@@ -315,7 +360,20 @@ async function executeTool(name, args) {
         };
 
         if (activeWorkspaceId) payload.workspace_id = activeWorkspaceId;
-        if (authenticatedUserId) {
+        if (args.assigned_to) {
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args.assigned_to)) {
+            payload.assigned_to = args.assigned_to;
+          } else {
+            const { data: matchedUsers } = await supabase
+              .from('users')
+              .select('id')
+              .or(`full_name.ilike.%${args.assigned_to}%,username.ilike.%${args.assigned_to}%`)
+              .limit(1);
+            if (matchedUsers && matchedUsers.length > 0) {
+              payload.assigned_to = matchedUsers[0].id;
+            }
+          }
+        } else if (authenticatedUserId) {
           payload.created_by = authenticatedUserId;
           payload.assigned_to = authenticatedUserId;
         }
@@ -323,7 +381,7 @@ async function executeTool(name, args) {
         const { data, error } = await supabase
           .from('crm_leads')
           .insert([payload])
-          .select()
+          .select('*, assigned_user:assigned_to(id, full_name, username)')
           .single();
 
         // 22P02 is a benign pg_net webhook notification error if returned by Supabase
@@ -340,8 +398,28 @@ async function executeTool(name, args) {
         if (args.estimated_value !== undefined) updates.estimated_value = args.estimated_value;
         if (args.confidence !== undefined) updates.confidence = args.confidence;
         if (args.service_interest !== undefined) updates.service_interest = args.service_interest;
-        if (args.temperature !== undefined) updates.tags = args.temperature;
+        if (args.temperature !== undefined) {
+          const { data: existingLead } = await supabase.from('crm_leads').select('custom_data').eq('id', args.lead_id).single();
+          updates.custom_data = {
+            ...(existingLead?.custom_data || {}),
+            temperature: args.temperature
+          };
+        }
         if (args.notes !== undefined) updates.notes = args.notes;
+        if (args.assigned_to !== undefined) {
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args.assigned_to)) {
+            updates.assigned_to = args.assigned_to;
+          } else {
+            const { data: matchedUsers } = await supabase
+              .from('users')
+              .select('id')
+              .or(`full_name.ilike.%${args.assigned_to}%,username.ilike.%${args.assigned_to}%`)
+              .limit(1);
+            if (matchedUsers && matchedUsers.length > 0) {
+              updates.assigned_to = matchedUsers[0].id;
+            }
+          }
+        }
 
         updates.last_activity_at = new Date().toISOString();
 
@@ -349,7 +427,7 @@ async function executeTool(name, args) {
           .from('crm_leads')
           .update(updates)
           .eq('id', args.lead_id)
-          .select()
+          .select('*, assigned_user:assigned_to(id, full_name, username)')
           .single();
 
         if (error && error.code !== '22P02') throw error;
@@ -538,6 +616,50 @@ async function executeTool(name, args) {
         }
 
         return { duplicatesCount: duplicates.length, duplicatePairs: duplicates.slice(0, args.limit || 20) };
+      }
+
+      case 'crm_list_team_members': {
+        let q = supabase
+          .from('users')
+          .select('id, full_name, username, role, designation');
+        if (activeWorkspaceId) q = q.eq('workspace_id', activeWorkspaceId);
+        if (args.query) {
+          const s = args.query.trim();
+          q = q.or(`full_name.ilike.%${s}%,username.ilike.%${s}%`);
+        }
+        const { data: users, error } = await q;
+        if (error) throw error;
+
+        // Fetch lead counts for each member
+        const { data: leadRows } = await supabase
+          .from('crm_leads')
+          .select('assigned_to');
+
+        const countMap = {};
+        let unassignedCount = 0;
+        (leadRows || []).forEach(l => {
+          if (l.assigned_to) {
+            countMap[l.assigned_to] = (countMap[l.assigned_to] || 0) + 1;
+          } else {
+            unassignedCount++;
+          }
+        });
+
+        const teamWithCounts = (users || []).map(u => ({
+          id: u.id,
+          name: u.full_name || u.username,
+          username: u.username,
+          full_name: u.full_name,
+          role: u.role,
+          designation: u.designation,
+          assigned_leads_count: countMap[u.id] || 0
+        }));
+
+        return {
+          total_team_members: teamWithCounts.length,
+          unassigned_leads_count: unassignedCount,
+          team_members: teamWithCounts
+        };
       }
 
       default:
