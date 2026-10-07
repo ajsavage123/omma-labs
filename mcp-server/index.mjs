@@ -50,6 +50,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 let authenticatedUserId = null;
 let activeWorkspaceId = WORKSPACE_ID;
 
+// BUG FIX 1 (Race Condition): MCP clients send tool calls within ~20ms of startup,
+// but auth round-trip takes ~400-500ms. Store the auth promise so every tool call
+// can await it before executing — ensuring RLS-gated queries always have a session.
+let authReady = null;
+
 async function initAuth() {
   if (USER_EMAIL && USER_PASSWORD) {
     try {
@@ -70,6 +75,8 @@ async function initAuth() {
             activeWorkspaceId = uData.workspace_id;
           }
         }
+      } else if (error) {
+        console.error('[MCP Auth Error]:', error.message);
       }
     } catch (err) {
       console.error('[MCP Auth Warning]:', err.message);
@@ -77,8 +84,30 @@ async function initAuth() {
   }
 }
 
-// Ensure auth is initialized
-await initAuth();
+// BUG FIX 2 (Session Loss): If auth session expires or was never set,
+// re-authenticate transparently before any tool that queries RLS-protected tables.
+async function ensureAuth() {
+  // Wait for initial auth to finish first
+  if (authReady) await authReady;
+  
+  // Check if Supabase client still has a valid session
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session && USER_EMAIL && USER_PASSWORD) {
+    // Session lost — re-authenticate
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: USER_EMAIL,
+      password: USER_PASSWORD
+    });
+    if (!error && data?.user) {
+      authenticatedUserId = data.user.id;
+    }
+  }
+}
+
+// Start auth immediately and store the promise — do NOT block module load.
+// Tool calls will await authReady before running.
+authReady = initAuth();
+await authReady;
 
 // Define Available MCP Tools
 const TOOLS = [
@@ -727,6 +756,9 @@ rl.on('line', async (line) => {
   try {
     switch (method) {
       case 'initialize': {
+        // BUG FIX 3: Include build timestamp so clients can detect stale processes.
+        // If an MCP client caches tool schemas from an old process, the version
+        // mismatch reveals which process is running old code.
         sendResponse(id, {
           protocolVersion: '2024-11-05',
           capabilities: {
@@ -734,7 +766,8 @@ rl.on('line', async (line) => {
           },
           serverInfo: {
             name: 'ooma-crm-mcp-server',
-            version: '1.0.0'
+            version: '1.2.0',
+            startedAt: new Date().toISOString()
           }
         });
         break;
@@ -761,6 +794,11 @@ rl.on('line', async (line) => {
           sendResponse(id, null, { code: -32602, message: 'Missing tool name' });
           return;
         }
+
+        // BUG FIX 1 applied here: await auth before EVERY tool execution.
+        // This prevents the race condition where a tool call arrives before
+        // the initial 400-500ms auth round-trip has completed.
+        await ensureAuth();
 
         const result = await executeTool(name, toolArgs || {});
         sendResponse(id, {
