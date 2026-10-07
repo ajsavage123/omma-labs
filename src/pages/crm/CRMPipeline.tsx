@@ -280,7 +280,24 @@ export default function CRMPipeline() {
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
 
   // Dedicated Desktop View Type: 'compact' (sleek uniform cards with minimized activity pills) vs 'expanded' (full inline boxes)
-  const [pipelineCardViewMode, setPipelineCardViewMode] = useState<'compact' | 'expanded'>('expanded');
+  const [pipelineCardViewMode, setPipelineCardViewMode] = useState<'compact' | 'expanded'>(() => {
+    try {
+      const saved = localStorage.getItem('crm_pipeline_card_view_mode');
+      if (saved === 'compact' || saved === 'expanded') return saved;
+    } catch {
+      // ignore
+    }
+    return 'compact';
+  });
+
+  const handleSetViewMode = useCallback((mode: 'compact' | 'expanded') => {
+    setPipelineCardViewMode(mode);
+    try {
+      localStorage.setItem('crm_pipeline_card_view_mode', mode);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Full Lead Intel & Activity Popup Modal State
   const [activeDetailsLead, setActiveDetailsLead] = useState<Record<string, any> | null>(null);
@@ -1051,6 +1068,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                                 >
                                   <Clock size={11} className="text-sky-400" />
                                   <span>{dateStr}</span>
+                                  <span className="sr-only">Upcoming Action</span>
+                                  <span className="sr-only">{nextTask.title}</span>
                                 </button>
                               );
                             })()}
@@ -1064,6 +1083,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                               >
                                 <Clipboard size={11} className="text-indigo-400" />
                                 <span>Notes</span>
+                                <span className="sr-only">Recent Note</span>
+                                <span className="sr-only">{lead.notes.split('\n\n---\n\n')[0].trim()}</span>
                               </button>
                             )}
 
@@ -1240,18 +1261,50 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             </button>
           )}
         </div>
-        <Button
-          onClick={openAddModal}
-          size="sm"
-          className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 sm:px-3 h-7 sm:h-8 shadow-md flex items-center gap-1 shrink-0"
-        >
-          <Plus size={14} />
-          <span className="md:hidden">Lead</span>
-          <span className="hidden md:inline">Add New Lead</span>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Prominent Desktop View Type Switcher in Header */}
+          <div className="hidden md:flex items-center gap-1 bg-background/80 border border-input rounded-xl p-0.5 shadow-xs">
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('compact')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                pipelineCardViewMode === 'compact'
+                  ? 'bg-primary text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Compact View: sleek uniform tiles with minimized activity badges"
+            >
+              <Layers size={13} />
+              Compact View
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('expanded')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                pipelineCardViewMode === 'expanded'
+                  ? 'bg-primary text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Detailed View: expanded inline activity previews directly on tiles"
+            >
+              <Clipboard size={13} />
+              Detailed View
+            </button>
+          </div>
+
+          <Button
+            onClick={openAddModal}
+            size="sm"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 sm:px-3 h-7 sm:h-8 shadow-md flex items-center gap-1 shrink-0"
+          >
+            <Plus size={14} />
+            <span className="md:hidden">Lead</span>
+            <span className="hidden md:inline">Add New Lead</span>
+          </Button>
+        </div>
       </div>
 
-      {/* ===== COMPACT FILTER / SEARCH / SORT ROW (mobile) ===== */}
+      {/* ===== COMPACT FILTER / SEARCH / SORT ROW ===== */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 md:mb-2">
         {/* Business & Marketing: show My Leads badge */}
         {isSalesperson && (
@@ -1295,7 +1348,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         <div className="hidden md:flex items-center gap-1 bg-background border border-input rounded-xl p-0.5 shadow-sm shrink-0">
           <button
             type="button"
-            onClick={() => setPipelineCardViewMode('compact')}
+            onClick={() => handleSetViewMode('compact')}
             className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               pipelineCardViewMode === 'compact'
                 ? 'bg-primary text-primary-foreground shadow-xs'
@@ -1308,7 +1361,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           </button>
           <button
             type="button"
-            onClick={() => setPipelineCardViewMode('expanded')}
+            onClick={() => handleSetViewMode('expanded')}
             className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               pipelineCardViewMode === 'expanded'
                 ? 'bg-primary text-primary-foreground shadow-xs'
