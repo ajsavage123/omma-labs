@@ -1261,47 +1261,15 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Prominent Desktop View Type Switcher in Header */}
-          <div className="hidden md:flex items-center gap-1 bg-background/80 border border-input rounded-xl p-0.5 shadow-xs">
-            <button
-              type="button"
-              onClick={() => handleSetViewMode('compact')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                pipelineCardViewMode === 'compact'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              title="Compact View: sleek uniform tiles with minimized activity badges"
-            >
-              <Layers size={13} />
-              Compact View
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSetViewMode('expanded')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                pipelineCardViewMode === 'expanded'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              title="Detailed View: expanded inline activity previews directly on tiles"
-            >
-              <Clipboard size={13} />
-              Detailed View
-            </button>
-          </div>
-
-          <Button
-            onClick={openAddModal}
-            size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 sm:px-3 h-7 sm:h-8 shadow-md flex items-center gap-1 shrink-0"
-          >
-            <Plus size={14} />
-            <span className="md:hidden">Lead</span>
-            <span className="hidden md:inline">Add New Lead</span>
-          </Button>
-        </div>
+        <Button
+          onClick={openAddModal}
+          size="sm"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs py-1 px-2.5 sm:px-3 h-7 sm:h-8 shadow-md flex items-center gap-1 shrink-0"
+        >
+          <Plus size={14} />
+          <span className="md:hidden">Lead</span>
+          <span className="hidden md:inline">Add New Lead</span>
+        </Button>
       </div>
 
       {/* ===== COMPACT FILTER / SEARCH / SORT ROW ===== */}
