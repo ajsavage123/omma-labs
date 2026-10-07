@@ -172,10 +172,11 @@ const TOOLS = [
   },
   {
     name: 'crm_list_pipeline',
-    description: 'Get an executive summary of the sales pipeline: counts and total monetary value in each stage.',
+    description: 'Get an executive summary of the sales pipeline: counts and total monetary value in each stage, optionally filtered by sales rep.',
     inputSchema: {
       type: 'object',
       properties: {
+        assignee: { type: 'string', description: 'Filter pipeline summary by sales rep name (e.g. "Sourav", "Manasa", "Umamageshwari") or user UUID' },
         workspace_id: { type: 'string', description: 'Optional workspace ID filter' }
       }
     }
@@ -267,7 +268,7 @@ async function executeTool(name, args) {
   try {
     switch (name) {
       case 'crm_search_leads': {
-        let query = supabase.from('crm_leads').select('id, company_name, contact_person, phone, email, status, estimated_value, confidence, service_interest, custom_data, created_at, assigned_to, assigned_user:assigned_to(id, full_name, username)');
+        let query = supabase.from('crm_leads').select('id, company_name, contact_person, phone, email, status, estimated_value, confidence, service_interest, custom_data, created_at, assigned_to, assigned_user:assigned_to(id, full_name, username)', { count: 'exact' });
         if (args.stage) query = query.eq('status', args.stage);
         if (args.temperature) query = query.filter('custom_data->>temperature', 'ilike', `%${args.temperature}%`);
         if (args.assignee) {
@@ -289,7 +290,7 @@ async function executeTool(name, args) {
             if (matchedIds.length > 0) {
               query = query.in('assigned_to', matchedIds);
             } else {
-              return { count: 0, leads: [], message: `No team member found matching "${args.assignee}". Use crm_list_team_members to see available members.` };
+              return { total_matched: 0, count: 0, leads: [], message: `No team member found matching "${args.assignee}". Use crm_list_team_members to see available members.` };
             }
           }
         }
@@ -309,9 +310,9 @@ async function executeTool(name, args) {
           query = query.or(orFilter);
         }
         query = query.order('created_at', { ascending: false }).limit(args.limit || 20);
-        const { data, error } = await query;
+        const { data, count, error } = await query;
         if (error) throw error;
-        return { count: data.length, leads: data };
+        return { total_matched: count !== null ? count : data.length, count: data.length, leads: data };
       }
 
       case 'crm_get_lead_details': {
@@ -450,9 +451,32 @@ async function executeTool(name, args) {
       }
 
       case 'crm_list_pipeline': {
-        const { data: leads, error } = await supabase
+        let q = supabase
           .from('crm_leads')
-          .select('status, estimated_value');
+          .select('status, estimated_value, assigned_to');
+
+        if (args.assignee) {
+          const a = args.assignee.trim();
+          if (a.toLowerCase() === 'unassigned' || a.toLowerCase() === 'none') {
+            q = q.is('assigned_to', null);
+          } else {
+            const { data: matchedUsers } = await supabase
+              .from('users')
+              .select('id, full_name, username')
+              .or(`full_name.ilike.%${a}%,username.ilike.%${a}%`);
+            const matchedIds = (matchedUsers || []).map(u => u.id);
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a)) {
+              matchedIds.push(a);
+            }
+            if (matchedIds.length > 0) {
+              q = q.in('assigned_to', matchedIds);
+            } else {
+              return { totalActiveDeals: 0, totalPipelineValue: 0, stage_breakdown: {}, message: `No team member found matching "${args.assignee}".` };
+            }
+          }
+        }
+
+        const { data: leads, error } = await q;
         if (error) throw error;
 
         const summary = {
