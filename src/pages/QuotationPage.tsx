@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { ChevronLeft, CheckCircle, Copy, Check, Plus, X, Pencil, Eye, Download, Clock, History as HistoryIcon, Trash2, Search, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
+import { ChevronLeft, CheckCircle, Copy, Check, Plus, X, Pencil, Eye, Download, Clock, History as HistoryIcon, Trash2, Search, Sparkles, ChevronDown, ChevronUp, Bot, User, Save, FilePlus, RotateCcw } from 'lucide-react';
 import { WEBSITE_CATALOG, APPLICATION_CATALOG, AI_AUTOMATION_CATALOG, getDefaultPriceFormatted, getDefaultModulePrices } from '@/modules/quotationCatalogData';
 
 interface ScopeItem { title: string; desc: string; }
@@ -206,9 +207,12 @@ export default function QuotationPage() {
   const [customServices, setCustomServices] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [currentQuotationId, setCurrentQuotationId] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'ai' | 'user'>('all');
 
   // ── MODULE CATALOG STATE ──
   const [catalogCategory, setCatalogCategory] = useState<'Websites' | 'Applications' | 'AI Automations'>('Websites');
@@ -454,12 +458,28 @@ export default function QuotationPage() {
 
   const handleCopy = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
-  // Supabase Save Function
-  const handleSave = async () => {
+  // Supabase Save Function (Supports Update or Insert as New Copy)
+  const handleSave = async (asNewCopy = false) => {
     setSaving(true);
     setSaveStatus('Saving...');
     
-    const formData = {
+    // 1. Session check & refresh before attempting save
+    let activeUserId = user?.id || null;
+    try {
+      const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
+      if (sessErr || !sessionData?.session) {
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (refreshData?.session?.user) {
+          activeUserId = refreshData.session.user.id;
+        }
+      } else {
+        activeUserId = sessionData.session.user.id;
+      }
+    } catch (authErr) {
+      console.warn('[Quotation Auth Verification]:', authErr);
+    }
+
+    const fullFormData = {
       metaFields,
       costItems,
       selectedServices,
@@ -481,28 +501,93 @@ export default function QuotationPage() {
       executiveSummaryGoal,
       exclusions,
       warranty,
-      nextSteps
+      nextSteps,
+      payments,      // Included: deposit, milestone & final percentages
+      validity,      // Included: quotation validity days
+      savedBy: (user as any)?.email || user?.full_name || user?.username || activeUserId || 'Web User',
+      source: 'web',
+      updatedAt: new Date().toISOString()
     };
 
+    // 2. Always persist active draft backup to localStorage
     try {
-      const { error } = await supabase
-        .from('quotations')
-        .insert([{ 
-          project_name: projectName, 
-          form_data: formData,
-          created_at: new Date().toISOString()
-        }]);
+      localStorage.setItem('oomalabs_quotation_active_draft', JSON.stringify({
+        id: currentQuotationId,
+        projectName,
+        formData: fullFormData,
+        savedAt: new Date().toISOString()
+      }));
+    } catch (_) {}
 
-      if (error) throw error;
-      setSaveStatus('Quotation Saved to Supabase!');
+    try {
+      const targetId = (!asNewCopy && currentQuotationId) ? currentQuotationId : null;
+
+      if (targetId) {
+        // UPDATE existing quotation
+        const { error: updErr } = await supabase
+          .from('quotations')
+          .update({ 
+            project_name: projectName, 
+            form_data: fullFormData
+          })
+          .eq('id', targetId);
+
+        if (updErr) throw updErr;
+
+        setSaveStatus('Updated!');
+        toast.success(`Quotation "${projectName}" updated successfully!`);
+      } else {
+        // INSERT new quotation
+        const { data: insData, error: insErr } = await supabase
+          .from('quotations')
+          .insert([{ 
+            project_name: projectName, 
+            form_data: fullFormData,
+            created_at: new Date().toISOString()
+          }])
+          .select();
+
+        if (insErr) throw insErr;
+
+        if (insData?.[0]?.id) {
+          setCurrentQuotationId(insData[0].id);
+        }
+        setSaveStatus('Saved!');
+        toast.success(`Quotation "${projectName}" saved to Supabase!`);
+      }
+
       fetchHistory(); // Refresh history
-      setTimeout(() => setSaveStatus(null), 3000);
+      setTimeout(() => setSaveStatus(null), 2500);
     } catch (err: any) {
-      console.error('Error saving to Supabase:', err);
-      setSaveStatus(`Error: ${err.message || 'Check your quotations table'}`);
+      console.error('Error saving quotation to Supabase:', err);
+      const msg = err.message || 'Check your quotations table';
+      setSaveStatus('Saved locally');
+      toast.error(`Could not save to Supabase (${msg}). Your draft is preserved locally.`);
+      setTimeout(() => setSaveStatus(null), 3000);
     } finally {
       setSaving(false);
     }
+  };
+
+  // Generate quotation document handler (updates preview & saves local backup)
+  const handleGenerate = () => {
+    setGenerated(true);
+    setMobileView('preview');
+    try {
+      localStorage.setItem('oomalabs_quotation_active_draft', JSON.stringify({
+        id: currentQuotationId,
+        projectName,
+        formData: {
+          metaFields, costItems, selectedServices, customServices, projectName,
+          companyName, companyAddress, companyContact, signatureName, signatureTitle,
+          currency, includeGST, gstRate, discount, terms, scopes, phases, deliverables,
+          executiveSummaryGoal, exclusions, warranty, nextSteps, payments, validity,
+          updatedAt: new Date().toISOString()
+        },
+        savedAt: new Date().toISOString()
+      }));
+    } catch (_) {}
+    toast.success('Quotation generated and preview updated!');
   };
 
   // Fetch History from Supabase
@@ -516,36 +601,77 @@ export default function QuotationPage() {
 
       if (error) throw error;
       setHistory(data || []);
-    } catch (err) {
-      console.error('Error fetching history:', err);
+    } catch (err: any) {
+      console.error('Error fetching quotation history:', err);
+      // Fallback: check localStorage for any offline drafts
+      try {
+        const local = localStorage.getItem('oomalabs_quotation_active_draft');
+        if (local) {
+          const parsed = JSON.parse(local);
+          setHistory([{
+            id: parsed.id || 'local-draft',
+            project_name: `${parsed.projectName} (Local Draft)`,
+            form_data: parsed.formData,
+            created_at: parsed.savedAt
+          }]);
+        }
+      } catch (_) {}
     } finally {
       setLoadingHistory(false);
     }
   };
 
-  // Load Quotation from History
+  // Start fresh new blank quotation template
+  const startNewQuotation = () => {
+    setCurrentQuotationId(null);
+    setProjectName('Digital Transformation');
+    setValidity('14');
+    setDiscount('15');
+    setIncludeGST(false);
+    setGstRate('18');
+    setCurrency('BOTH');
+    setMetaFields([
+      { label: 'Prepared For', value: 'New Client', subValue: 'client@example.com' },
+      { label: 'Quotation #', value: `OL-Q-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}` },
+      { label: 'Date', value: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), subValue: 'Valid for 14 days' }
+    ]);
+    setSelectedServices(['Web Application']);
+    setCostItems([{ label: 'Engineering & Development', amount: '15,000' }]);
+    setGenerated(true);
+    setShowHistory(false);
+    toast.info('Started a new quotation draft.');
+  };
+
+  // Load Quotation from History (Restores ALL fields including payments & validity)
   const loadQuotation = (q: any) => {
     const d = q.form_data;
     if (!d) return;
 
-    setProjectName(d.projectName || '');
+    setCurrentQuotationId(q.id);
+    setProjectName(q.project_name || d.projectName || '');
     setCompanyName(d.companyName || 'OomaLabs');
-    setCompanyAddress(d.companyAddress || '');
-    setCompanyContact(d.companyContact || '');
-    setSignatureName(d.signatureName || '');
-    setSignatureTitle(d.signatureTitle || '');
+    setCompanyAddress(d.companyAddress || 'Gachibowli, Hyderabad, Telangana, India');
+    setCompanyContact(d.companyContact || 'oomalabs@gmail.com | 9381167058 | www.oomalabs.com');
+    setSignatureName(d.signatureName || 'OomaLabs Team');
+    setSignatureTitle(d.signatureTitle || 'Authorized Signature');
     setCurrency(d.currency || 'BOTH');
-    setIncludeGST(d.includeGST || false);
+    setIncludeGST(d.includeGST ?? false);
     setGstRate(d.gstRate || '18');
     setDiscount(d.discount || '15');
+    setValidity(d.validity || '14');
     setMetaFields(d.metaFields || []);
-    setSelectedServices(d.selectedServices || []);
+    setSelectedServices(d.selectedServices || ['Web Application']);
     setCustomServices(d.customServices || []);
     setCostItems(d.costItems || []);
     setScopes(d.scopes || []);
     setPhases(d.phases || []);
     setDeliverables(d.deliverables || []);
     setTerms(d.terms || []);
+    setPayments(d.payments || [
+      { pct: '50%', label: 'Deposit', trigger: 'To commence work' },
+      { pct: '25%', label: 'Milestone', trigger: 'Upon beta delivery' },
+      { pct: '25%', label: 'Final', trigger: 'Prior to launch' }
+    ]);
     setExecutiveSummaryGoal(d.executiveSummaryGoal || 'generate leads, build digital presence, and streamline operations');
     setExclusions(d.exclusions || [
       'Content writing or copywriting services.',
@@ -561,15 +687,21 @@ export default function QuotationPage() {
     
     setShowHistory(false);
     setGenerated(true);
+    toast.success(`Loaded quotation: ${q.project_name || 'Untitled'}`);
   };
 
   const deleteFromHistory = async (id: string) => {
     try {
       const { error } = await supabase.from('quotations').delete().eq('id', id);
       if (error) throw error;
+      if (currentQuotationId === id) {
+        setCurrentQuotationId(null);
+      }
+      toast.success('Quotation removed from history.');
       fetchHistory();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting from history:', err);
+      toast.error(`Delete failed: ${err.message || 'Check database permissions'}`);
     }
   };
 
@@ -634,44 +766,150 @@ export default function QuotationPage() {
         {showHistory && (
           <>
             <div onClick={() => setShowHistory(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" />
-            <div className="fixed top-0 right-0 w-full max-w-[400px] h-full bg-white shadow-2xl z-50 transform transition-transform animate-slide-left p-6 sm:p-8">
-              <div className="flex items-center justify-between mb-8 border-bottom pb-4" style={{ borderBottom: '1.5px solid #e2dfd6' }}>
+            <div className="fixed top-0 right-0 w-full max-w-[440px] h-full bg-white shadow-2xl z-50 transform transition-transform animate-slide-left p-6 sm:p-7 flex flex-col">
+              <div className="flex items-center justify-between mb-4 pb-3" style={{ borderBottom: '1.5px solid #e2dfd6' }}>
                 <div>
                   <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700 }}>Saved Quotations</h2>
-                  <p style={{ fontSize: 11, color: '#8888aa', textTransform: 'uppercase', letterSpacing: 1 }}>Supabase Records</p>
+                  <p style={{ fontSize: 11, color: '#8888aa', textTransform: 'uppercase', letterSpacing: 1 }}>Supabase & AI Agent Records</p>
                 </div>
-                <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-gray-100 rounded-full transition-all">
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={startNewQuotation} 
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#fdfcf9] border border-[#e2dfd6] hover:border-[#c9a84c] text-xs font-semibold text-[#1a1a2e] transition-all"
+                    title="Start fresh new quotation"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-[#c9a84c]" /> New
+                  </button>
+                  <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-gray-100 rounded-full transition-all">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-4 overflow-y-auto h-[calc(100vh-180px)] pr-2">
+              {/* History Search & Filter Bar */}
+              <div className="mb-4 space-y-2">
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    placeholder="Search quotations or clients..."
+                    className="w-full pl-9 pr-3 py-2 bg-[#fdfcf9] border border-[#e2dfd6] rounded-xl text-xs outline-none focus:border-[#c9a84c] transition-all"
+                  />
+                  {historySearch && (
+                    <button onClick={() => setHistorySearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-1.5">
+                  {(['all', 'ai', 'user'] as const).map(tab => {
+                    const aiCount = history.filter(q => q.form_data?.source === 'ai_agent_mcp' || q.form_data?.createdBy?.toLowerCase().includes('agent')).length;
+                    const userCount = history.length - aiCount;
+                    const label = tab === 'all' ? `All (${history.length})` : tab === 'ai' ? `🤖 AI Agent (${aiCount})` : `👤 User (${userCount})`;
+                    const active = historyFilter === tab;
+
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setHistoryFilter(tab)}
+                        className={`flex-1 py-1 px-2 text-[11px] font-semibold rounded-lg transition-all ${active ? 'bg-[#1a1a2e] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quotations List */}
+              <div className="flex flex-col gap-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                 {loadingHistory ? (
-                   <p className="text-center italic text-gray-400 py-10">Fetching records...</p>
+                   <p className="text-center italic text-gray-400 py-10">Fetching quotations from Supabase...</p>
                 ) : history.length === 0 ? (
                   <div className="text-center py-20">
                     <HistoryIcon className="h-12 w-12 text-gray-200 mx-auto mb-4" />
                     <p style={{ fontSize: 14, color: '#8888aa' }}>No saved quotations found.</p>
                   </div>
-                ) : history.map(q => (
-                  <div key={q.id} className="group p-5 rounded-2xl border border-[#e2dfd6] hover:border-[#c9a84c] hover:bg-[#fdfcf9] transition-all cursor-pointer relative">
-                    <div onClick={() => loadQuotation(q)}>
-                      <h4 style={{ fontWeight: 700, fontSize: 15, color: '#1a1a2e' }}>{q.project_name || 'Untitled Project'}</h4>
-                      <div className="flex items-center gap-2 mt-2">
-                         <Clock className="h-3 w-3 text-[#c9a84c]" />
-                         <span style={{ fontSize: 11, fontWeight: 500, color: '#8888aa' }}>{new Date(q.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      </div>
-                    </div>
-                    {user?.role === 'admin' && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteFromHistory(q.id); }} 
-                        className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-2 hover:text-[#c0392b] transition-all"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                ) : (
+                  history
+                    .filter(q => {
+                      // Filter by AI / User tab
+                      const isAi = q.form_data?.source === 'ai_agent_mcp' || q.form_data?.createdBy?.toLowerCase().includes('agent');
+                      if (historyFilter === 'ai' && !isAi) return false;
+                      if (historyFilter === 'user' && isAi) return false;
+
+                      // Filter by search string
+                      if (!historySearch.trim()) return true;
+                      const s = historySearch.toLowerCase();
+                      const meta = q.form_data?.metaFields || [];
+                      const clientName = (meta.find((m: any) => m.label?.toLowerCase().includes('prepared for'))?.value || '').toLowerCase();
+                      const quoteNum = (meta.find((m: any) => m.label?.toLowerCase().includes('quotation #'))?.value || '').toLowerCase();
+                      const title = (q.project_name || '').toLowerCase();
+                      return title.includes(s) || clientName.includes(s) || quoteNum.includes(s);
+                    })
+                    .map(q => {
+                      const d = q.form_data || {};
+                      const meta = d.metaFields || [];
+                      const client = meta.find((m: any) => m.label?.toLowerCase().includes('prepared for'))?.value || '';
+                      const quoteNum = meta.find((m: any) => m.label?.toLowerCase().includes('quotation #'))?.value || '';
+                      const isAi = d.source === 'ai_agent_mcp' || d.createdBy?.toLowerCase().includes('agent');
+                      const isActive = currentQuotationId === q.id;
+
+                      return (
+                        <div 
+                          key={q.id} 
+                          onClick={() => loadQuotation(q)}
+                          className={`group p-4 rounded-2xl border transition-all cursor-pointer relative ${isActive ? 'border-[#c9a84c] bg-[#fffdf8] shadow-sm' : 'border-[#e2dfd6] hover:border-[#c9a84c] hover:bg-[#fdfcf9]'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2 pr-6">
+                            <h4 style={{ fontWeight: 700, fontSize: 14, color: '#1a1a2e' }} className="line-clamp-2">
+                              {q.project_name || 'Untitled Project'}
+                            </h4>
+                          </div>
+
+                          {client && (
+                            <div className="text-xs text-gray-500 mt-1 font-medium">
+                              Client: <span className="text-gray-800 font-semibold">{client}</span> {quoteNum && <span className="text-[10px] text-gray-400">({quoteNum})</span>}
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                            {isAi ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                <Bot className="h-3 w-3 text-purple-600" /> AI Agent ({d.createdBy || 'Atlas'})
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                                <User className="h-3 w-3 text-gray-500" /> Web User
+                              </span>
+                            )}
+
+                            {isActive && (
+                              <span className="text-[10px] bg-[#c9a84c]/20 text-[#8c6d1d] px-2 py-0.5 rounded-full font-bold">
+                                ACTIVE
+                              </span>
+                            )}
+
+                            <div className="flex items-center gap-1 text-[11px] text-[#8888aa] ml-auto">
+                              <Clock className="h-3 w-3 text-[#c9a84c]" />
+                              <span>{new Date(q.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); deleteFromHistory(q.id); }} 
+                            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 hover:text-[#c0392b] text-gray-400 transition-all rounded-lg hover:bg-red-50"
+                            title="Delete quotation"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })
+                )}
               </div>
             </div>
           </>
@@ -1427,30 +1665,54 @@ export default function QuotationPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2.5" style={{ marginTop: 6 }}>
-            <button onClick={() => setGenerated(true)} style={{ flex: 1, padding: 13, background: '#1a1a2e', border: 'none', borderRadius: 10, color: '#fff', fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 14, cursor: 'pointer', letterSpacing: 0.3 }}>
-              Generate Quotation
-            </button>
-            <button 
-              onClick={handleSave} 
-              disabled={saving}
-              style={{ 
-                flex: 1, 
-                padding: 13, 
-                background: saveStatus?.includes('Error') ? '#c0392b' : (saveStatus ? '#2d7a5f' : '#c9a84c'), 
-                border: 'none', 
-                borderRadius: 10, 
-                color: '#fff', 
-                fontFamily: "'Outfit', sans-serif", 
-                fontWeight: 600, 
-                fontSize: 14, 
-                cursor: saving ? 'wait' : 'pointer', 
-                transition: 'all 0.2s',
-                opacity: saving ? 0.7 : 1
-              }}
-            >
-              {saveStatus || (saving ? 'Saving...' : 'Save to Supabase')}
-            </button>
+          <div className="flex flex-col gap-2.5" style={{ marginTop: 6 }}>
+            <div className="flex gap-2.5">
+              <button 
+                onClick={handleGenerate} 
+                style={{ flex: 1, padding: 13, background: '#1a1a2e', border: 'none', borderRadius: 10, color: '#fff', fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 14, cursor: 'pointer', letterSpacing: 0.3 }}
+              >
+                Generate Preview
+              </button>
+              <button 
+                onClick={() => handleSave(false)} 
+                disabled={saving}
+                style={{ 
+                  flex: 1, 
+                  padding: 13, 
+                  background: saving ? '#8888aa' : (saveStatus === 'Saved!' || saveStatus === 'Updated!' ? '#2d7a5f' : '#c9a84c'), 
+                  border: 'none', 
+                  borderRadius: 10, 
+                  color: '#fff', 
+                  fontFamily: "'Outfit', sans-serif", 
+                  fontWeight: 600, 
+                  fontSize: 14, 
+                  cursor: saving ? 'wait' : 'pointer', 
+                  transition: 'all 0.2s',
+                  opacity: saving ? 0.7 : 1
+                }}
+              >
+                {saveStatus || (saving ? 'Saving...' : (currentQuotationId ? 'Update Quotation' : 'Save to Supabase'))}
+              </button>
+            </div>
+
+            {currentQuotationId && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  className="flex-1 py-2 px-3 text-xs font-semibold rounded-lg border border-[#e2dfd6] bg-[#fdfcf9] hover:bg-gray-100 text-[#1a1a2e] flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <FilePlus className="h-3.5 w-3.5 text-[#c9a84c]" /> Save as New Copy
+                </button>
+                <button
+                  onClick={startNewQuotation}
+                  className="py-2 px-3 text-xs font-semibold rounded-lg border border-[#e2dfd6] bg-[#fdfcf9] hover:bg-gray-100 text-gray-600 flex items-center justify-center gap-1.5 transition-all"
+                  title="Clear and start new blank quotation"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Start New
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1462,7 +1724,15 @@ export default function QuotationPage() {
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700 }}>Live Preview</h2>
               <p style={{ fontSize: 12, color: '#8888aa', marginTop: 4 }}>How your quotation looks to the client</p>
             </div>
-            <div className="flex gap-2.5 w-full md:w-auto">
+            <div className="flex flex-wrap gap-2.5 w-full md:w-auto items-center">
+              <button 
+                onClick={() => handleSave(false)} 
+                disabled={saving}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-all shadow-sm text-white"
+                style={{ background: '#c9a84c', fontSize: 13 }}
+              >
+                <Save className="h-4 w-4" /> {saving ? 'Saving...' : (currentQuotationId ? 'Update Cloud' : 'Save to Cloud')}
+              </button>
               <button onClick={handleCopy} className="flex-1 md:flex-initial flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-bold transition-all shadow-sm" style={{ background: '#fff', border: '1.5px solid #e2dfd6', color: '#1a1a2e', fontSize: 14 }}>
                 {copied ? <Check className="h-4 w-4 text-[#2d7a5f]" /> : <Copy className="h-4 w-4" />} {copied ? 'Copied' : 'Share Link'}
               </button>

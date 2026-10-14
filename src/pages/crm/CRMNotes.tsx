@@ -133,27 +133,36 @@ export default function CRMNotes() {
   const getSentimentStyle = (sentiment: string) => {
     const s = sentiment.toLowerCase();
     if (s.includes('very interested') || s.includes('very_interested') || s.includes('🟢')) {
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      return 'bg-emerald-600 text-white border border-emerald-500 shadow-xs font-black';
     }
     if (s.includes('not interested') || s.includes('not_interested') || s.includes('🔴')) {
-      return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+      return 'bg-rose-600 text-white border border-rose-500 shadow-xs font-black';
     }
     if (s.includes('hesitant') || s.includes('🟠')) {
-      return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+      return 'bg-orange-600 text-white border border-orange-500 shadow-xs font-black';
     }
     if (s.includes('interested') || s.includes('yellow') || s.includes('🟡')) {
-      return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+      return 'bg-amber-500 text-slate-950 border border-amber-400 shadow-xs font-black';
     }
-    return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+    return 'bg-slate-700 text-slate-100 border border-slate-600 shadow-xs font-black';
   };
 
   const getInteractionIconClass = (type: string) => {
     const t = type.toLowerCase();
-    if (t === 'call') return 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
-    if (t === 'email') return 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20';
-    if (t === 'meeting') return 'bg-purple-500/10 text-purple-400 border border-purple-500/20';
-    if (t === 'whatsapp') return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-    return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+    if (t === 'call') return 'bg-blue-600 text-white border-2 border-blue-400 shadow-md';
+    if (t === 'email') return 'bg-indigo-600 text-white border-2 border-indigo-400 shadow-md';
+    if (t === 'meeting') return 'bg-purple-600 text-white border-2 border-purple-400 shadow-md';
+    if (t === 'whatsapp') return 'bg-emerald-600 text-white border-2 border-emerald-400 shadow-md';
+    return 'bg-amber-600 text-white border-2 border-amber-400 shadow-md';
+  };
+
+  const getInteractionCardAccent = (type: string) => {
+    const t = type.toLowerCase();
+    if (t === 'call') return 'border-l-4 border-l-blue-500 bg-slate-900 border-slate-800';
+    if (t === 'email') return 'border-l-4 border-l-indigo-500 bg-slate-900 border-slate-800';
+    if (t === 'meeting') return 'border-l-4 border-l-purple-500 bg-slate-900 border-slate-800';
+    if (t === 'whatsapp') return 'border-l-4 border-l-emerald-500 bg-slate-900 border-slate-800';
+    return 'border-l-4 border-l-amber-500 bg-slate-900 border-slate-800';
   };
 
   const openLogModal = (leadId: string | null) => {
@@ -442,43 +451,43 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
       {/* Stats Summary Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-card border-border/60 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div className="p-3.5 rounded-xl bg-primary/10 text-primary border border-primary/15">
+        <Card className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center gap-4 shadow-md">
+          <div className="p-3.5 rounded-xl bg-blue-600 text-white shadow-sm">
             <Clipboard size={20} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Total Logs</p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{totalNotesCount}</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Logs</p>
+            <p className="text-2xl font-black text-white mt-0.5">{totalNotesCount}</p>
           </div>
         </Card>
 
-        <Card className="bg-card border-border/60 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div className="p-3.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/15">
+        <Card className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center gap-4 shadow-md">
+          <div className="p-3.5 rounded-xl bg-sky-600 text-white shadow-sm">
             <Phone size={20} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Phone Calls</p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{callsCount}</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Phone Calls</p>
+            <p className="text-2xl font-black text-white mt-0.5">{callsCount}</p>
           </div>
         </Card>
 
-        <Card className="bg-card border-border/60 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div className="p-3.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/15">
+        <Card className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center gap-4 shadow-md">
+          <div className="p-3.5 rounded-xl bg-purple-600 text-white shadow-sm">
             <Users size={20} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Meetings</p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{meetingsCount}</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Meetings</p>
+            <p className="text-2xl font-black text-white mt-0.5">{meetingsCount}</p>
           </div>
         </Card>
 
-        <Card className="bg-card border-border/60 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
+        <Card className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center gap-4 shadow-md">
+          <div className="p-3.5 rounded-xl bg-emerald-600 text-white shadow-sm">
             <Smile size={20} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Positive Sentiment</p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{positiveRate}%</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Positive Sentiment</p>
+            <p className="text-2xl font-black text-white mt-0.5">{positiveRate}%</p>
           </div>
         </Card>
       </div>
@@ -488,22 +497,22 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
         
         {/* Left column: Organized Notes & Leads navigation (4/12 span) */}
         <div className="lg:col-span-4 space-y-4">
-          <Card className="bg-card/40 backdrop-blur-md border border-border p-5 rounded-3xl space-y-4 shadow-md">
+          <Card className="bg-slate-900 border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
             
             {/* Header with View Tabs */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-black text-sm uppercase text-foreground tracking-wider mb-0.5">Directory & Feeds</h3>
-                  <p className="text-[11px] text-muted-foreground font-medium">Newest logs shown first</p>
+                  <h3 className="font-black text-sm uppercase text-white tracking-wider mb-0.5">Directory & Feeds</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Newest logs shown first</p>
                 </div>
                 {sidebarTab === 'leads' && (
                   <button
                     onClick={() => setOnlyLeadsWithNotes(!onlyLeadsWithNotes)}
                     className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg border transition-all ${
                       onlyLeadsWithNotes
-                        ? 'bg-primary/10 text-primary border-primary/20'
-                        : 'text-muted-foreground border-border/60 hover:text-foreground'
+                        ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
+                        : 'text-slate-400 border-slate-700 hover:text-white bg-slate-800'
                     }`}
                     title="Toggle leads with recorded notes only"
                   >
@@ -513,14 +522,14 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               </div>
 
               {/* Sidebar Tabs */}
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-background/60 border border-border/60 rounded-xl">
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950 border border-slate-800 rounded-xl">
                 <button
                   type="button"
                   onClick={() => setSidebarTab('recent')}
                   className={`py-2 px-3 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                     sidebarTab === 'recent'
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
                   }`}
                 >
                   <Clock size={13} /> Recent Stream
@@ -530,8 +539,8 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   onClick={() => setSidebarTab('leads')}
                   className={`py-2 px-3 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                     sidebarTab === 'leads'
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
                   }`}
                 >
                   <Users size={13} /> By Lead
@@ -541,13 +550,13 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
             {/* Search Bar */}
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60" size={16} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input 
                 type="text"
                 placeholder="Search leads or notes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-background/50 border border-border/80 focus:border-border rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all font-medium placeholder:text-muted-foreground/50"
+                className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-white transition-all font-medium placeholder:text-slate-500"
               />
             </div>
 
@@ -556,17 +565,17 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
               onClick={() => setSelectedLeadId(null)}
               className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between ${
                 selectedLeadId === null 
-                  ? 'bg-primary/10 border-primary/20 text-primary-foreground shadow-lg shadow-primary/5' 
-                  : 'bg-background/20 border-border/40 hover:bg-muted/40 text-foreground'
+                  ? 'bg-slate-950 border-2 border-blue-500 shadow-md shadow-blue-500/10' 
+                  : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-800 text-slate-200'
               }`}
             >
               <div>
-                <h4 className="font-black text-xs sm:text-sm tracking-tight flex items-center gap-1.5">
+                <h4 className="font-black text-xs sm:text-sm tracking-tight flex items-center gap-1.5 text-white">
                   🌐 Global Activity Feed
                 </h4>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">All lead interactions timeline</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">All lead interactions timeline</p>
               </div>
-              <div className="px-2.5 py-1 bg-background border border-border rounded-xl text-[10px] font-black text-muted-foreground uppercase">
+              <div className="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-xl text-[10px] font-black text-slate-300 uppercase">
                 {notes.length} logs
               </div>
             </button>
@@ -586,34 +595,34 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                       onClick={() => setSelectedLeadId(note.lead_id)}
                       className={`w-full p-3 rounded-2xl border text-left transition-all flex flex-col gap-2 group ${
                         isSelected 
-                          ? 'bg-primary/10 border-primary/25 shadow-md shadow-primary/5' 
-                          : 'bg-background/30 border-border/40 hover:bg-muted/40'
+                          ? 'bg-slate-950 border-2 border-blue-500 shadow-md shadow-blue-500/10' 
+                          : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-800'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="text-sm shrink-0">{parsed.icon}</span>
-                          <span className="font-black text-xs text-foreground truncate group-hover:text-primary transition-colors">
+                          <span className="font-black text-xs text-white truncate group-hover:text-blue-400 transition-colors">
                             {companyName}
                           </span>
                         </div>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0">
                           {formatRelativeTime(note.created_at)}
                         </span>
                       </div>
 
                       {contactPerson && (
-                        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider truncate">
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider truncate">
                           {contactPerson}
                         </p>
                       )}
 
-                      <p className="text-[11px] text-foreground/80 line-clamp-2 leading-snug font-medium bg-background/40 p-2 rounded-xl border border-border/30">
+                      <p className="text-[11px] text-slate-200 line-clamp-2 leading-relaxed font-medium bg-slate-900 p-2.5 rounded-xl border border-slate-800">
                         {parsed.discussionPoints || '—'}
                       </p>
 
                       <div className="flex items-center justify-between text-[9px] pt-0.5">
-                        <span className="font-black text-primary uppercase tracking-wider">
+                        <span className={`px-2 py-0.5 rounded font-black uppercase tracking-wider text-white ${getInteractionIconClass(parsed.type)}`}>
                           {parsed.type}
                         </span>
                         {parsed.sentiment && (
@@ -627,9 +636,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 })}
 
                 {sortedNotes.length === 0 && (
-                  <div className="p-8 text-center border border-dashed border-border/40 rounded-2xl bg-background/5">
-                    <Inbox className="mx-auto text-muted-foreground/40 mb-2" size={24} />
-                    <p className="text-xs text-muted-foreground font-semibold">No recent logs found.</p>
+                  <div className="p-8 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-950/50">
+                    <Inbox className="mx-auto text-slate-500 mb-2" size={24} />
+                    <p className="text-xs text-slate-400 font-semibold">No recent logs found.</p>
                   </div>
                 )}
               </div>
@@ -644,34 +653,34 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     onClick={() => setSelectedLeadId(lead.id)}
                     className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between group ${
                       selectedLeadId === lead.id 
-                        ? 'bg-primary/10 border-primary/20 text-primary-foreground shadow-lg shadow-primary/5' 
-                        : 'bg-background/20 border-border/40 hover:bg-muted/40 text-foreground'
+                        ? 'bg-slate-950 border-2 border-blue-500 text-white shadow-md shadow-blue-500/10' 
+                        : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-800 text-slate-200'
                     }`}
                   >
                     <div className="min-w-0 pr-2">
                       <div className="flex items-center gap-1.5">
-                        <h4 className="font-black text-xs sm:text-sm tracking-tight truncate group-hover:text-primary transition-colors">
+                        <h4 className="font-black text-xs sm:text-sm tracking-tight truncate group-hover:text-blue-400 transition-colors text-white">
                           {lead.company_name}
                         </h4>
                         {lead.comment_on_business && (
-                          <span title="Has Business Comment" className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black tracking-wider flex items-center gap-1 shrink-0">
+                          <span title="Has Business Comment" className="px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 border border-amber-400 text-[9px] font-black tracking-wider flex items-center gap-1 shrink-0">
                             <Building2 size={10} />
                             Comment
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate mt-0.5">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate mt-0.5">
                         {lead.contact_person || '—'}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <div className={`px-2 py-0.5 bg-background border rounded-lg text-[9px] font-black uppercase transition-colors ${
-                        selectedLeadId === lead.id ? 'border-primary/20 text-primary' : 'border-border text-muted-foreground'
+                      <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-colors ${
+                        selectedLeadId === lead.id ? 'bg-blue-600 text-white border border-blue-500' : 'bg-slate-900 border border-slate-800 text-blue-400'
                       }`}>
                         {lead.noteCount} {lead.noteCount === 1 ? 'log' : 'logs'}
                       </div>
                       {lead.latestNoteTime > 0 && (
-                        <span className="text-[9px] text-muted-foreground font-bold">
+                        <span className="text-[9px] text-slate-400 font-bold">
                           {formatRelativeTime(new Date(lead.latestNoteTime).toISOString())}
                         </span>
                       )}
@@ -680,9 +689,9 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 ))}
 
                 {uniqueLeads.length === 0 && (
-                  <div className="p-8 text-center border border-dashed border-border/40 rounded-2xl bg-background/5">
-                    <Inbox className="mx-auto text-muted-foreground/40 mb-2" size={24} />
-                    <p className="text-xs text-muted-foreground font-semibold">No leads found matching your criteria.</p>
+                  <div className="p-8 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-950/50">
+                    <Inbox className="mx-auto text-slate-500 mb-2" size={24} />
+                    <p className="text-xs text-slate-400 font-semibold">No leads found matching your criteria.</p>
                   </div>
                 )}
               </div>
@@ -692,32 +701,32 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
         {/* Right column: Timeline Thread (8/12 span) */}
         <div className="lg:col-span-8 space-y-4">
-          <Card className="bg-card border border-border p-6 sm:p-8 rounded-3xl shadow-md min-h-[580px] flex flex-col">
+          <Card className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl min-h-[580px] flex flex-col">
             
             {/* Thread Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6 mb-6">
               <div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-primary px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
+                <span className="text-[10px] font-black uppercase tracking-widest text-white px-3 py-1 rounded-full bg-blue-600 border border-blue-500 shadow-xs">
                   {selectedLeadId ? "Lead History" : "Unified Stream"}
                 </span>
-                <h2 className="text-xl sm:text-2xl font-black text-foreground mt-2 tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-black text-white mt-2 tracking-tight">
                   {selectedLeadId ? selectedLead?.company_name : "Global Activity Timeline"}
                 </h2>
-                <p className="text-xs text-muted-foreground mt-1 font-medium">
+                <p className="text-xs text-slate-400 mt-1 font-medium">
                   {selectedLeadId ? `Primary Contact: ${selectedLead?.contact_person || '—'}` : "Showing all logged interactions across accounts (newest first)"}
                 </p>
               </div>
 
               {/* Action Filter Pills */}
-              <div className="flex items-center gap-1.5 p-1 bg-background border border-border rounded-xl self-start md:self-auto overflow-x-auto max-w-full">
+              <div className="flex items-center gap-1.5 p-1.5 bg-slate-950 border border-slate-800 rounded-xl self-start md:self-auto overflow-x-auto max-w-full shadow-inner">
                 {['all', 'call', 'meeting', 'whatsapp', 'email'].map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
-                    className={`px-3 py-1.5 text-[9px] uppercase tracking-wider font-black rounded-lg transition-all ${
+                    className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-black rounded-lg transition-all ${
                       activeFilter === f
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                     }`}
                   >
                     {f}
@@ -728,18 +737,18 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
             {/* Selected Lead's "Comment on the Business" Key Points Card */}
             {selectedLead && (
-              <div className="bg-slate-900 border-2 border-amber-500/40 rounded-2xl p-4 sm:p-5 mb-6 shadow-md">
+              <div className="bg-slate-950 border-2 border-amber-500 rounded-2xl p-4 sm:p-5 mb-6 shadow-md">
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    <div className="p-2.5 rounded-xl bg-amber-500 text-slate-950 shadow-sm">
                       <Building2 size={18} />
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
                         Comment on the Business
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">Key Points</span>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500 text-slate-950">Key Points</span>
                       </h4>
-                      <p className="text-xs text-slate-300 font-medium">
+                      <p className="text-xs text-slate-400 font-medium">
                         Core operational notes, business model, &amp; company insights
                       </p>
                     </div>
@@ -758,11 +767,11 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   </Button>
                 </div>
                 {selectedLeadBusinessComment ? (
-                  <div className="mt-3 p-4 rounded-xl bg-slate-950/90 border border-amber-500/30 text-sm text-white leading-relaxed whitespace-pre-wrap font-semibold">
+                  <div className="mt-3 p-4 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white leading-relaxed whitespace-pre-wrap font-semibold">
                     {selectedLeadBusinessComment}
                   </div>
                 ) : (
-                  <div className="mt-2 p-3.5 bg-slate-950/50 rounded-xl border border-dashed border-slate-700 text-xs text-slate-300 italic">
+                  <div className="mt-2 p-3.5 bg-slate-900/60 rounded-xl border border-dashed border-slate-800 text-xs text-slate-400 italic">
                     No business comments or company insights recorded yet. Click &quot;+ Add Comment&quot; to note key business points for this account.
                   </div>
                 )}
@@ -772,7 +781,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
             {/* Thread Content */}
             <div className="flex-1 relative">
               {filteredNotes.length > 0 && (
-                <div className="absolute left-[21px] top-6 bottom-6 w-[2px] bg-border/60 z-0 hidden sm:block" />
+                <div className="absolute left-[21px] top-6 bottom-6 w-[2px] bg-slate-800 z-0 hidden sm:block" />
               )}
 
               <div className="space-y-6 z-10 relative">
@@ -782,85 +791,90 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                   
                   return (
                     <div key={note.id} className="flex gap-4 items-start group/card">
-                      {/* Timeline Dot (glowing interactive type badge) */}
+                      {/* Timeline Dot (solid interactive type badge) */}
                       <div className={`hidden sm:flex h-11 w-11 shrink-0 rounded-2xl items-center justify-center font-bold shadow-md relative z-10 transition-transform group-hover/card:scale-105 ${getInteractionIconClass(parsed.type)}`}>
                         <span className="text-base">{parsed.icon}</span>
                       </div>
 
-                      {/* Content Card */}
-                      <div className="flex-1 bg-background/25 border border-border/80 rounded-2xl p-5 hover:border-border hover:bg-background/45 transition-all shadow-sm">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3 mb-3.5">
+                      {/* Content Card with Solid Color Look */}
+                      <div className={`flex-1 rounded-2xl p-5 sm:p-6 transition-all shadow-md hover:shadow-lg border ${getInteractionCardAccent(parsed.type)}`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3 mb-3.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="sm:hidden text-base">{parsed.icon}</span>
-                            <h4 className="font-black text-sm tracking-tight text-foreground uppercase">
-                              {parsed.type} Interaction
-                            </h4>
+                            <div className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs ${getInteractionIconClass(parsed.type)}`}>
+                              <span>{parsed.icon}</span>
+                              <span>{parsed.type} Interaction</span>
+                            </div>
                             {!selectedLeadId && note.crm_leads && (
                               <button
                                 onClick={() => setSelectedLeadId(note.lead_id)}
-                                className="text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded border border-primary/20 transition-colors"
+                                className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 px-2.5 py-1 rounded-lg transition-colors shadow-xs"
                               >
                                 @ {note.crm_leads.company_name}
                               </button>
                             )}
                             {parsed.sentiment && (
-                              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border rounded-lg ${sentiment}`}>
+                              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg ${sentiment}`}>
                                 {parsed.sentiment.replace(/[🟢🔴🟡⚪🟠]/gu, '').trim()}
                               </span>
                             )}
                           </div>
                           
-                          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+                          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap justify-end">
                             {(note.user || note.user_id) && (
-                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-[10px] font-bold text-foreground" title={`Logged by ${note.user?.full_name || note.user?.username || 'Team Member'}`}>
-                                <UserIcon size={11} className="text-primary shrink-0" />
-                                <span className="text-muted-foreground font-semibold uppercase text-[9px]">By</span>
-                                <span className="text-primary font-black truncate max-w-[120px]">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold text-slate-100 shadow-xs" title={`Logged by ${note.user?.full_name || note.user?.username || 'Team Member'}`}>
+                                <UserIcon size={12} className="text-blue-400 shrink-0" />
+                                <span className="text-slate-400 font-semibold uppercase text-[10px]">By</span>
+                                <span className="text-white font-bold truncate max-w-[120px]">
                                   {note.user?.full_name || note.user?.username || (note.user_id === user?.id ? 'You' : 'Team Member')}
                                 </span>
                               </div>
                             )}
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80 font-bold uppercase bg-background/60 px-2 py-0.5 rounded-md border border-border/40">
-                              <Clock size={11} className="text-primary" />
+                            <div className="flex items-center gap-1.5 text-xs text-slate-200 font-bold uppercase bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 shadow-xs">
+                              <Clock size={12} className="text-blue-400" />
                               {formatRelativeTime(note.created_at)}
                             </div>
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80 font-semibold uppercase">
-                              <Calendar size={12} className="opacity-70" />
+                            <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold uppercase bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 shadow-xs">
+                              <Calendar size={12} className="text-blue-400" />
                               {new Date(note.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                             </div>
                             <button
                               onClick={() => handleDeleteNote(note.id, note.lead_id, note.description)}
-                              className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg opacity-0 group-hover/card:opacity-100 transition-opacity"
+                              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg opacity-0 group-hover/card:opacity-100 transition-all ml-1"
                               title="Delete Note"
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </div>
 
                         {/* Note Fields rendering */}
-                        <div className="space-y-3.5 text-sm text-foreground">
+                        <div className="space-y-4 text-sm">
                           <div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Discussion &amp; Outcomes</p>
-                            <p className="leading-relaxed whitespace-pre-wrap text-foreground font-medium text-xs bg-muted/20 p-3 rounded-xl border border-border/30">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Discussion &amp; Outcomes</p>
+                            <div className="leading-relaxed whitespace-pre-wrap text-white font-medium text-sm bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner">
                               {parsed.discussionPoints || '—'}
-                            </p>
+                            </div>
                           </div>
 
                           {parsed.nextSteps && parsed.nextSteps !== '—' && (
-                            <div className="border border-indigo-500/10 bg-indigo-500/5 p-3.5 rounded-xl">
-                              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1.5">Agreed Next Action</p>
-                              <p className="text-xs text-indigo-300 font-bold flex items-center gap-1.5">
-                                <ArrowRight size={12} className="text-indigo-400" />
-                                {parsed.nextSteps}
+                            <div className="border-2 border-indigo-500 bg-indigo-950 p-4 rounded-xl shadow-md">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-xs">
+                                  Agreed Next Action
+                                </span>
+                              </div>
+                              <p className="text-sm text-indigo-100 font-bold flex items-center gap-2 mt-1.5">
+                                <ArrowRight size={14} className="text-indigo-400 shrink-0" />
+                                <span>{parsed.nextSteps}</span>
                               </p>
                             </div>
                           )}
 
                           {parsed.additionalDetails && parsed.additionalDetails !== '—' && (
-                            <div>
-                              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Additional details</p>
-                              <p className="text-xs text-muted-foreground/80 italic whitespace-pre-wrap leading-relaxed pl-1 border-l-2 border-border/80">
+                            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Additional details</p>
+                              <p className="text-xs text-slate-300 italic whitespace-pre-wrap leading-relaxed">
                                 {parsed.additionalDetails}
                               </p>
                             </div>
@@ -956,16 +970,16 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
       {/* Log Interaction Modal */}
       {isNoteModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-card border-2 border-border w-full max-w-lg mx-auto rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col">
-            <div className="p-5 sm:p-8 border-b border-border flex items-center justify-between bg-background/50">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-slate-700 w-full max-w-lg mx-auto rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col">
+            <div className="p-5 sm:p-8 border-b border-slate-800 flex items-center justify-between bg-slate-950">
               <div>
-                <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">Log Client Interaction</h2>
-                <p className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase mt-1">Record phone calls, meetings, messages</p>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">Log Client Interaction</h2>
+                <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase mt-1">Record phone calls, meetings, messages</p>
               </div>
               <button 
                 onClick={() => setIsNoteModalOpen(false)} 
-                className="p-2 hover:bg-background rounded-xl transition-colors text-muted-foreground"
+                className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-400 hover:text-white"
               >
                 <X size={20} />
               </button>
@@ -976,16 +990,16 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 
                 {/* Lead selection dropdown */}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Select Client / Lead *</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Client / Lead *</label>
                   <select
                     value={noteFormData.lead_id}
                     onChange={(e) => setNoteFormData({...noteFormData, lead_id: e.target.value})}
-                    className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-bold appearance-none cursor-pointer"
                     required
                   >
-                    <option value="" disabled className="bg-background text-muted-foreground">Select a lead...</option>
+                    <option value="" disabled className="bg-slate-900 text-slate-500">Select a lead...</option>
                     {leads.map(l => (
-                      <option key={l.id} value={l.id} className="bg-background text-foreground">
+                      <option key={l.id} value={l.id} className="bg-slate-900 text-white">
                         {l.company_name} ({l.contact_person})
                       </option>
                     ))}
@@ -994,66 +1008,66 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Interaction Type</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Interaction Type</label>
                     <select 
                       value={noteFormData.interaction_type}
                       onChange={(e) => setNoteFormData({...noteFormData, interaction_type: e.target.value})}
-                      className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-bold appearance-none cursor-pointer"
                     >
-                      <option value="call" className="bg-background text-foreground">📞 Phone Call</option>
-                      <option value="whatsapp" className="bg-background text-foreground">💬 WhatsApp Msg</option>
-                      <option value="email" className="bg-background text-foreground">📧 Email Sent/Recv</option>
-                      <option value="meeting" className="bg-background text-foreground">🤝 F2F Meeting</option>
+                      <option value="call" className="bg-slate-900 text-white">📞 Phone Call</option>
+                      <option value="whatsapp" className="bg-slate-900 text-white">💬 WhatsApp Msg</option>
+                      <option value="email" className="bg-slate-900 text-white">📧 Email Sent/Recv</option>
+                      <option value="meeting" className="bg-slate-900 text-white">🤝 F2F Meeting</option>
                     </select>
                   </div>
                   
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Client Sentiment</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Client Sentiment</label>
                     <select 
                       value={noteFormData.sentiment}
                       onChange={(e) => setNoteFormData({...noteFormData, sentiment: e.target.value})}
-                      className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-bold appearance-none cursor-pointer"
                     >
-                      <option value="Very Interested" className="bg-background text-foreground">🟢 Very Interested</option>
-                      <option value="Interested" className="bg-background text-foreground">🟡 Interested</option>
-                      <option value="Neutral" className="bg-background text-foreground">⚪ Neutral / Followup</option>
-                      <option value="Hesitant" className="bg-background text-foreground">🟠 Hesitant</option>
-                      <option value="Not Interested" className="bg-background text-foreground">🔴 Not Interested</option>
+                      <option value="Very Interested" className="bg-slate-900 text-emerald-400 font-bold">🟢 Very Interested</option>
+                      <option value="Interested" className="bg-slate-900 text-amber-400 font-bold">🟡 Interested</option>
+                      <option value="Neutral" className="bg-slate-900 text-slate-300 font-bold">⚪ Neutral / Followup</option>
+                      <option value="Hesitant" className="bg-slate-900 text-orange-400 font-bold">🟠 Hesitant</option>
+                      <option value="Not Interested" className="bg-slate-900 text-rose-400 font-bold">🔴 Not Interested</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Key Discussion Points *</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Key Discussion Points *</label>
                   <textarea 
                     value={noteFormData.discussion_points}
                     onChange={(e) => setNoteFormData({...noteFormData, discussion_points: e.target.value})}
                     placeholder="What did they say? What was requested?"
                     rows={3}
-                    className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium custom-scrollbar" 
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-medium custom-scrollbar" 
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Agreed Next Steps</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Agreed Next Steps</label>
                   <input 
                     type="text" 
                     value={noteFormData.next_steps}
                     onChange={(e) => setNoteFormData({...noteFormData, next_steps: e.target.value})}
                     placeholder="e.g., Send pricing spreadsheet tomorrow"
-                    className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium" 
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-medium" 
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Additional Notes</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Additional Notes</label>
                   <textarea 
                     value={noteFormData.additional_notes}
                     onChange={(e) => setNoteFormData({...noteFormData, additional_notes: e.target.value})}
                     placeholder="Any personal context, other stakeholders, budget caveats..."
                     rows={2}
-                    className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium custom-scrollbar" 
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-medium custom-scrollbar" 
                   />
                 </div>
               </div>
@@ -1062,7 +1076,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 <Button 
                   type="submit" 
                   disabled={submitting} 
-                  className="w-full py-6 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 active:scale-95 transition-all"
+                  className="w-full py-6 bg-blue-600 text-white hover:bg-blue-500 rounded-xl font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
                 >
                   {submitting ? <Loader2 size={16} className="animate-spin mr-2" /> : <Clipboard size={16} className="mr-2" />}
                   Save Note
@@ -1070,7 +1084,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                 <Button 
                   type="button" 
                   onClick={() => setIsNoteModalOpen(false)}
-                  className="w-full py-6 bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl font-black uppercase tracking-widest active:scale-95 transition-all"
+                  className="w-full py-6 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-black uppercase tracking-widest active:scale-95 transition-all"
                 >
                   Cancel
                 </Button>

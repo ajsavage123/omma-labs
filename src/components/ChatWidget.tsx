@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { ChatMessage } from '@/types';
 import { useToast } from '@/hooks/useToast';
 import { notificationService } from '@/utils/notificationService';
+import { workspaceNotificationService } from '@/services/workspaceNotificationService';
 import { projectService } from '@/services/projectService';
 import { MOCK_MODE } from '@/lib/mockMode';
 import { mockStorage } from '@/utils/mockStorage';
@@ -87,10 +88,24 @@ export default function ChatWidget() {
 
       if (newMsg.user_id !== user?.id) {
         const isClosed = !isOpenRef.current;
-        const isHidden = document.visibilityState === 'hidden';
+        const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
         if (isClosed || isHidden) {
           setUnreadCount((prev: number) => prev + 1);
         }
+
+        // Trigger notification sound chime & workspace push
+        const senderName = userData?.full_name || userData?.username || 'Teammate';
+        workspaceNotificationService.notify({
+          id: newMsg.id,
+          category: 'chat',
+          title: `💬 New Message from ${senderName}`,
+          body: newMsg.message || 'Sent a message in Workspace Chat',
+          actorId: newMsg.user_id,
+          actorName: senderName,
+          targetUrl: '/?open_chat=true',
+          soundType: 'notification',
+          createdAt: newMsg.created_at
+        }, user?.id);
       }
     };
 
@@ -527,6 +542,7 @@ export default function ChatWidget() {
         <button
           onClick={() => {
             setIsOpen(true);
+            notificationService.unlockAudio();
             notificationService.requestPermission();
           }}
           className="p-4 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-all transform hover:scale-105 relative group"

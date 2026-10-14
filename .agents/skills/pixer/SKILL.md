@@ -145,12 +145,55 @@ Arguments: {
 }
 ```
 
-### Step 5: Advance Pipeline to "Proposal Sent"
+### Step 5: Generate Commercial Quotation & Advance Pipeline
 
-Once the prototype and pricing breakdown are officially submitted:
+Pixer can generate an official commercial quotation directly through MCP. When created, **it is automatically saved to Supabase and immediately appears in the human operator's Quotation Generator history at `/quotation`**, tagged with `🤖 AI Agent (Pixer)`.
+
 ```
-ToolName: "crm_update_lead_stage"
-Arguments: { "lead_id": "<uuid>", "stage": "Proposal Sent" }
+ToolName: "crm_create_quotation"
+Arguments: {
+  "lead_id": "<uuid>",
+  "project_name": "Patient Booking Portal & Diagnostics Web App",
+  "client_name": "Dr. Rajesh",
+  "client_contact": "rajesh@apexdiagnostics.com | +91 9876543210",
+  "services": ["Web Application", "UI/UX Design"],
+  "currency": "BOTH",
+  "discount": "15",
+  "validity": "14",
+  "cost_items": [
+    { "label": "Diagnostics Web Application (Design & Build)", "amount": "125000", "qty": "1", "unitPriceINR": "125000", "unitPriceUSD": "1500" },
+    { "label": "WhatsApp Report Delivery Integration", "amount": "25000", "qty": "1", "unitPriceINR": "25000", "unitPriceUSD": "300" }
+  ],
+  "scopes": [
+    { "title": "Patient Portal", "desc": "Custom responsive web portal for test catalog and 2-step booking." },
+    { "title": "WhatsApp API", "desc": "Automated delivery of diagnostic PDF reports over WhatsApp." }
+  ],
+  "payments": [
+    { "pct": "50%", "label": "Mobilization Deposit", "trigger": "Upon quotation approval" },
+    { "pct": "25%", "label": "Beta Milestone", "trigger": "Upon walkthrough approval" },
+    { "pct": "25%", "label": "Final Handover", "trigger": "Prior to go-live" }
+  ],
+  "created_by": "Pixer (AI Closer)"
+}
+```
+*(Calling `crm_create_quotation` with `lead_id` automatically logs an activity note and advances the lead to `Proposal Sent`!)*
+
+You can also list or retrieve quotations:
+```
+// List existing quotations:
+ToolName: "crm_list_quotations"
+Arguments: { "query": "Apex" }
+
+// Fetch full quotation details:
+ToolName: "crm_get_quotation"
+Arguments: { "quotation_id": "<quotation_uuid>" }
+
+// Update an existing quotation's pricing or terms:
+ToolName: "crm_update_quotation"
+Arguments: {
+  "quotation_id": "<quotation_uuid>",
+  "discount": "20"
+}
 ```
 
 Update deal metrics if scope expanded:

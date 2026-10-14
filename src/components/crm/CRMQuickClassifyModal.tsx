@@ -44,10 +44,10 @@ export default function CRMQuickClassifyModal({ isOpen, onClose, defaultRating =
         .from('crm_leads')
         .update({
           confidence: confidence,
-          tags: rating,
           custom_data: {
             ...existingCustom,
             temperature: rating,
+            tags: [rating],
             classified_at: new Date().toISOString()
           }
         })

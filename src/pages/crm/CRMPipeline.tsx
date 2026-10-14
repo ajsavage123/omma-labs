@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 type GoogleAccount = { email: string; name: string; expiresAt: number; [key: string]: any };
 
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
@@ -110,10 +110,11 @@ const getLeadLocation = (lead: Record<string, any>): string => {
 
 
 export default function CRMPipeline() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const { leads, allLeads, activities, tasks, loading, refreshLeads, crmViewMode } = useCRMData();
+  const { leads, allLeads, activities, tasks, loading, refreshLeads, refreshTasks, crmViewMode } = useCRMData();
   const scoredLeads = useLeadScoring(leads, activities, tasks);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -304,10 +305,12 @@ export default function CRMPipeline() {
   const [activeDetailsTab, setActiveDetailsTab] = useState<'all' | 'comment' | 'schedule' | 'notes'>('all');
   const [detailsEditingComment, setDetailsEditingComment] = useState('');
   const [isSavingDetailsComment, setIsSavingDetailsComment] = useState(false);
+  const [showAllModalNotes, setShowAllModalNotes] = useState(false);
 
   const openLeadDetails = useCallback((lead: Record<string, any>, tab: 'all' | 'comment' | 'schedule' | 'notes' = 'all') => {
     setActiveDetailsLead(lead);
     setActiveDetailsTab(tab);
+    setShowAllModalNotes(false);
     setDetailsEditingComment(lead.comment_on_business || lead.custom_data?.comment_on_business || '');
   }, []);
 
@@ -507,6 +510,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       setSyncToGoogle(false);
       setIsTaskModalOpen(false);
       refreshLeads();
+      refreshTasks?.();
     } catch (error) {
       toast.error("Failed to schedule action");
       console.error(error);
@@ -523,11 +527,12 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
       if (error) throw error;
       toast.success("Action deleted");
       refreshLeads();
+      refreshTasks?.();
     } catch (error) {
       toast.error("Failed to delete action");
       console.error(error);
     }
-  }, [refreshLeads, toast]);
+  }, [refreshLeads, refreshTasks, toast]);
 
   const deleteRecentNote = useCallback(async (lead: Record<string, any>) => {
     if (!confirm("Are you sure you want to delete the most recent note for this lead?")) return;
@@ -2298,7 +2303,7 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
           onClick={() => setActiveDetailsLead(null)}
         >
           <div 
-            className="relative bg-slate-900/90 backdrop-blur-xl border border-slate-700/60 w-full max-w-2xl mx-auto rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+            className="relative bg-slate-900/90 backdrop-blur-xl border border-slate-700/60 w-full max-w-4xl lg:max-w-5xl mx-auto rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -2616,15 +2621,42 @@ ${noteFormData.additional_notes.trim() ? `• Additional Details: ${noteFormData
                     </Button>
                   </div>
 
-                  {activeDetailsLead.notes ? (
-                    <div className="space-y-2.5 pt-1">
-                      {activeDetailsLead.notes.split('\n\n---\n\n').map((noteEntry: string, idx: number) => (
-                        <div key={idx} className="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-normal">
-                          {noteEntry}
+                  {activeDetailsLead.notes ? (() => {
+                    const rawList = activeDetailsLead.notes.split('\n\n---\n\n').filter(Boolean);
+                    const visibleNotes = showAllModalNotes ? rawList : rawList.slice(0, 3);
+                    return (
+                      <div className="space-y-2.5 pt-1">
+                        {visibleNotes.map((noteEntry: string, idx: number) => (
+                          <div key={idx} className="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-normal">
+                            {noteEntry}
+                          </div>
+                        ))}
+
+                        <div className="pt-2 flex items-center justify-between flex-wrap gap-2 text-xs">
+                          {rawList.length > 3 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAllModalNotes(!showAllModalNotes)}
+                              className="text-xs font-bold text-indigo-400 hover:text-indigo-300 underline"
+                            >
+                              {showAllModalNotes ? "Show fewer notes" : `Show all ${rawList.length} notes (${rawList.length - 3} older)`}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const targetId = activeDetailsLead.id;
+                              setActiveDetailsLead(null);
+                              navigate(`/crm/notes?leadId=${targetId}`);
+                            }}
+                            className="text-xs font-semibold text-slate-400 hover:text-white transition-colors ml-auto flex items-center gap-1"
+                          >
+                            Open full timeline in Interaction Hub →
+                          </button>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
+                      </div>
+                    );
+                  })() : (
                     <p className="text-xs text-slate-400 italic py-2">
                       No interaction notes recorded yet.
                     </p>

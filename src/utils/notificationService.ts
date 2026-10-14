@@ -2,7 +2,45 @@
 import { notificationPermissions } from '@/utils/notificationPermissions';
 import { errorLogger } from '@/services/errorLogger';
 
+let sharedAudioCtx: AudioContext | null = null;
+
+function getSharedAudioContext(): AudioContext | null {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioCtx();
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+// Pre-unlock Web Audio on user gesture so background/async chimes can play without restriction
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    const ctx = getSharedAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  };
+  window.addEventListener('click', unlockAudio, { capture: true, passive: true });
+  window.addEventListener('keydown', unlockAudio, { capture: true, passive: true });
+  window.addEventListener('touchstart', unlockAudio, { capture: true, passive: true });
+}
+
 export const notificationService = {
+  /**
+   * Pre-warm / unlock Web Audio context on user action
+   */
+  unlockAudio(): void {
+    const ctx = getSharedAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  },
+
   /**
    * @deprecated Use notificationPermissions.requestOnce() for user-triggered flows.
    * Kept for internal usage in showNotification() fallback.
@@ -13,12 +51,12 @@ export const notificationService = {
 
   playSynthesizedChime(type: 'notification' | 'success' | 'alert' = 'notification') {
     try {
-      if (navigator.userActivation && !navigator.userActivation.hasBeenActive) {
-        return; // Prevent autoplay violation warnings
+      const ctx = getSharedAudioContext();
+      if (!ctx) return;
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
       }
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
 
       const freqs = type === 'success'
         ? [523.25, 659.25, 783.99] // C5, E5, G5 chord
@@ -26,20 +64,21 @@ export const notificationService = {
         ? [880, 440, 880]           // Alarm ping
         : [587.33, 880];            // D5, A5 notification chime
 
+      const baseTime = ctx.currentTime;
       freqs.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.1);
+        osc.frequency.setValueAtTime(freq, baseTime + idx * 0.1);
 
-        gain.gain.setValueAtTime(0.3, ctx.currentTime + idx * 0.1);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.1 + 0.3);
+        gain.gain.setValueAtTime(0.3, baseTime + idx * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, baseTime + idx * 0.1 + 0.3);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
 
-        osc.start(ctx.currentTime + idx * 0.1);
-        osc.stop(ctx.currentTime + idx * 0.1 + 0.3);
+        osc.start(baseTime + idx * 0.1);
+        osc.stop(baseTime + idx * 0.1 + 0.3);
       });
     } catch (e) {
       errorLogger.warn('notificationService', 'Synthesized audio failed', e);

@@ -36,6 +36,25 @@ export function getTaskDueDate(dueDateStr: string | null | undefined, dueTimeStr
 
 export type TaskBucket = 'today' | 'upcoming' | 'overdue' | 'completed';
 
+export function isTaskPastDue(
+  task: { due_date?: string | null; due_time?: string | null; status?: string } | null | undefined,
+  now = new Date()
+): boolean {
+  if (!task || task.status === 'Completed' || !task.due_date) return false;
+  const cleanDateStr = task.due_date.split('T')[0];
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+
+  if (cleanDateStr < todayStr) return true;
+  if (cleanDateStr === todayStr && task.due_time) {
+    const fullDueDate = getTaskDueDate(cleanDateStr, task.due_time);
+    return fullDueDate ? fullDueDate.getTime() < now.getTime() : false;
+  }
+  return false;
+}
+
 /**
  * Standardized task classifier used across Dashboard, Tasks, and Layout.
  * Consistently compares task dates in local time, safely handling ISO strings,
@@ -55,26 +74,7 @@ export function classifyTaskBucket(
   const day = String(now.getDate()).padStart(2, '0');
   const todayStr = `${year}-${month}-${day}`;
 
-  const isToday = cleanDateStr === todayStr;
-
-  if (task.due_time) {
-    const fullDueDate = getTaskDueDate(cleanDateStr, task.due_time);
-    if (!fullDueDate) {
-      if (cleanDateStr < todayStr) return 'overdue';
-      if (cleanDateStr > todayStr) return 'upcoming';
-      return 'today';
-    }
-    if (fullDueDate.getTime() < now.getTime()) {
-      return 'overdue';
-    }
-    if (isToday) {
-      return 'today';
-    }
-    return 'upcoming';
-  }
-
-  // Date-only task (no explicit time set):
-  if (isToday) return 'today';
+  if (cleanDateStr === todayStr) return 'today';
   if (cleanDateStr < todayStr) return 'overdue';
   return 'upcoming';
 }

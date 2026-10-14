@@ -10,14 +10,26 @@ import { useToast } from "@/hooks/useToast";
 import { useCRMData } from "@/contexts/CRMDataContext";
 import { googleCalendarService } from "@/services/googleCalendarService";
 
-import { getTaskDueDate, classifyTaskBucket } from "@/utils/dateUtils";
+import { getTaskDueDate, classifyTaskBucket, isTaskPastDue } from "@/utils/dateUtils";
 
 type GoogleAccount = { email: string; name: string; expiresAt: number; [key: string]: any };
 
 export default function CRMTasks() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { tasks = [], leads = [], loading, refreshTasks, refreshLeads, teamMembers = [], selectedSalesRepId, crmViewMode } = useCRMData();
+  const { 
+    tasks = [], 
+    leads = [], 
+    loading, 
+    refreshTasks, 
+    refreshLeads, 
+    teamMembers = [], 
+    selectedSalesRepId, 
+    setSelectedSalesRepId,
+    crmViewMode,
+    setCrmViewMode
+  } = useCRMData();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const [activeTab, setActiveTab] = useState("today");
   const [sortBy, setSortBy] = useState("nearest_due"); // "newest", "oldest", "nearest_due", "furthest_due"
   const [checkedTasks, setCheckedTasks] = useState<string[]>([]);
@@ -57,8 +69,15 @@ export default function CRMTasks() {
     due_time: '',
     activity_type: 'Task',
     custom_activity_type: '',
-    priority: 'Medium'
+    priority: 'Medium',
+    assigned_to: user?.id || ''
   });
+
+  useEffect(() => {
+    if (user?.id && !formData.assigned_to) {
+      setFormData(prev => ({ ...prev, assigned_to: user.id }));
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     const accounts = googleCalendarService.getLinkedAccounts();
@@ -107,7 +126,8 @@ export default function CRMTasks() {
                          finalActivityType,
           priority: formData.priority,
           status: 'Pending',
-          assigned_to: user.id
+          assigned_to: formData.assigned_to || user.id,
+          created_by: user.id
         }])
         .select('*, crm_leads(company_name, contact_person, email, phone)')
         .maybeSingle();
@@ -134,7 +154,8 @@ export default function CRMTasks() {
         due_time: '',
         activity_type: 'Task',
         custom_activity_type: '',
-        priority: 'Medium'
+        priority: 'Medium',
+        assigned_to: user?.id || ''
       });
       setSyncToGoogle(false);
       setIsModalOpen(false);
@@ -215,13 +236,16 @@ export default function CRMTasks() {
   const counts = {
     today:     tasks.filter(t => t.status !== 'Completed' && classifyTaskBucket(t, now) === 'today').length,
     upcoming:  tasks.filter(t => t.status !== 'Completed' && classifyTaskBucket(t, now) === 'upcoming').length,
-    overdue:   tasks.filter(t => t.status !== 'Completed' && classifyTaskBucket(t, now) === 'overdue').length,
+    overdue:   tasks.filter(t => t.status !== 'Completed' && (classifyTaskBucket(t, now) === 'overdue' || isTaskPastDue(t, now))).length,
+    all:       tasks.filter(t => t.status !== 'Completed').length,
     completed: tasks.filter(t => t.status === 'Completed').length,
   };
 
   const filteredTasks = tasks.filter((task) => {
     if (activeTab === 'completed') return task.status === 'Completed';
     if (task.status === 'Completed') return false;
+    if (activeTab === 'all') return true;
+    if (activeTab === 'overdue') return classifyTaskBucket(task, now) === 'overdue' || isTaskPastDue(task, now);
     return classifyTaskBucket(task, now) === activeTab;
   }).sort((a, b) => {
     if (sortBy === 'newest') return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
@@ -243,6 +267,7 @@ export default function CRMTasks() {
     { id: "today", label: "Today", count: counts.today },
     { id: "upcoming", label: "Upcoming", count: counts.upcoming },
     { id: "overdue", label: "Overdue", count: counts.overdue },
+    { id: "all", label: "All Active", count: counts.all },
     { id: "completed", label: "Done", count: counts.completed },
   ];
 
@@ -261,11 +286,50 @@ export default function CRMTasks() {
     <div className="space-y-3 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-foreground mb-0.5 sm:mb-1 tracking-tight">Tasks</h1>
             <span className="px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black rounded-full uppercase tracking-wider">
               {filterLabel}
             </span>
+            {isAdmin && (
+              <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setCrmViewMode('mine')}
+                  className={`px-2 py-0.5 rounded font-black uppercase tracking-wider transition-all ${
+                    crmViewMode === 'mine' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="View your assigned tasks"
+                >
+                  My
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCrmViewMode('team')}
+                  className={`px-2 py-0.5 rounded font-black uppercase tracking-wider transition-all ${
+                    crmViewMode === 'team' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="View team-wide tasks"
+                >
+                  Team
+                </button>
+              </div>
+            )}
+            {isAdmin && crmViewMode === 'team' && (
+              <select
+                value={selectedSalesRepId}
+                onChange={(e) => setSelectedSalesRepId(e.target.value)}
+                className="text-[10px] font-bold text-foreground bg-background border border-input rounded-lg px-2 py-0.5 focus:outline-none cursor-pointer max-w-[150px] truncate shadow-xs"
+                title="Filter by team member"
+              >
+                <option value="all">All Team Members</option>
+                {teamMembers.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.full_name || m.username} {m.id === user?.id ? '(Me)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground font-medium">Follow-ups & to-dos ({tasks.length} tasks)</p>
         </div>
@@ -390,6 +454,24 @@ export default function CRMTasks() {
                   </select>
                 </div>
 
+                {isAdmin && teamMembers.length > 0 && (
+                  <div>
+                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 px-1">Assignee (Sales Rep)</label>
+                    <select
+                      value={formData.assigned_to}
+                      onChange={e => setFormData({...formData, assigned_to: e.target.value})}
+                      className="w-full bg-background border-2 border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all appearance-none cursor-pointer"
+                    >
+                      <option value={user?.id || ''}>Myself ({user?.full_name || user?.username || 'Me'})</option>
+                      {teamMembers.filter(m => m.id !== user?.id).map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.full_name || m.username} ({m.designation || m.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Google Calendar Sync Selector */}
                 {linkedAccounts.length > 0 && (
                   <div className="p-4 bg-background border-2 border-border rounded-xl space-y-3">
@@ -464,7 +546,7 @@ export default function CRMTasks() {
 
       {/* Tabs and Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
-        <div className="grid grid-cols-4 gap-1 p-1 bg-muted/20 rounded-xl w-full sm:w-auto sm:flex sm:bg-transparent sm:p-0 sm:gap-2">
+        <div className="grid grid-cols-5 gap-1 p-1 bg-muted/20 rounded-xl w-full sm:w-auto sm:flex sm:bg-transparent sm:p-0 sm:gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -577,11 +659,24 @@ export default function CRMTasks() {
                         {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'} 
                         {task.due_time ? ` @ ${task.due_time.substring(0, 5)}` : ''}
                       </span>
+                      {isTaskPastDue(task, now) && !isDone && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-500 border border-amber-500/20">
+                          Past Due
+                        </span>
+                      )}
                       {task.crm_leads && (
                         <>
                           <span className="hidden sm:inline">•</span>
                           <span className="font-semibold text-foreground">
                             {task.crm_leads.company_name || task.crm_leads.contact_person}
+                          </span>
+                        </>
+                      )}
+                      {task.assigned_user && (
+                        <>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="px-1.5 py-0.5 rounded bg-muted/80 text-[10px] font-bold text-foreground border border-border/40">
+                            👤 {task.assigned_user.full_name || task.assigned_user.username}
                           </span>
                         </>
                       )}
@@ -633,8 +728,31 @@ export default function CRMTasks() {
         })}
 
         {filteredTasks.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No tasks in this category</p>
+          <div className="text-center py-12 space-y-3 bg-card/40 border border-dashed border-border rounded-2xl p-8">
+            <p className="text-muted-foreground font-semibold">No tasks in this category</p>
+            {activeTab === 'today' && (counts.overdue > 0 || counts.all > 0) && (
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                {counts.overdue > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab('overdue')}
+                    className="text-xs h-8 rounded-xl font-bold border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
+                  >
+                    View {counts.overdue} Overdue Task{counts.overdue > 1 ? 's' : ''}
+                  </Button>
+                )}
+                {counts.all > 0 && (
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveTab('all')}
+                    className="text-xs h-8 rounded-xl font-bold bg-primary text-primary-foreground shadow-sm"
+                  >
+                    View All Active Tasks ({counts.all})
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

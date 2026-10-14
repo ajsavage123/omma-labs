@@ -20,16 +20,18 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
           blockquote: ({ node, ...props }) => (
             <blockquote {...props} className="border-l-4 border-indigo-400 pl-4 my-2 italic text-gray-300" />
           ),
-          // Style inline code
+          // Style pre block containers
+          pre: ({ node, ...props }: any) => (
+            <pre className="bg-[#121216] p-3 rounded-lg overflow-x-auto my-2 border border-white/10" {...props} />
+          ),
+          // Style inline code vs block code
           code: ({ node, inline, className, children, ...props }: any) => {
-            return !inline ? (
-              <pre className="bg-[#121216] p-3 rounded-lg overflow-x-auto my-2 border border-white/10">
-                <code className={className} {...props}>
-                  {children}
-                </code>
-              </pre>
-            ) : (
+            return inline ? (
               <code className="bg-[#121216] px-1.5 py-0.5 rounded text-indigo-300 text-[0.9em]" {...props}>
+                {children}
+              </code>
+            ) : (
+              <code className={className} {...props}>
                 {children}
               </code>
             );

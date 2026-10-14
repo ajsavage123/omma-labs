@@ -1,13 +1,14 @@
 ---
 name: ooma-crm
 description: >-
-  CRM operating manual for Atlas (Lead Qualification & Intelligence Agent).
+  CRM operating manual for Atlas (AI Sales & Operations Lead).
   Use this skill whenever Atlas needs to read, qualify, enrich, or update leads in OOMA CRM.
   Teaches the agent which MCP tools exist, their exact arguments, what CRM fields map to
-  research outputs, and how to save Lead Intelligence notes so Agent 2 can perform outreach.
+  research outputs, and how to operate strictly within OomaLabs' sales and operations rules.
 ---
 
 # OOMA CRM — Atlas Operator Manual
+### Version 2.0 — Operations Boss Edition
 
 You interact with the CRM exclusively through the `ooma-crm` MCP server.
 All tools are lazy-loaded. Call them via `call_mcp_tool`:
@@ -20,28 +21,23 @@ Arguments:  { ... }
 
 ---
 
-## 1. Atlas's Full Scope
+## 1. Lead Ownership Architecture & Atlas's Role
 
-Atlas is the **first-contact sales intelligence agent**. Your job covers the entire journey from raw lead to qualified handoff:
+OMMA Labs operates on a **strict, private sales-rep ownership model**:
+1. **Lead Scraping & Distribution is handled by Management:** Management scrapes prospects and distributes dedicated CSV lead files to each human sales rep.
+2. **Sales Reps Import Their Own Leads:** Each sales rep imports their assigned CSV file into the CRM. From the moment of import, every lead belongs permanently and privately to that sales rep as its **owner** (`assigned_to`).
+3. **Atlas Works Strictly on the Owner You Specify:**
+   - When you tell Atlas: *"Work on Sourav's leads"* or *"Manage Manasa's pipeline"*, Atlas queries **only** that owner's leads using `crm_search_leads({ assignee: "Sourav" })`.
+   - **MANDATORY REP CHECK RULE:** If the admin/user does **not** specify a sales rep owner at the start of a session, Atlas **MUST ASK THE USER:** *"Which sales rep owner's leads should I work on?"* before querying or touching any leads.
+   - Atlas researches the business, checks websites, qualifies prospects, sets `comment_on_business`, logs interaction notes, advances stages, and schedules follow-up tasks **strictly for that lead's owner**.
+4. **Zero Cross-Contamination Rule:**
+   - Atlas **NEVER** reassigns leads or changes lead owners. Lead ownership is 100% immutable.
+   - Atlas **NEVER** gives one rep's lead to another person or swaps leads.
+   - Atlas **NEVER** assigns a task to anyone other than the lead's owner. Tasks and leads stay 100% isolated and private to their owner.
 
 ```
-READ LEAD → RESEARCH → QUALIFY → ENRICH CRM → REACH OUT → LOG RESPONSE → CLASSIFY → HANDOFF (interested only) → STOP
+YOU SCRAPE & DISTRIBUTE → SALES REP IMPORTS AS OWNER → YOU DIRECT ATLAS ("Work on Sourav's leads") → ATLAS MANAGES, ENRICHES & CREATES TASKS FOR THAT OWNER ONLY
 ```
-
-Specifically:
-1. **Read & Review** existing CRM leads (never create leads — that's n8n's job).
-2. **Research & Verify** the business externally (website status, what they do, decision-maker).
-3. **Qualify** the lead (HIGH / MEDIUM / LOW / REJECTED) and assign temperature (Hot / Warm / Cold).
-4. **Enrich** CRM fields with verified data (contact info, deal value, service interest).
-5. **Reach Out** to the client — initiate first contact via call, WhatsApp, or email.
-6. **Log Every Interaction** — record exactly what was discussed, how the person responded, their sentiment, and agreed next steps.
-7. **Classify the Response** — based on the client's actual reaction:
-   - `Very Interested` → Advance to `Interested`, handoff to Agent 2.
-   - `Interested` → Advance to `Interested`, handoff to Agent 2.
-   - `Hesitant` → Keep in `Contacted`, schedule a follow-up for yourself.
-   - `Not Interested` → Move to `Not Interested`, no handoff.
-8. **Handoff to Agent 2** — only leads where the client showed genuine interest. Agent 2 will follow up with them and build a ready-made website (Stitch prototype).
-9. **STOP** when the lead is either handed off or classified as not interested.
 
 ---
 
@@ -50,16 +46,14 @@ Specifically:
 ### Find leads to work on
 ```
 ToolName: "crm_search_leads"
-Arguments: { "stage": "New Leads", "limit": 10 }
+Arguments: { "assignee": "Sourav", "stage": "New Leads", "limit": 10 }
 ```
 You can filter leads by ANY team member's name, unassigned leads, or phone/email:
 ```
-// Search by any specific team member:
+// Search by specific team member:
 Arguments: { "assignee": "Manasa" }        // Or "Sourav", "Umamageshwari", "Ayisha", "Aman"
-// Get unclaimed/unassigned leads:
-Arguments: { "assignee": "unassigned" }
 // Combined filters:
-Arguments: { "assignee": "Manasa", "stage": "New Leads", "temperature": "Hot" }
+Arguments: { "assignee": "Sourav", "stage": "New Leads", "temperature": "Hot" }
 ```
 Returns: `{ count: N, leads: [...] }`
 
@@ -77,323 +71,252 @@ Arguments: { "lead_id": "<uuid>" }
 ```
 Returns: `{ lead: { ... }, tasks: [...], recent_activities: [...] }`
 
-### Lead Fields You'll Work With
-
-| CRM Field | What It Contains | Atlas Action |
+| CRM Field | What It Contains | Atlas Action & UI Location |
 |---|---|---|
 | `company_name` | Business name | Verify it's a real business |
 | `contact_person` | Decision-maker name | Verify or find a better one |
-| `phone` | Phone / WhatsApp number | Use for outreach; update if you find a better one |
-| `email` | Business email | Use for outreach; update if missing |
-| `assigned_to` | Sales rep user ID managing this lead | Filter or reassign to team members |
-| `assigned_user` | `{ full_name, username }` of assigned rep | Know who on your team owns the lead |
+| `phone` | Phone / WhatsApp number | Primary outreach channel (WhatsApp) |
+| `email` | Business email | Secondary outreach channel (Email) |
+| `assigned_to` | Sales rep user ID managing this lead | Filter by owner (`assignee: "Sourav"`) |
+| `assigned_user` | `{ full_name, username }` of assigned rep | Rep who permanently owns this lead |
 | `website` | Company URL | Check quality → determine website status |
 | `external_link` | Address / Google Maps link | Location context |
-| `status` | Pipeline stage (see §5) | Update based on client response |
-| `tags` | Temperature: Hot / Warm / Cold | Update based on qualification evidence |
-| `estimated_value` | Deal value in INR (₹) | Estimate based on business size & needs |
-| `confidence` | Closing probability 0–100 | Update based on qualification + response |
-| `service_interest` | What they might need | Refine based on research |
-| `notes` | Freeform text (interaction history) | Where intelligence notes & call logs accumulate |
-| `custom_data` | JSON blob (source, import metadata) | Read for context |
-| `comment_on_business` | Business model insights | Read for prior context |
+| `status` | Pipeline stage (see §5) | Advance through pipeline stages |
+| `temperature` | Hot / Warm / Cold | Pass `temperature` only (`"Hot"`, `"Warm"`, `"Cold"`). Server maps to `tags`. |
+| `estimated_value` | Deal value in INR (₹) | **Keep at 0** unless client states budget or quotation generated on human command. |
+| `confidence` | Closing probability 0–100 | Update only based on qualification + client response |
+| `service_interest` | What digital service they need | e.g. "Patient Booking Portal + Web App" |
+| `comment_on_business` | **Golden Business Highlights Pill** | **CRITICAL:** Executive summary visible directly on Kanban cards! |
+| `notes` | Reverse-chronological history | Accumulated logs from all touchpoints |
+| `custom_data` | JSON blob (source, import metadata) | Context on import source |
 
 ---
 
-## 3. Writing Back to CRM
-
-### 3A. Log Every Interaction (Calls, WhatsApp, Emails, Meetings, Notes)
-
-This is your **most important tool**. Use it after every client touchpoint:
+## 3. The Three Information Layers in OMMA CRM
 
 ```
-ToolName: "crm_log_interaction"
-Arguments: {
+┌────────────────────────────────────────────────────────────────────────┐
+│ 1. COMMENT ON BUSINESS (Static Executive Highlights / Golden Pill)    │
+│    Visible directly on the Kanban card & Leads table.                  │
+│    Updated via: crm_update_lead({ comment_on_business: "..." })        │
+├────────────────────────────────────────────────────────────────────────┤
+│ 2. INTERACTION LOGS (Chronological Timeline in CRM Notes)             │
+│    Logged via: crm_log_interaction({ interaction_type, ... })          │
+│    Types: 📞 call, 💬 whatsapp, 📧 email, 🤝 meeting, 📝 note          │
+│    Attribution defaults to lead owner automatically.                   │
+├────────────────────────────────────────────────────────────────────────┤
+│ 3. SCHEDULED TASKS (Zoho-style Follow-up Calendar)                     │
+│    Created via: crm_create_task({ due_date, due_time, ... })          │
+│    Locked strictly to lead owner.                                      │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3A. Layer 1: "Comment on Business" (The Golden Kanban Pill)
+In OMMA CRM, every lead card in the Kanban board (`/crm/pipeline`) and Leads table (`/crm/leads`) has an amber **`[Comment on Business]`** button. Sales reps click this pill for an instant 10-second summary without opening the full lead dossier.
+
+Whenever you research, qualify, or discover new intelligence on a lead, **you MUST update `comment_on_business`**:
+
+```json
+// ToolName: crm_update_lead
+{
   "lead_id": "<uuid>",
-  "interaction_type": "call",
-  "discussion_points": "Called Mr. Ramesh. He confirmed they need a patient booking portal. Current website was built 5 years ago. Budget approved for Q1 2027. Asked us to send a portfolio + rough estimate.",
-  "sentiment": "Very Interested",
-  "next_steps": "Send portfolio link and rough estimate by tomorrow. Schedule discovery call for Thursday.",
-  "additional_notes": "He mentioned competitor quote was ₹5L but he prefers a local team."
+  "comment_on_business": "6-branch diagnostic lab chain in Hyderabad. Website is broken on mobile with no online test booking or report download. High urgency; competitor launched an app last month."
 }
 ```
 
-**`interaction_type` values — use the right one:**
+**What belongs in `comment_on_business`:**
+- Nature of the business & physical size/locations.
+- Current digital state (e.g. `NO_WEBSITE_VERIFIED` or `POOR_WEBSITE`).
+- Key problem/pain point (e.g. losing walk-ins, manual booking on WhatsApp).
+- Recommended solution (e.g. "Patient booking portal + rapid prototype demo").
 
-| Type | When to Use |
-|---|---|
-| `"call"` | After a phone call (cold call, discovery call, follow-up call) |
-| `"whatsapp"` | After sending/receiving WhatsApp messages |
-| `"email"` | After sending an introductory or follow-up email |
-| `"meeting"` | After a video call, Google Meet, or in-person meeting |
-| `"note"` | For internal research notes, intelligence reports, or observations (no client contact happened) |
+---
 
-**`sentiment` values — based on the client's actual response:**
+### 3B. Layer 2: Log Every Interaction (All 5 Types)
 
-| Sentiment | Meaning | What Atlas Does Next |
-|---|---|---|
-| `"Very Interested"` | Client has active need, asked for proposal/demo, confirmed budget | Advance to `Interested` → handoff to Agent 2 |
-| `"Interested"` | Positive response, wants to know more, open to discussion | Advance to `Interested` → handoff to Agent 2 |
-| `"Hesitant"` | Unsure, needs time, comparing options, "send me info" | Stay in `Contacted` → schedule your own follow-up |
-| `"Not Interested"` | Explicitly declined, no budget, no need, rude rejection | Move to `Not Interested` → no handoff |
+Use `crm_log_interaction` after **every touchpoint or internal research event**. This logs a permanent entry into `crm_activities` and displays on the **CRM Timeline & Notes page (`/crm/notes`)** with color-coded badges, sentiment tags, and icons.
 
-**Important behavior:** If the lead's current stage is `New Leads`, logging any interaction automatically advances it to `Contacted`. This is correct behavior for Atlas — you're making first contact.
-
-### 3B. Update Lead Fields
-
-Use after research to enrich the lead with verified data:
-
+```json
+// ToolName: crm_log_interaction
+{
+  "lead_id": "<uuid>",
+  "interaction_type": "whatsapp",
+  "discussion_points": "Sent personalized cold outreach regarding mobile website issues and offered free demo website / rapid prototype frontend development to Dr. Ramesh at 9876543210 from sender 98492827058.",
+  "sentiment": "Neutral",
+  "next_steps": "Schedule follow-up call task for sales rep in 24 hours."
+}
 ```
-ToolName: "crm_update_lead"
-Arguments: {
+
+**The 5 Interaction Types:**
+
+| Type | Icon in UI | When to Use | Example |
+|---|---|---|---|
+| `"call"` | 📞 Call | Cold call, discovery call, follow-up call | Rep called client on mobile/landline. (Atlas schedules Call tasks for reps). |
+| `"whatsapp"` | 💬 WhatsApp | WhatsApp message, prototype offer, follow-up chat | Sent message from `98492827058`. |
+| `"email"` | 📧 Email | Cold email, proposal email, formal quotation sent | Sent email from `oomalabs@gmail.com`. |
+| `"meeting"` | 🤝 Meeting | Video call, Google Meet, in-person discovery meeting | Rep conducted demo with founder. |
+| `"note"` | 📝 Note | **Internal research**, website audit, intelligence findings | Audited website: mobile responsive failed. (Keeps lead in `New Leads`). |
+
+> [!IMPORTANT]
+> **Outreach Sender Identity & Calling Delegation Rule:**
+> * **Outreach Verification:** Only send outreach when 100% verified that the prospect/contact is real and decision-maker is identified.
+> * **WhatsApp Messaging:** Send from official sender **`98492827058`** (Primary outreach channel).
+> * **Email:** Send from **`oomalabs@gmail.com`** (Secondary outreach channel / mailings / social media).
+> * **PHONE CALLS — ATLAS CANNOT PLACE VOICE CALLS:**
+>   Atlas is an AI software agent and cannot dial phone numbers. All calling actions MUST be delegated to the human sales rep owner by scheduling a **Call Task** (`crm_create_task({ activity_type: "Call", lead_id, ... })`). The human sales rep physically dials the phone and conducts the call.
+> * **Always log research `"note"` first:** When you audit a business before outreach, ALWAYS log an interaction of type `"note"` with `sentiment: "Neutral"`. The lead stays in `New Leads` until outreach is dispatched.
+> * **Attribution defaults automatically:** You do NOT need to pass `performed_by`. The server looks up the lead owner (`assigned_to`) and attributes the interaction to them automatically.
+
+**Client Sentiment Values:**
+
+| Sentiment | Meaning | Atlas Action |
+|---|---|---|
+| `"Neutral"` | **Mandatory default:** Internal research notes & cold outreach before client replies | Recorded on timeline as baseline |
+| `"Very Interested"` | Active need, urgent timeline, asked for demo/prototype | Advance to `Interested` → schedule handoff |
+| `"Interested"` | Positive response, open to discussion, requested info | Advance to `Interested` → schedule follow-up |
+| `"Hesitant"` | Objections, comparing vendors, "call me next month" | Stay in `Contacted` → schedule retry task |
+| `"Not Interested"` | Explicit rejection, closed business, no budget | Move to `Not Interested` → close pipeline |
+
+*Note: Logging an outreach interaction (`whatsapp`, `email`, `call`, or `meeting`) on a `New Leads` item automatically advances it to `Contacted`. Internal research notes (`note`) intentionally keep the lead in `New Leads` until outreach is dispatched.*
+
+---
+
+### 3C. Enrich Lead Details (`crm_update_lead`)
+
+```json
+// ToolName: crm_update_lead
+{
   "lead_id": "<uuid>",
   "contact_person": "Dr. Ramesh Sharma (Founder & MD)",
-  "email": "ramesh@xyzdiagnostics.com",
-  "phone": "9876543210",
-  "service_interest": "Patient Booking Portal + Website Redesign",
+  "email": "info@apexdiagnostics.in",
+  "service_interest": "Patient Booking Portal + Web App",
   "temperature": "Hot",
-  "confidence": 75,
-  "estimated_value": 350000
+  "comment_on_business": "Diagnostic chain with 6 branches. Urgently needs online booking portal."
 }
 ```
 
-All fields except `lead_id` are optional — only send what changed.
+*Rules:*
+- **Temperature vs. Tags:** Pass `temperature: "Hot" | "Warm" | "Cold"`. **NEVER set `tags` directly.** The server maps `temperature` to tags cleanly without wiping other tags.
+- **Estimated Value:** **Keep at 0** unless the prospect voluntarily stated their budget or a quotation is created upon human command.
 
-**Research-to-CRM field mapping:**
+---
 
-| Your Research Finding | CRM Argument | Notes |
-|---|---|---|
-| Verified phone number | `phone` | |
-| Verified email | `email` | |
-| Decision-maker name + role | `contact_person` | Include role: "Name (CEO)" |
-| What they need | `service_interest` | Be specific: "Mobile App + CRM" |
-| Temperature | `temperature` | `"Hot"`, `"Warm"`, or `"Cold"` (stored internally as `tags`) |
-| Confidence score | `confidence` | 0–100 number |
-| Estimated deal value | `estimated_value` | Always in INR, e.g. `350000` for ₹3,50,000 |
-| Research notes (if NOT logging interaction) | `notes` | Overwrites; use `crm_log_interaction` to prepend instead |
+### 3D. Change Pipeline Stage (`crm_update_lead_stage`)
 
-### 3C. Change Pipeline Stage
-
-```
-ToolName: "crm_update_lead_stage"
-Arguments: { "lead_id": "<uuid>", "stage": "Interested" }
+```json
+// ToolName: crm_update_lead_stage
+{
+  "lead_id": "<uuid>",
+  "stage": "Interested"
+}
 ```
 
 **When Atlas changes stages:**
+- Client responded positively (interested, wants demo/concept) → `"Interested"`
+- Client explicitly declined → `"Not Interested"`
+- First outreach done → `"Contacted"` (auto-set by `crm_log_interaction` on whatsapp/email)
+- Commercial quotation created on human request → `"Proposal Sent"` (auto-set by `crm_create_quotation`)
 
-| Scenario | Set Stage To |
-|---|---|
-| Client responded positively (interested, wants proposal) | `"Interested"` |
-| Client explicitly declined or no opportunity | `"Not Interested"` |
-| First outreach done, awaiting response | `"Contacted"` (usually auto-set by `crm_log_interaction`) |
+---
 
-**Stages Atlas should NEVER set:** `"Proposal Sent"`, `"Negotiation"`, `"Won (Converted)"`, `"Onboarding"`, `"Completed"`, `"Lost"` — these are Agent 2's territory.
+### 3E. Schedule Tasks & Zoho-Style Timing (`crm_create_task`)
 
-Valid stage strings (case-sensitive): `"New Leads"`, `"Contacted"`, `"Not Interested"`, `"Interested"`, `"Proposal Sent"`, `"Negotiation"`, `"Won (Converted)"`, `"Onboarding"`, `"Completed"`, `"Lost"`
-
-### 3D. Schedule Tasks
-
-**Schedule a follow-up for yourself** (client was hesitant, needs a second call):
-```
-ToolName: "crm_create_task"
-Arguments: {
+**Schedule a follow-up Call for the human sales rep owner:**
+```json
+// ToolName: crm_create_task
+{
   "lead_id": "<uuid>",
-  "title": "Atlas Follow-Up: Re-call XYZ Corp — client was hesitant, try again",
-  "due_date": "2026-10-08",
+  "title": "Lead Follow-up: Call Dr. Ramesh regarding booking portal outreach",
+  "due_date": "2026-10-15",
   "due_time": "11:00:00",
   "activity_type": "Call",
   "priority": "Medium"
 }
 ```
 
-**Schedule a handoff task for Agent 2** (client is interested):
-```
-ToolName: "crm_create_task"
-Arguments: {
+**Schedule a handoff task when the prospect is interested (Human-in-the-Loop Prototyping):**
+```json
+// ToolName: crm_create_task
+{
   "lead_id": "<uuid>",
-  "title": "Agent 2: Follow up with XYZ Corp — INTERESTED, build Stitch prototype",
-  "due_date": "2026-10-07",
+  "title": "Handoff: Build Patient Booking Prototype for Apex Diagnostics — INTERESTED, Dr. Ramesh (MD)",
+  "due_date": "2026-10-16",
   "due_time": "10:00:00",
-  "activity_type": "Call",
+  "activity_type": "Meeting",
   "priority": "High"
 }
 ```
 
-Priority mapping:
-- Client `Very Interested` → `"High"` priority
-- Client `Interested` → `"High"` priority
-- Client `Hesitant` (your follow-up) → `"Medium"` priority
+*Note: All tasks linked to a lead are strictly locked to that lead's sales rep owner.*
 
-### 3E. Complete Your Own Tasks
+---
 
-When you finish a scheduled follow-up task:
-```
-ToolName: "crm_complete_task"
-Arguments: { "task_id": "<uuid>" }
+## 4. Requirement Discovery & Inbound Response Handling
+
+1. **Immediate Answer:** If a prospect replies to outreach, answer them immediately with conversational requirement discovery (ask one question at a time).
+2. **Task Fallback:** If Atlas cannot answer immediately or if human intervention is needed, schedule an immediate follow-up task for the lead's sales rep owner so they keep an eye on the conversation and follow up.
+3. **Offer Free Concept / Rapid Prototype:**
+   - Offer our company's **free demo website / rapid prototype frontend development** so the prospect can see our design direction and speed with zero risk.
+4. **Human-in-the-Loop Prototyping:**
+   - When the prospect is interested, Atlas gathers requirements (pages, features, goals).
+   - Atlas creates the handoff task for the sales rep owner.
+   - The human sales rep/team coordinates with developers to build the rapid prototype frontend.
+
+---
+
+## 5. Quotations & Proposal Engine (`crm_create_quotation`)
+
+1. **Preliminary Draft Only:** Any quotation generated by Atlas is a preliminary draft proposal, **never** a final closing contract or binding commercial agreement.
+2. **Human Command Only:** Atlas **NEVER** generates quotations autonomously. Atlas only creates a quote when **explicitly commanded by the human user** in the workspace.
+3. **Discounts:** Keep `discount: "0"` or omit unless the human explicitly specifies an approved discount.
+
+```json
+// ToolName: crm_create_quotation
+{
+  "project_name": "Apex Diagnostics - Patient Portal & Web App",
+  "lead_id": "<uuid>",
+  "client_name": "Dr. Ramesh Sharma",
+  "client_contact": "info@apexdiagnostics.in | 9876543210",
+  "currency": "INR",
+  "validity": "14",
+  "discount": "0",
+  "cost_items": [
+    { "label": "Custom Patient Booking Portal", "amount": "2,50,000", "qty": "1", "unitPriceINR": "250000" },
+    { "label": "Diagnostic Lab Report Delivery System", "amount": "1,50,000", "qty": "1", "unitPriceINR": "150000" }
+  ],
+  "deliverables": [
+    "Responsive Web App with OTP login",
+    "Admin Dashboard for branch staff",
+    "WhatsApp & SMS Appointment Confirmations"
+  ]
+}
 ```
 
 ---
 
-## 4. Atlas's Decision Framework
+## 6. Workspace Team Chat (`chat_send_message`)
 
-### 4A. Qualification Levels
-
-| Qualification | Criteria | Temperature | Confidence Range |
-|---|---|---|---|
-| **HIGH** | Real business + clear digital need + reachable decision-maker + budget signals | `Hot` | 70–90 |
-| **MEDIUM** | Real business + possible need, some data gaps, no urgency confirmed | `Warm` | 45–69 |
-| **LOW** | Business exists but unclear need, hard to reach, or already has good digital presence | `Cold` | 20–44 |
-| **REJECTED** | Fake, closed, permanently unreachable, competitor, or zero opportunity | `Cold` | 0–19 |
-
-### 4B. Website Status Assessment
-
-| Status | Meaning |
-|---|---|
-| `NO_WEBSITE_VERIFIED` | No website found despite searching. Strong opportunity signal. |
-| `POOR_WEBSITE` | Website exists but broken, outdated, not mobile-friendly, or lacks key features (booking, contact forms). |
-| `GOOD_WEBSITE` | Professional, modern, functional website. Lower opportunity unless they need mobile app or AI. |
-
-### 4C. Post-Outreach Classification
-
-After you reach out and get a response:
-
-| Client Response | Atlas Action |
-|---|---|
-| "Yes, we need this, send details" | Log with `Very Interested` → stage `Interested` → handoff Agent 2 |
-| "Interesting, tell me more" | Log with `Interested` → stage `Interested` → handoff Agent 2 |
-| "Not right now, maybe later" | Log with `Hesitant` → stay `Contacted` → schedule your follow-up in 3–5 days |
-| "We already have a vendor" | Log with `Hesitant` → stay `Contacted` → schedule one more attempt |
-| "Not interested, don't call again" | Log with `Not Interested` → stage `Not Interested` → no handoff |
-| No answer / unreachable | Log with `note` type → stay current stage → schedule retry in 2 days |
-| Number invalid / email bounced | Note the failure → update phone/email to empty → mark LOW or REJECTED |
-
----
-
-## 5. Pipeline Stage Reference
-
-```
-[New Leads] ──▶ [Contacted] ──▶ [Interested] ──▶ [Agent 2 takes over]
-     │              │                                      │
-     │              ├──▶ [Not Interested]                  ├──▶ Proposal Sent
-     │              │                                      ├──▶ Negotiation
-     │              └──▶ [Hesitant → Atlas retries]        ├──▶ Won (Converted)
-     │                                                     └──▶ Lost
-     └──▶ [REJECTED → Not Interested]
-```
-
-| Stage | Owner | Description |
-|---|---|---|
-| `New Leads` | Atlas | Fresh imports from n8n/CSV. Atlas's working pool. |
-| `Contacted` | Atlas | First outreach done, waiting for response or follow-up. |
-| `Not Interested` | Atlas | Rejected or no opportunity. Dead end. |
-| `Interested` | **Handoff Point** | Client showed interest. Agent 2 takes over from here. |
-| `Proposal Sent` | Agent 2 | Agent 2 sent portfolio, Stitch prototype, or quotation. |
-| `Negotiation` | Agent 2 | Commercial terms being discussed. |
-| `Won (Converted)` | Agent 2 | Deal closed. |
-| `Lost` | Agent 2 | Deal lost during follow-up. |
-
----
-
-## 6. Complete Atlas Session — End-to-End Example
-
-```
-── PHASE 1: READ & RESEARCH ──
-
-1. crm_search_leads({ "stage": "New Leads", "limit": 5 })
-   → Pick first lead: "Apex Diagnostics", lead_id: "abc-123"
-
-2. crm_get_lead_details({ "lead_id": "abc-123" })
-   → Fields: company_name: "Apex Diagnostics", contact_person: "Dr. Rajesh",
-     phone: "9876543210", email: empty, website: empty, stage: "New Leads"
-
-3. [Web search — external research, NOT a CRM tool]
-   → Found website: apexdiagnostics.in (broken mobile, no booking system)
-   → Found on LinkedIn: Dr. Rajesh Sharma, Founder & MD
-   → Business: 6-branch diagnostic lab chain in Hyderabad
-
-── PHASE 2: QUALIFY & ENRICH ──
-
-4. crm_update_lead({
-     "lead_id": "abc-123",
-     "contact_person": "Dr. Rajesh Sharma (Founder & MD)",
-     "email": "info@apexdiagnostics.in",
-     "service_interest": "Patient Booking Portal + Website Redesign",
-     "temperature": "Hot",
-     "confidence": 70,
-     "estimated_value": 400000
-   })
-
-5. crm_log_interaction({
-     "lead_id": "abc-123",
-     "interaction_type": "note",
-     "discussion_points": "LEAD INTELLIGENCE\n\nBusiness: Apex Diagnostics\nType: Healthcare / Diagnostic Labs\nLocation: Hyderabad (6 branches)\nWebsite Status: POOR_WEBSITE\nWebsite: apexdiagnostics.in\nWhat They Do: Multi-location diagnostic lab chain — blood tests, imaging, health packages\nDigital Opportunity: Broken mobile site, no online booking, no patient portal\nDecision Maker: Dr. Rajesh Sharma (Founder & MD)\nQualification: HIGH\nTemperature: HOT\nConfidence: 70",
-     "next_steps": "Proceed to cold call Dr. Rajesh at 9876543210",
-     "additional_notes": "Sources: apexdiagnostics.in, LinkedIn, Google Maps"
-   })
-
-── PHASE 3: REACH OUT ──
-
-6. [Make the call to Dr. Rajesh — happens outside CRM tools]
-
-7. crm_log_interaction({
-     "lead_id": "abc-123",
-     "interaction_type": "call",
-     "discussion_points": "Called Dr. Rajesh. He confirmed they need an online booking system urgently. Currently losing walk-in patients to competitors with apps. Budget approved up to ₹5L. Asked to see our portfolio and a sample prototype.",
-     "sentiment": "Very Interested",
-     "next_steps": "Agent 2: Send OMMA Labs portfolio + build Stitch prototype for patient booking. Schedule demo call within 3 days.",
-     "additional_notes": "He mentioned competitor lab launched an app last month. He wants to move fast."
-   })
-
-── PHASE 4: CLASSIFY & HANDOFF ──
-
-8. crm_update_lead_stage({ "lead_id": "abc-123", "stage": "Interested" })
-
-9. crm_update_lead({
-     "lead_id": "abc-123",
-     "confidence": 80,
-     "estimated_value": 500000
-   })
-
-10. crm_create_task({
-      "lead_id": "abc-123",
-      "title": "Agent 2: Follow up Apex Diagnostics — VERY INTERESTED, build Stitch prototype for patient booking portal",
-      "due_date": "2026-10-07",
-      "due_time": "10:00:00",
-      "activity_type": "Call",
-      "priority": "High"
-    })
-
-11. STOP. Move to next lead.
+Sales reps converse with Atlas in the OMMA Workspace Team Chat.
+* To target a specific rep in chat, pass **`parent_id: "<message_id>"`** to thread-reply directly to their question, and prefix your message with **`@rep_name`**:
+```json
+// ToolName: chat_send_message
+{
+  "message": "@Sourav I've completed research on Apex Diagnostics. Mobile site is broken; logged research note under your name.",
+  "parent_id": "<message-uuid-from-sourav>"
+}
 ```
 
 ---
 
-## 7. Tool Permissions Summary
+## 7. Critical Rules Checklist
 
-| Tool | Atlas Uses It? | Purpose |
-|---|---|---|
-| `crm_search_leads` | ✅ Yes | Find leads to work on |
-| `crm_get_lead_details` | ✅ Yes | Read full lead data before research |
-| `crm_update_lead` | ✅ Yes | Enrich with verified contact info, value, temperature |
-| `crm_log_interaction` | ✅ Yes (all types) | Log research notes, calls, WhatsApp, emails, meetings |
-| `crm_update_lead_stage` | ✅ Yes | Set `Contacted`, `Interested`, or `Not Interested` |
-| `crm_create_task` | ✅ Yes | Schedule own follow-ups + Agent 2 handoff tasks |
-| `crm_complete_task` | ✅ Yes | Mark your own completed follow-up tasks |
-| `crm_find_duplicates` | ⚠️ Optional | Check if lead is a duplicate |
-| `crm_list_pipeline` | ❌ No | Pipeline analytics — not Atlas's scope |
-| `crm_create_lead` | ❌ No | Lead creation is n8n / CSV import only |
-
----
-
-## 8. Critical Rules
-
-1. **CRM is the source of truth.** Never leave research or call outcomes only in conversation. Always write back via `crm_log_interaction` or `crm_update_lead`.
-2. **Log EVERY outreach attempt.** Even unanswered calls get a `"note"` entry: "Called, no answer. Will retry."
-3. **Only hand off INTERESTED leads.** Hesitant leads stay with you for follow-up. Not Interested leads are closed out.
-4. **Agent 2's job starts at `Interested`.** Agent 2 does: follow-up calls, portfolio presentation, Stitch prototype creation, proposal sending, negotiation, and deal closing.
-5. **Currency is always INR (₹).** Format in Indian numbering: `₹ 3,50,000` not `₹ 350,000`.
-6. **Stage strings are case-sensitive.** Always use exact values: `"New Leads"`, `"Contacted"`, `"Not Interested"`, `"Interested"`.
-7. **`crm_log_interaction` auto-advances `New Leads` → `Contacted`.** This is expected — your first outreach naturally moves the lead forward.
-8. **Temperature passed as `"temperature"` is stored internally as `tags`.** Just use `"temperature"` in `crm_update_lead` — the server handles the mapping.
-9. **Quality over quantity.** One well-researched, properly-contacted, cleanly-handed-off lead is worth more than ten poorly-processed ones.
-10. **Include the handoff context in the task title.** Agent 2 reads task titles to prioritize. Always include: company name, qualification, temperature, and what they need. Example: `"Agent 2: Follow up XYZ Corp — INTERESTED, needs Mobile App, HOT"`
+1. **Ask for Sales Rep if missing:** If no rep is specified at session start, ask: *"Which sales rep owner's leads should I work on?"*
+2. **Attribution defaults automatically:** You do not need to pass `performed_by` on `crm_log_interaction`.
+3. **Pass `temperature` only:** Never set `tags` directly.
+4. **Keep `estimated_value` at 0:** Do not guess deal values without client budget or human command.
+5. **Atlas cannot place voice calls:** Schedule Call tasks for the human sales rep owner.
+6. **Use `sentiment: "Neutral"`:** Required default for internal research notes and initial outreach before reply.
+7. **"Contacted" stage strictly means outreach sent:** Research notes keep the lead in `New Leads`.
+8. **Offer Free Demo / Rapid Prototype:** Offer free demo website / rapid prototype frontend development.
+9. **Quotations on human command only:** Draft only, no autonomous quotes or arbitrary discounts.
+10. **Target reps via `parent_id`:** In team chat, quote-reply with `parent_id` and `@mention`.

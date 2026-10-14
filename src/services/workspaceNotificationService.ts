@@ -130,6 +130,7 @@ export const workspaceNotificationService = {
     const nowStr = new Date().toISOString();
 
     if (table === 'chat_messages') {
+      if (eventType && eventType !== 'INSERT') return null;
       // Chat: Notify everyone except the sender
       if (record.user_id === currentUserId) return null;
       const senderName = record.users?.username || record.users?.full_name || 'Teammate';

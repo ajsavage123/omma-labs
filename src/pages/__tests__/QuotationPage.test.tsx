@@ -84,4 +84,12 @@ describe('QuotationPage Dual Currency', () => {
     // Verify subtotal section displays dual values by default
     expect(screen.getByText(/Net Total/i)).toBeInTheDocument();
   });
+
+  it('renders Save to Supabase and Generate Preview action controls', () => {
+    renderComponent();
+
+    expect(screen.getByRole('button', { name: /Generate Preview/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save to Supabase/i })).toBeInTheDocument();
+  });
 });
+

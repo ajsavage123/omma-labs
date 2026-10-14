@@ -143,6 +143,37 @@ describe('ChatWidget Notification & Push Integration', () => {
     });
   });
 
+  it('plays notification chime when incoming message arrives from teammate', async () => {
+    const playSoundSpy = vi.spyOn(notificationService, 'playSound');
+
+    await act(async () => {
+      render(<ChatWidget />);
+    });
+
+    await waitFor(() => {
+      expect(mockChannel.subscribe).toHaveBeenCalled();
+    });
+
+    if (broadcastCallback) {
+      await act(async () => {
+        broadcastCallback!({
+          payload: {
+            id: 'msg-incoming-sound-test',
+            message: 'Hello team sound test',
+            user_id: 'user-teammate-sound',
+            workspace_id: 'ws-123',
+            created_at: new Date().toISOString(),
+            users: { username: 'Elena' }
+          }
+        });
+      });
+    }
+
+    await waitFor(() => {
+      expect(playSoundSpy).toHaveBeenCalledWith('notification');
+    });
+  });
+
   it('handles notificationService.showNotification with ServiceWorker fallback', async () => {
     const mockShowNotification = vi.fn().mockResolvedValue(undefined);
 

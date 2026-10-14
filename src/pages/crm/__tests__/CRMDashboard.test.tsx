@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // Mock recharts to avoid SVG rendering issues in jsdom
@@ -165,4 +165,69 @@ describe('CRMDashboard', () => {
     renderDashboard();
     expect(screen.getAllByText('₹0').length).toBeGreaterThan(0);
   });
+
+  it('allows clicking View All Activity to expand the full list and shows scrollable items', () => {
+    const leads = Array.from({ length: 15 }, (_, i) => ({
+      id: `lead-${i + 1}`,
+      status: 'New Leads',
+      estimated_value: 1000,
+      created_at: new Date(Date.now() - i * 60000).toISOString(),
+      company_name: `Company ${i + 1}`,
+    }));
+
+    mockUseCRMData.mockReturnValue({
+      leads,
+      tasks: [],
+      activities: [],
+      loading: false,
+    });
+
+    renderDashboard();
+
+    // Initially shows only 8 items
+    expect(screen.getByText('Company 1')).toBeInTheDocument();
+    expect(screen.getByText('Company 8')).toBeInTheDocument();
+    expect(screen.queryByText('Company 9')).not.toBeInTheDocument();
+
+    // "View All Activity (15)" button is displayed
+    const viewAllBtn = screen.getByText(/View All Activity/i);
+    expect(viewAllBtn).toBeInTheDocument();
+
+    // Click to expand
+    fireEvent.click(viewAllBtn);
+
+    // Now all 15 items are in the document and scrollable
+    expect(screen.getByText('Company 9')).toBeInTheDocument();
+    expect(screen.getByText('Company 15')).toBeInTheDocument();
+    expect(screen.getByText(/Show Less/i)).toBeInTheDocument();
+  });
+
+  it('does not violate React rules of hooks when transitioning from loading to loaded', () => {
+    mockUseCRMData.mockReturnValue({ leads: [], tasks: [], activities: [], loading: true });
+    const { rerender } = render(
+      <MemoryRouter>
+        <CRMDashboard />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('Sales Dashboard')).not.toBeInTheDocument();
+
+    // Transition to loaded state - this ensures no "Rendered more hooks than during previous render" error
+    mockUseCRMData.mockReturnValue({
+      leads: [{ id: '1', status: 'New Leads', estimated_value: 5000, created_at: new Date().toISOString(), company_name: 'Test Co' }],
+      tasks: [],
+      activities: [{ id: 'act-1', description: '📞 Follow up call', activity_type: 'call', created_at: new Date().toISOString() }],
+      loading: false,
+    });
+
+    rerender(
+      <MemoryRouter>
+        <CRMDashboard />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Sales Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Test Co')).toBeInTheDocument();
+  });
 });
+

@@ -11,7 +11,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "watch:alerts": "node ./scripts/agent-alert-watcher.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

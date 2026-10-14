@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // Mock supabase
@@ -244,17 +244,43 @@ describe('CRMTasks', () => {
     expect(screen.getByText('Add Task')).toBeInTheDocument();
   });
 
-  it('opens modal when "Add Task" is clicked', async () => {
+  it('filters tasks by "all" active tab', () => {
     mockUseCRMData.mockReturnValue({
-      tasks: [],
+      tasks: [
+        { id: 't1', status: 'Pending', due_date: todayStr, title: 'Today Task', created_at: now.toISOString() },
+        { id: 't2', status: 'Pending', due_date: tomorrowStr, title: 'Future Task', created_at: now.toISOString() },
+        { id: 't3', status: 'Pending', due_date: yesterdayStr, title: 'Old Task', created_at: now.toISOString() },
+        { id: 't4', status: 'Completed', due_date: todayStr, title: 'Done Task', created_at: now.toISOString() },
+      ],
       loading: false,
       refreshTasks: mockRefreshTasks,
     });
     renderTasks();
-    fireEvent.click(screen.getByText('Add Task'));
-    
-    await waitFor(() => {
-      expect(screen.getByText('Create New Task')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('All Active'));
+    expect(screen.getByText('Today Task')).toBeInTheDocument();
+    expect(screen.getByText('Future Task')).toBeInTheDocument();
+    expect(screen.getByText('Old Task')).toBeInTheDocument();
+    expect(screen.queryByText('Done Task')).not.toBeInTheDocument();
+  });
+
+  it('renders assigned user in task card', () => {
+    mockUseCRMData.mockReturnValue({
+      tasks: [
+        {
+          id: 't1',
+          status: 'Pending',
+          due_date: todayStr,
+          title: 'Delegated Task',
+          priority: 'High',
+          created_at: now.toISOString(),
+          assigned_user: { full_name: 'Atlas Boss', username: 'atlas' }
+        },
+      ],
+      loading: false,
+      refreshTasks: mockRefreshTasks,
     });
+    renderTasks();
+    expect(screen.getByText(/Atlas Boss/)).toBeInTheDocument();
   });
 });

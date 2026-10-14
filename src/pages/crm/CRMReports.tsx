@@ -1866,13 +1866,13 @@ export default function CRMReports() {
             </div>
           </button>
           {openMobileSections.activity && (
-            <div className="p-3 border-t border-border/60 space-y-2.5 animate-in fade-in-50 duration-200">
+            <div className="p-3 border-t border-border/60 space-y-2.5 animate-in fade-in-50 duration-200 max-h-[260px] sm:max-h-[380px] overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar [webkit-overflow-scrolling:touch]">
               {filteredActivities.length === 0 ? (
                 <div className="py-6 text-center text-muted-foreground text-xs">
                   <p>No activity logs recorded yet.</p>
                 </div>
               ) : (
-                filteredActivities.slice(0, 15).map((act) => (
+                filteredActivities.map((act) => (
                   <div 
                     key={act.id} 
                     className="p-3 bg-muted/20 border border-border rounded-xl space-y-1.5 cursor-pointer active:bg-muted/40"
