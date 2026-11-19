@@ -242,7 +242,7 @@ export default function ServiceMenuCardPage() {
   ) || [];
 
   return (
-    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans selection:bg-emerald-500/30 overflow-x-hidden">
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto bg-[#050505] text-gray-200 font-sans selection:bg-emerald-500/30 custom-scrollbar">
       {/* Background Ambience */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] bg-emerald-500/10 blur-[120px] rounded-full animate-pulse"></div>

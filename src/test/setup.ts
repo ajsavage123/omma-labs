@@ -46,3 +46,28 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 });
+
+// Mock ResizeObserver globally
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.ResizeObserver = MockResizeObserver;
+window.ResizeObserver = MockResizeObserver;
+
+// Mock @react-three/fiber and @react-three/drei to prevent Canvas/WebGL rendering failures
+vi.mock('@react-three/fiber', () => ({
+  Canvas: ({ children }: any) => children,
+  useFrame: vi.fn(),
+  useThree: vi.fn(() => ({})),
+}));
+
+vi.mock('@react-three/drei', () => ({
+  Points: ({ children }: any) => children,
+  PointMaterial: () => null,
+  Float: ({ children }: any) => children,
+  Sphere: ({ children }: any) => children,
+  MeshDistortMaterial: () => null,
+}));
+

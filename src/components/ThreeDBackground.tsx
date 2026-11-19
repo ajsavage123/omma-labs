@@ -72,7 +72,17 @@ const FloatingShape = ({ position, color, speed, distort, radius = 1 }: { positi
 export const ThreeDBackground = () => {
   return (
     <div className="fixed inset-0 -z-10 bg-[#0a0f1c]">
-      <Canvas dpr={[1, 1.5]} performance={{ min: 0.5 }} camera={{ position: [0, 0, 12], fov: 75 }}>
+      <Canvas 
+        dpr={[1, 1.5]} 
+        performance={{ min: 0.5 }} 
+        camera={{ position: [0, 0, 12], fov: 75 }}
+        gl={{ powerPreference: 'low-power', preserveDrawingBuffer: false, failIfMajorPerformanceCaveat: false }}
+        onCreated={({ gl }) => {
+          gl.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+          }, false);
+        }}
+      >
         <color attach="background" args={['#0a0f1c']} />
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} intensity={1.5} />

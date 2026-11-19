@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -8,29 +8,50 @@ export interface ToastItem {
   type: ToastType;
 }
 
+let memoryToasts: ToastItem[] = [];
+let listeners: Array<(t: ToastItem[]) => void> = [];
+
+const emitChange = () => {
+  listeners.forEach(l => l([...memoryToasts]));
+};
+
 export function useToast() {
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>(memoryToasts);
+
+  useEffect(() => {
+    listeners.push(setToasts);
+    return () => {
+      listeners = listeners.filter(l => l !== setToasts);
+    };
+  }, []);
 
   const addToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev: ToastItem[]) => [...prev, { id, message, type }]);
+    memoryToasts = [...memoryToasts, { id, message, type }];
+    emitChange();
     
     setTimeout(() => {
-      setToasts((prev: ToastItem[]) => prev.filter((t: ToastItem) => t.id !== id));
-    }, 5000); // Increased duration for better readability
+      memoryToasts = memoryToasts.filter(t => t.id !== id);
+      emitChange();
+    }, 5000);
 
     return id;
   }, []);
 
   const removeToast = useCallback((id: string) => {
-    setToasts((prev: ToastItem[]) => prev.filter((t: ToastItem) => t.id !== id));
+    memoryToasts = memoryToasts.filter(t => t.id !== id);
+    emitChange();
   }, []);
 
-  const toast = useMemo(() => ({
+  const toast = React.useMemo(() => ({
     success: (msg: string) => addToast(msg, 'success'),
     error: (msg: string) => addToast(msg, 'error'),
-    info: (msg: string) => addToast(msg, 'info'),
+    info: (msg: string) => addToast(msg, 'info')
   }), [addToast]);
 
-  return { toasts, toast, removeToast };
+  return { 
+    toasts, 
+    removeToast,
+    toast
+  };
 }

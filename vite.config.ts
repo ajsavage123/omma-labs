@@ -7,8 +7,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['ooma-icon.png', 'ooma-icon.svg'],
+      registerType: 'prompt',
+      includeAssets: ['ooma-icon.svg', 'sw-notifications.js'],
+      workbox: {
+        importScripts: ['/sw-notifications.js']
+      },
 
       manifest: {
         name: 'Ooma Labs Workspace',
@@ -43,6 +46,11 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  server: {
+    watch: {
+      ignored: ['**/playwright-report/**', '**/tests/**', '**/dist/**', '**/Modular quotation/**', '**/*.zip']
+    }
   },
   build: {
     chunkSizeWarningLimit: 2000, // Increase warning limit to 2MB

@@ -1,10 +1,19 @@
 
 import { createClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-dotenv.config()
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const env = fs.readFileSync(path.join(__dirname, '.env'), 'utf8')
+  .split('\n')
+  .reduce((acc, line) => {
+    const [key, ...val] = line.split('=')
+    if (key) acc[key.trim()] = val.join('=').trim()
+    return acc
+  }, {})
 
-const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY)
+const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
 
 async function checkOldMessages() {
   console.log('Checking message ages...')

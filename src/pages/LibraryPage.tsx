@@ -3,6 +3,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { ChevronLeft, Book, Plus, ExternalLink, Trash2, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { dataService } from '@/services/dataService';
+import { toast } from 'sonner';
+import { DataErrorBanner } from '@/components/DataErrorBanner';
 
 interface DocumentEntry {
   id: string;
@@ -18,6 +20,7 @@ export default function LibraryPage() {
   const { user } = useAuth();
   
   const [docs, setDocs] = useState<DocumentEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   
   // Form setup
@@ -32,11 +35,15 @@ export default function LibraryPage() {
 
   const fetchDocs = async () => {
     if (!user?.workspace_id) return;
+    setError(null);
     try {
       const data = await dataService.getLibraryDocs(user.workspace_id);
       setDocs(data || []);
     } catch (err: any) {
       console.error('Failed to load library docs', err);
+      const msg = err?.message || 'Failed to connect to database or fetch library documents.';
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -64,7 +71,7 @@ export default function LibraryPage() {
       setNewUrl('');
     } catch (err: any) {
       console.error('Failed to add document', err);
-      alert('Failed to add document');
+      toast.error(err?.message || 'Failed to add document');
     }
   };
 
@@ -73,9 +80,10 @@ export default function LibraryPage() {
       try {
         await dataService.deleteLibraryDoc(id);
         setDocs(prev => prev.filter(d => d.id !== id));
+        toast.success('Document deleted successfully');
       } catch (err: any) {
         console.error('Failed to delete doc', err);
-        alert('Failed to delete document');
+        toast.error(err?.message || 'Failed to delete document');
       }
     }
   };
@@ -83,12 +91,15 @@ export default function LibraryPage() {
   const filteredDocs = docs.filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-[#0a0f1c] flex flex-col font-sans text-gray-200 selection:bg-indigo-500/30 overflow-hidden relative">
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto bg-[#0a0f1c] flex flex-col font-sans text-gray-200 selection:bg-indigo-500/30 custom-scrollbar relative">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[150px] rounded-full pointer-events-none"></div>
 
       <header className="fixed top-0 left-0 right-0 z-[60] bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 h-16 shrink-0 transition-all flex items-center justify-between px-4">
         <div className="flex items-center">
-          <button onClick={() => navigate('/')} className="p-2.5 bg-white/5 rounded-2xl border border-white/10 text-gray-400 active:scale-90 transition-all">
+          <button 
+            onClick={() => navigate('/')} 
+            className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-gray-400 hover:text-white active:scale-90 transition-all"
+          >
             <ChevronLeft className="h-5 w-5" />
           </button>
         </div>
@@ -106,6 +117,10 @@ export default function LibraryPage() {
 
       <main className="flex-1 overflow-y-auto pt-24 px-4 sm:px-8 max-w-5xl mx-auto w-full relative z-10 pb-20">
         
+        {error && (
+          <DataErrorBanner message={error} onRetry={fetchDocs} />
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
            <div className="relative w-full sm:w-96">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />

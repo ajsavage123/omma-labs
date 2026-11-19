@@ -1,11 +1,6 @@
 export type UserRole = 'partner' | 'admin';
 
-export type Designation =
-  | 'Innovation & Research Team'
-  | 'Developer & Engineering Team'
-  | 'Business Strategy & Marketing Team'
-  | 'Product Design & UX Team'
-  | 'Client Success & Accounts Team';
+export type Designation = string;
 
 export interface Workspace {
   id: string;
@@ -32,6 +27,9 @@ export interface User {
   designation: Designation;
   role: UserRole;
   workspace_id: string;
+  bio?: string;
+  skills?: string;
+  location?: string;
   created_at: string;
 }
 
@@ -116,13 +114,29 @@ export interface AdminRating {
 export interface ChatMessage {
   id: string;
   user_id: string;
+  workspace_id: string;
   message: string;
   created_at: string;
+  parent_id?: string | null;
+  is_edited?: boolean;
+  edited_at?: string | null;
+  is_pinned?: boolean;
+  is_deleted_everyone?: boolean;
+  deleted_for?: string[];
+  reactions?: ChatReaction[];
   users?: {
     full_name: string;
     username: string;
     designation: string;
   };
+}
+
+export interface ChatReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
 }
 
 export interface Idea {
@@ -145,4 +159,15 @@ export interface ClientContact {
   workspace_id: string;
   created_by: string;
   created_at: string;
+}
+
+export interface SupportLink {
+  id: string;
+  title: string;
+  category: string;
+  url: string;
+  description?: string;
+  icon?: string;
+  isDefault?: boolean;
+  created_at?: string;
 }

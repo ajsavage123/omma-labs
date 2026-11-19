@@ -1,16 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-const supabaseUrl = 'https://uswknwkxdzkrkaimwqvf.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzd2tud2t4ZHprcmthaW13cXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMTUsImV4cCI6MjA4ODY0MzIxNX0.4wj3FC4lgQ_0er8z8xSsIuVXO9VPoexyFQoCSYl67dE'
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const env = fs.readFileSync(path.join(__dirname, '.env'), 'utf8')
+  .split('\n')
+  .reduce((acc, line) => {
+    const [key, ...val] = line.split('=')
+    if (key) acc[key.trim()] = val.join('=').trim()
+    return acc
+  }, {})
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
 
 async function check() {
-  const { data: inv, error: invErr } = await supabase.from('invitations').select('*').eq('used', false).eq('role', 'admin').limit(1)
-  console.log('Unused Admin Invites:', inv)
-
-  const { data: projs, error: projsErr } = await supabase.from('projects').select('id, name').limit(5)
-  console.log('Current Projects:', projs)
+  const { data: inv, error } = await supabase.from('invitations').select('*').eq('used', false)
+  if (error) {
+    console.error('Error fetching invitations:', error)
+  } else {
+    console.log('Unused Invitations:', inv)
+  }
 }
 
 check()

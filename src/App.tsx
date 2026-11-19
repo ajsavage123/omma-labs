@@ -14,11 +14,16 @@ import LibraryPage from './pages/LibraryPage';
 import MeetingSchedulerPage from './pages/MeetingSchedulerPage';
 import ProjectMembersPage from './pages/ProjectMembersPage';
 import LiveOfficePage from './pages/LiveOfficePage';
-import CRMPage from './pages/CRMPage';
+import CRMApp from './pages/crm/CRMApp';
+import { CRMAccessGuard } from './components/CRMAccessGuard';
 import { InstallPWA } from '@/components/InstallPWA';
+import { UpdatePrompt } from '@/components/UpdatePrompt';
 import ChatWidget from '@/components/ChatWidget';
-import { notificationService } from '@/utils/notificationService';
+import { pushNotificationService } from '@/services/pushNotificationService';
 import { useEffect } from 'react';
+import TaskNotificationManager from '@/components/TaskNotificationManager';
+import GlobalNotificationManager from '@/components/GlobalNotificationManager';
+import { SplashScreen } from '@/components/SplashScreen';
 
 // Helper for the Onboarding route to ensure they are logged in to Supabase first
 function OnboardingRoute() {
@@ -44,39 +49,61 @@ function OnboardingRoute() {
   return <OnboardingPage />;
 }
 
+import { CRMDataProvider } from '@/contexts/CRMDataContext';
+
+import CommissionCalculatorPage from '@/pages/CommissionCalculatorPage';
+
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+import { Toaster } from 'sonner';
+
 function App() {
   useEffect(() => {
-    notificationService.requestPermission();
+    pushNotificationService.validateEnvironment();
   }, []);
 
   return (
-    <AuthProvider>
+    <ErrorBoundary>
+      <SplashScreen />
+      <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/onboarding" element={<OnboardingRoute />} />
+        <CRMDataProvider>
+          <Toaster richColors position="top-right" closeButton />
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/onboarding" element={<OnboardingRoute />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/project/:id" element={<ProjectWorkspacePage />} />
-            <Route path="/ideas" element={<IdeaVaultPage />} />
-            <Route path="/quotation" element={<QuotationPage />} />
-            <Route path="/requirement-form" element={<ClientRequirementPage />} />
-            <Route path="/library" element={<LibraryPage />} />
-            <Route path="/meetings" element={<MeetingSchedulerPage />} />
-            <Route path="/directory" element={<ProjectMembersPage />} />
-            <Route path="/office" element={<LiveOfficePage />} />
-            <Route path="/crm" element={<CRMPage />} />
-            <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminDashboardPage />} />
-              <Route path="/contacts" element={<ClientContactsPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/project/:id" element={<ProjectWorkspacePage />} />
+              <Route path="/ideas" element={<IdeaVaultPage />} />
+              <Route path="/quotation" element={<QuotationPage />} />
+              <Route path="/requirement-form" element={<ClientRequirementPage />} />
+              <Route path="/library" element={<LibraryPage />} />
+              <Route path="/meetings" element={<MeetingSchedulerPage />} />
+              <Route path="/directory" element={<ProjectMembersPage />} />
+              <Route path="/office" element={<LiveOfficePage />} />
+              <Route path="/crm/*" element={
+                <CRMAccessGuard>
+                  <CRMApp />
+                </CRMAccessGuard>
+              } />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/calculator" element={<CommissionCalculatorPage />} />
+                <Route path="/contacts" element={<ClientContactsPage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-        <ChatWidget />
-        <InstallPWA />
+          </Routes>
+          <ChatWidget />
+          <TaskNotificationManager />
+          <GlobalNotificationManager />
+          <InstallPWA />
+          <UpdatePrompt />
+        </CRMDataProvider>
       </BrowserRouter>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

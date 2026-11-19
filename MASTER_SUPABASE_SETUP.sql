@@ -156,57 +156,88 @@ ALTER TABLE client_contacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- Consolidated Policies (Latest optimized versions from fix_policies.sql)
+-- 1. Helper Function
+CREATE OR REPLACE FUNCTION public.get_my_workspace_id() 
+RETURNS UUID
+LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+    SELECT workspace_id FROM users WHERE id = auth.uid() LIMIT 1;
+$$;
+
 DROP POLICY IF EXISTS "Allow authenticated read users" ON users;
-CREATE POLICY "Allow authenticated read users" ON users FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow authenticated read users" ON users FOR SELECT USING (workspace_id = public.get_my_workspace_id() OR id = auth.uid());
 DROP POLICY IF EXISTS "Allow users update own record" ON users;
 CREATE POLICY "Allow users update own record" ON users FOR UPDATE USING (auth.uid() = id);
 DROP POLICY IF EXISTS "Allow initial signup" ON users;
 CREATE POLICY "Allow initial signup" ON users FOR INSERT WITH CHECK (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Allow workspace read" ON workspaces;
-CREATE POLICY "Allow workspace read" ON workspaces FOR SELECT USING (id IN (SELECT workspace_id FROM users WHERE users.id = auth.uid()));
+CREATE POLICY "Allow workspace read" ON workspaces FOR SELECT USING (id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow workspace creation" ON workspaces;
 CREATE POLICY "Allow workspace creation" ON workspaces FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow project read" ON projects;
-CREATE POLICY "Allow project read" ON projects FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow project read" ON projects FOR SELECT USING (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow project insert" ON projects;
-CREATE POLICY "Allow project insert" ON projects FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Allow project insert" ON projects FOR INSERT WITH CHECK (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow project update" ON projects;
-CREATE POLICY "Allow project update" ON projects FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow project update" ON projects FOR UPDATE USING (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow project delete" ON projects;
 CREATE POLICY "Allow project delete" ON projects FOR DELETE USING (is_admin());
 
 DROP POLICY IF EXISTS "Allow stage read" ON project_stages;
-CREATE POLICY "Allow stage read" ON project_stages FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow stage read" ON project_stages FOR SELECT USING (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow stage mod" ON project_stages;
-CREATE POLICY "Allow stage mod" ON project_stages FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow stage mod" ON project_stages FOR ALL USING (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow deleting workspace stages" ON project_stages;
 CREATE POLICY "Allow deleting workspace stages" ON project_stages FOR DELETE USING (is_admin());
 
 DROP POLICY IF EXISTS "Allow logs select" ON timeline_logs;
-CREATE POLICY "Allow logs select" ON timeline_logs FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow logs select" ON timeline_logs FOR SELECT USING (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow logs insert" ON timeline_logs;
-CREATE POLICY "Allow logs insert" ON timeline_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Allow logs insert" ON timeline_logs FOR INSERT WITH CHECK (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow logs delete" ON timeline_logs;
 CREATE POLICY "Allow logs delete" ON timeline_logs FOR DELETE USING (is_admin());
 
 DROP POLICY IF EXISTS "Allow ideas select" ON ideas;
-CREATE POLICY "Allow ideas select" ON ideas FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+CREATE POLICY "Allow ideas select" ON ideas FOR SELECT USING (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow ideas insert" ON ideas;
-CREATE POLICY "Allow ideas insert" ON ideas FOR INSERT WITH CHECK (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+CREATE POLICY "Allow ideas insert" ON ideas FOR INSERT WITH CHECK (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow ideas delete" ON ideas;
 CREATE POLICY "Allow ideas delete" ON ideas FOR DELETE USING (created_by = auth.uid() OR is_admin());
 
 DROP POLICY IF EXISTS "Allow contacts select" ON client_contacts;
-CREATE POLICY "Allow contacts select" ON client_contacts FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+CREATE POLICY "Allow contacts select" ON client_contacts FOR SELECT USING (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow contacts all" ON client_contacts;
-CREATE POLICY "Allow contacts all" ON client_contacts FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+CREATE POLICY "Allow contacts all" ON client_contacts FOR ALL USING (workspace_id = public.get_my_workspace_id());
 
 DROP POLICY IF EXISTS "Allow chat read" ON chat_messages;
-CREATE POLICY "Allow chat read" ON chat_messages FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow chat read" ON chat_messages FOR SELECT TO authenticated USING (workspace_id = public.get_my_workspace_id());
 DROP POLICY IF EXISTS "Allow chat insert" ON chat_messages;
-CREATE POLICY "Allow chat insert" ON chat_messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Allow chat insert" ON chat_messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id AND workspace_id = public.get_my_workspace_id());
+DROP POLICY IF EXISTS "Allow chat update" ON chat_messages;
+CREATE POLICY "Allow chat update" ON chat_messages FOR UPDATE TO authenticated USING (workspace_id = public.get_my_workspace_id());
+
+-- Invitations Policies
+DROP POLICY IF EXISTS "Allow reading invitations for workspace" ON invitations;
+CREATE POLICY "Allow reading invitations for workspace" ON invitations FOR SELECT USING (
+    workspace_id = public.get_my_workspace_id() OR used = false
+);
+
+DROP POLICY IF EXISTS "Allow admins to create invitations" ON invitations;
+CREATE POLICY "Allow admins to create invitations" ON invitations FOR INSERT WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "Allow updating used status" ON invitations;
+CREATE POLICY "Allow updating used status" ON invitations FOR UPDATE USING (workspace_id = public.get_my_workspace_id());
+
+DROP POLICY IF EXISTS "Allow deleting invitations" ON invitations;
+CREATE POLICY "Allow deleting invitations" ON invitations FOR DELETE USING (is_admin());
+
+-- Admin Ratings Policies
+DROP POLICY IF EXISTS "Allow admins to manage ratings" ON admin_ratings;
+CREATE POLICY "Allow admins to manage ratings" ON admin_ratings FOR ALL USING (is_admin());
+
+DROP POLICY IF EXISTS "Allow members to view ratings" ON admin_ratings;
+CREATE POLICY "Allow members to view ratings" ON admin_ratings FOR SELECT USING (workspace_id = public.get_my_workspace_id());
 
 -- ==========================================
 -- 4. TRIGGERS (MAINTENANCE)
@@ -226,3 +257,90 @@ CREATE TRIGGER trigger_delete_old_chats
 AFTER INSERT ON public.chat_messages
 FOR EACH STATEMENT
 EXECUTE FUNCTION delete_old_chat_messages();
+
+-- ==========================================
+-- 5. 7-DAY SALES PLAN FEATURE SCHEMA
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS public.crm_sales_plan_progress (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  cycle_start_date date NOT NULL,
+  day_number integer NOT NULL CHECK (day_number BETWEEN 1 AND 7),
+  task_id text NOT NULL,
+  completed boolean DEFAULT false NOT NULL,
+  completed_at timestamp with time zone,
+  notes text,
+  custom_data jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  UNIQUE(workspace_id, user_id, cycle_start_date, day_number, task_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.crm_weekly_sales_reports (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  cycle_start_date date NOT NULL,
+  cycle_end_date date NOT NULL,
+  leads_created_count integer DEFAULT 0,
+  activities_logged_count integer DEFAULT 0,
+  meetings_booked_count integer DEFAULT 0,
+  deals_progressed_count integer DEFAULT 0,
+  summary_notes text,
+  manager_status text DEFAULT 'Pending Review' CHECK (manager_status IN ('Pending Review', 'Approved', 'Needs Improvement')),
+  manager_feedback text,
+  reviewed_by uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  reviewed_at timestamp with time zone,
+  submitted_at timestamp with time zone DEFAULT now() NOT NULL,
+  UNIQUE(workspace_id, user_id, cycle_start_date)
+);
+
+ALTER TABLE public.crm_sales_plan_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_weekly_sales_reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow crm_sales_plan_progress select" ON public.crm_sales_plan_progress;
+CREATE POLICY "Allow crm_sales_plan_progress select" ON public.crm_sales_plan_progress
+  FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_sales_plan_progress all" ON public.crm_sales_plan_progress;
+CREATE POLICY "Allow crm_sales_plan_progress all" ON public.crm_sales_plan_progress
+  FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_weekly_sales_reports select" ON public.crm_weekly_sales_reports;
+CREATE POLICY "Allow crm_weekly_sales_reports select" ON public.crm_weekly_sales_reports
+  FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_weekly_sales_reports all" ON public.crm_weekly_sales_reports;
+CREATE POLICY "Allow crm_weekly_sales_reports all" ON public.crm_weekly_sales_reports
+  FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+CREATE INDEX IF NOT EXISTS idx_crm_sales_plan_cycle 
+  ON public.crm_sales_plan_progress (workspace_id, user_id, cycle_start_date);
+
+CREATE INDEX IF NOT EXISTS idx_crm_weekly_reports_cycle 
+  ON public.crm_weekly_sales_reports (workspace_id, user_id, cycle_start_date);
+
+-- ==========================================
+-- 6. CRM WORKSPACE SETTINGS TABLE
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS public.crm_settings (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
+  key text NOT NULL,
+  value text NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  UNIQUE(workspace_id, key)
+);
+
+ALTER TABLE public.crm_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow crm_settings select" ON public.crm_settings;
+CREATE POLICY "Allow crm_settings select" ON public.crm_settings
+  FOR SELECT USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Allow crm_settings all" ON public.crm_settings;
+CREATE POLICY "Allow crm_settings all" ON public.crm_settings
+  FOR ALL USING (workspace_id IN (SELECT workspace_id FROM users WHERE id = auth.uid()));

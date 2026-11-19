@@ -13,10 +13,12 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
+import { DataErrorBanner } from '@/components/DataErrorBanner';
 import { Link, useNavigate } from 'react-router-dom';
 import { OomaLogo } from '@/components/OomaLogo';
+import { notebookLMService } from '@/services/notebookLMService';
 import { useToast } from '@/hooks/useToast';
-import { ToastContainer } from '@/components/Toast';
+
 import { dataService } from '@/services/dataService';
 
 interface Meeting {
@@ -32,9 +34,10 @@ interface Meeting {
 export default function MeetingSchedulerPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toasts, toast, removeToast } = useToast();
+  const { toast } = useToast();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -46,18 +49,21 @@ export default function MeetingSchedulerPage() {
   });
 
   useEffect(() => {
-    if (user?.workspace_id) {
-      fetchMeetings();
-    }
+    fetchMeetings();
   }, [user?.workspace_id]);
 
   const fetchMeetings = async () => {
     if (!user?.workspace_id) return;
+    setLoading(true);
+    setError(null);
     try {
       const data = await dataService.getMeetings(user.workspace_id);
       setMeetings(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Fetch meetings failed', err);
+      const msg = err?.message || 'Failed to connect to database or fetch meetings.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -102,12 +108,12 @@ export default function MeetingSchedulerPage() {
 
   return (
     <div className="h-screen flex bg-[#050505] text-white overflow-hidden">
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
       {/* Sidebar (Shared) */}
       <aside className="hidden md:flex w-[260px] flex-shrink-0 flex-col bg-[#0c0c0e] border-r border-white/5 h-full">
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <OomaLogo className="text-[#6366f1]" size={32} />
+            <OomaLogo size={32} />
             <div>
               <h1 className="text-md font-bold tracking-tight text-white">Ooma Workspace</h1>
               <p className="text-[8px] uppercase tracking-[0.2em] font-extrabold text-[#6366f1]">Ooma Workflow</p>
@@ -127,16 +133,41 @@ export default function MeetingSchedulerPage() {
             <Plus className="mr-3 h-4 w-4 text-emerald-500" />
             Tools Space
           </Link>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              const popup = notebookLMService.openDevCompanionWindow();
+              if (!popup || popup.closed) {
+                toast.error("Popup blocked! Please allow popups for this site in your browser to open Support AI.");
+              }
+            }}
+            className="flex items-center justify-between px-4 py-3 text-[13px] font-bold text-gray-300 rounded-xl hover:bg-purple-500/10 hover:text-white transition-all duration-200 group w-full text-left"
+            title="Support - Developer & Technical Knowledge Assistant"
+            aria-label="Open Support Assistant"
+          >
+            <div className="flex items-center min-w-0">
+              <img src="/robot-assistant.png" alt="Support" className="w-4 h-4 object-contain mr-3 group-hover:scale-110 transition-transform" />
+              <span className="truncate">Support</span>
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
+              DEV AI
+            </span>
+          </button>
         </nav>
       </aside>
 
       <main className="flex-1 flex flex-col pt-4 md:pt-0 overflow-y-auto">
         <div className="max-w-6xl mx-auto w-full px-6 py-4 md:py-10">
+          {error && (
+            <DataErrorBanner message={error} onRetry={fetchMeetings} />
+          )}
+
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-10 gap-6">
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => navigate('/')}
-                className="md:hidden p-2.5 bg-white/5 border border-white/10 rounded-2xl text-gray-400 active:scale-90 transition-all"
+                className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-gray-400 hover:text-white active:scale-95 transition-all"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>

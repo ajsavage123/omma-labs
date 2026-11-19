@@ -4,6 +4,9 @@ Ooma Labs Innovation Workspace is a specialized conceptualization and project ma
 
 ## 🌟 Key Features
 
+> 📖 **Sales Department Operating Manual**: For a comprehensive, step-by-step training manual on how to use the OOMA CRM Engine, see [crmread.md](file:///c:/Users/AJAYKUMAR/.gemini/antigravity-ide/scratch/omma-labs/crmread.md).
+
+
 ### 🛡️ Role-Based Workrooms
 The application operates on strict access control rules and splits users into specific **Designations**:
 - **Innovation & Research Team**: The idea generators. They are the only ones allowed to create new projects and oversee the `Ideology` and `Research` stages.

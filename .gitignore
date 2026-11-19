@@ -28,3 +28,12 @@ dist-ssr
 .env.development
 .env.production
 .env.test
+*.zip
+quotation-generator-package/
+Modular quotation/
+
+# Test output
+playwright-report/
+test-results/
+.freebuff/
+.alerts/

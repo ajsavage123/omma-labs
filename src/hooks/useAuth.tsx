@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@/types';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { MOCK_MODE } from '@/lib/mockMode';
 import { mockStorage } from '@/utils/mockStorage';
+import { logError } from '@/utils/logger';
 
 // Define an extended User type that includes workspaceName for convenience in the UI
 export interface AuthenticatedUser extends User {
@@ -25,6 +26,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const userRef = useRef<AuthenticatedUser | null>(null);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   useEffect(() => {
     // Get initial session
     if (MOCK_MODE) {
@@ -35,20 +41,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        supabase.auth.signOut().catch(() => {});
+        setSupabaseUser(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      const session = data?.session;
       setSupabaseUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        fetchUserProfile(session.user.id, true);
       } else {
         setLoading(false);
       }
+    }).catch(() => {
+      supabase.auth.signOut().catch(() => {});
+      setSupabaseUser(null);
+      setUser(null);
+      setLoading(false);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSupabaseUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        // Prevent full app unmount on tab-focus token refreshes
+        if (event === 'TOKEN_REFRESHED' && userRef.current?.id === session.user.id) {
+          return;
+        }
+        // Only trigger loading spinner if we don't already have an active user in memory
+        fetchUserProfile(session.user.id, !userRef.current);
       } else {
         setUser(null);
         setLoading(false);
@@ -58,33 +82,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (id: string) => {
-    try {
-      // Use maybeSingle because a newly signed up user might not have a public.users record yet
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+  const inflightProfileFetch = useRef<Map<string, Promise<void>>>(new Map());
 
-      if (userError) throw userError;
-
-      if (userData && userData.workspace_id) {
-        const { data: workspaceData } = await supabase
-          .from('workspaces')
-          .select('name')
-          .eq('id', userData.workspace_id)
-          .single();
-          
-        setUser({ ...userData, workspaceName: workspaceData?.name });
-      } else {
-        setUser(userData);
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    } finally {
-      setLoading(false);
+  const fetchUserProfile = async (id: string, showLoadingSpinner = true) => {
+    if (inflightProfileFetch.current.has(id)) {
+      return inflightProfileFetch.current.get(id);
     }
+
+    if (showLoadingSpinner && !userRef.current) {
+      setLoading(true);
+    }
+    const promise = (async () => {
+      try {
+        // Use maybeSingle because a newly signed up user might not have a public.users record yet
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (userError) throw userError;
+
+        if (userData && userData.workspace_id) {
+          const { data: workspaceData } = await supabase
+            .from('workspaces')
+            .select('name')
+            .eq('id', userData.workspace_id)
+            .maybeSingle();
+            
+          setUser({ ...userData, workspaceName: workspaceData?.name });
+        } else {
+          setUser(userData);
+        }
+      } catch (error) {
+        logError('Error fetching user profile', error);
+      } finally {
+        inflightProfileFetch.current.delete(id);
+        setLoading(false);
+      }
+    })();
+
+    inflightProfileFetch.current.set(id, promise);
+    return promise;
   };
 
   const refreshUser = async () => {
@@ -107,7 +146,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    return {
+      user: null,
+      supabaseUser: null,
+      loading: true,
+      signOut: async () => {},
+      refreshUser: async () => {}
+    };
   }
   return context;
 };

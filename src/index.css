@@ -4,22 +4,86 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --brand: #7C3AED;
-  --brand2: #EC4899;
-  --accent: #F59E0B;
-  --dark: #0F0A1E;
-  --surface: #1A1035;
-  --card: #221845;
-  --border: rgba(124,58,237,0.25);
-  --text: #E2D9F3;
-  --muted: #9B89C4;
-  --input-bg: rgba(124,58,237,0.08);
-  --red: #F43F5E;
-  --green: #10B981;
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+/* =====================================================
+   CRM DESIGN SYSTEM - Exact clone of localhost:3002
+   ===================================================== */
+.crm-root {
+  --background: #0F172A;
+  --foreground: #F1F5F9;
+  --card: #1E293B;
+  --card-foreground: #F1F5F9;
+  --popover: #1E293B;
+  --popover-foreground: #F1F5F9;
+  --primary: #7C3AED;
+  --primary-foreground: #F1F5F9;
+  --secondary: #334155;
+  --secondary-foreground: #F1F5F9;
+  --muted: #475569;
+  --muted-foreground: #CBD5E1;
+  --accent: #7C3AED;
+  --accent-foreground: #F1F5F9;
+  --destructive: #EF4444;
+  --destructive-foreground: #F1F5F9;
+  --border: #334155;
+  --input: #334155;
+  --ring: #7C3AED;
+  --sidebar: #1E293B;
+  --sidebar-foreground: #F1F5F9;
+  --sidebar-primary: #7C3AED;
+  --sidebar-primary-foreground: #F1F5F9;
+  --sidebar-accent: #7C3AED;
+  --sidebar-accent-foreground: #F1F5F9;
+  --sidebar-border: #334155;
+  --radius: 0.65rem;
+
+  /* Apply tokens as bg/text */
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', 'DM Sans', sans-serif;
+}
+
+/* CRM utility classes matching Tailwind v4 tokens */
+.crm-root .bg-background { background-color: var(--background) !important; }
+.crm-root .bg-card { background-color: var(--card) !important; }
+.crm-root .bg-sidebar { background-color: var(--sidebar) !important; }
+.crm-root .bg-primary { background-color: var(--primary) !important; }
+.crm-root .bg-secondary { background-color: var(--secondary) !important; }
+.crm-root .bg-muted { background-color: var(--muted) !important; }
+.crm-root .text-foreground { color: var(--foreground) !important; }
+.crm-root .text-muted-foreground { color: var(--muted-foreground) !important; }
+.crm-root .text-primary { color: var(--primary) !important; }
+.crm-root .text-primary-foreground { color: var(--primary-foreground) !important; }
+.crm-root .text-sidebar-foreground { color: var(--sidebar-foreground) !important; }
+.crm-root .text-sidebar-primary-foreground { color: var(--sidebar-primary-foreground) !important; }
+.crm-root .border-border { border-color: var(--border) !important; }
+.crm-root .border-sidebar-border { border-color: var(--sidebar-border) !important; }
+.crm-root .border-input { border-color: var(--input) !important; }
+.crm-root .ring-ring { --tw-ring-color: var(--ring) !important; }
+.crm-root .bg-sidebar-primary { background-color: var(--sidebar-primary) !important; }
+.crm-root .hover\:bg-sidebar-accent\/10:hover { background-color: rgba(124,58,237,0.1) !important; }
+.crm-root .hover\:bg-primary\/90:hover { background-color: rgba(124,58,237,0.9) !important; }
+.crm-root .hover\:bg-background\/50:hover { background-color: rgba(15,23,42,0.5) !important; }
+
+
+
 @layer base {
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
   body {
     background-color: var(--dark);
     color: var(--text);
@@ -91,3 +155,121 @@
 .requirement-card {
   @apply bg-[#221845] border border-[rgba(124,58,237,0.25)] rounded-2xl p-6 shadow-2xl transition-all hover:shadow-[0_0_30px_rgba(124,58,237,0.1)];
 }
+
+/* CRM Pipeline Blinking Urgency Highlights */
+@keyframes blink-red {
+  0%, 100% {
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 1);
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
+  }
+}
+
+@keyframes blink-orange {
+  0%, 100% {
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    border-color: rgba(245, 158, 11, 1);
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.7);
+  }
+}
+
+@keyframes blink-blue {
+  0%, 100% {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    border-color: rgba(59, 130, 246, 1);
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
+  }
+}
+
+.blink-ring-red {
+  animation: blink-red 2s infinite ease-in-out;
+  border-width: 2px !important;
+  background-color: rgba(239, 68, 68, 0.03) !important;
+  transform: scale(1.02);
+  z-index: 20;
+}
+
+.blink-ring-orange {
+  animation: blink-orange 2s infinite ease-in-out;
+  border-width: 2px !important;
+  background-color: rgba(245, 158, 11, 0.03) !important;
+  transform: scale(1.02);
+  z-index: 20;
+}
+
+.blink-ring-blue {
+  animation: blink-blue 2s infinite ease-in-out;
+  border-width: 2px !important;
+  background-color: rgba(59, 130, 246, 0.03) !important;
+  transform: scale(1.02);
+  z-index: 20;
+}
+
+/* Premium Bell Swinging Keyframe Animations */
+@keyframes bell-swing {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(15deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+  90% { transform: rotate(-2deg); }
+}
+
+@keyframes bell-oscillate {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(16deg); }
+  20% { transform: rotate(-14deg); }
+  30% { transform: rotate(12deg); }
+  40% { transform: rotate(-8deg); }
+  50% { transform: rotate(4deg); }
+  60%, 99% { transform: rotate(0deg); }
+}
+
+.bell-ringing {
+  animation: bell-swing 0.8s ease-in-out;
+  transform-origin: top center;
+}
+
+.bell-oscillating {
+  animation: bell-oscillate 2.5s infinite ease-in-out;
+  transform-origin: top center;
+}
+
+.bell-btn:hover .bell-icon {
+  animation: bell-swing 0.8s ease-in-out;
+  transform-origin: top center;
+}
+
+/* Custom Scrollbar Styles for Desktop & Mobile */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.6);
+}
+
+
+

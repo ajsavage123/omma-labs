@@ -293,7 +293,6 @@ const businessSubPanels = [
 
 export function StageCard({ project, stage, tools, onUpdate, designation, role, isOwner = true, onToast, logs }: StageCardProps) {
   const [updateText, setUpdateText] = useState('');
-  const [githubUrl, setGithubUrl] = useState(project.github_link || '');
   const [loading, setLoading] = useState(false);
 
   const stageLabel = STAGE_LABEL_MAP[stage.stage_name] ?? stage.stage_name;
@@ -321,20 +320,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
     }
   };
 
-  const handleUpdateGithub = async () => {
-    if (!githubUrl.trim() || !project.workspace_id) return;
-    setLoading(true);
-    try {
-      await projectService.updateGithubLink(project.id, githubUrl);
-      await projectService.logActivity(project.id, designation, stage.stage_name, `GitHub repository linked: ${githubUrl}`, project.workspace_id);
-      await onUpdate();
-      onToast?.('GitHub link updated!', 'success');
-    } catch {
-      onToast?.('Failed to update GitHub link.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const handleNextStage = async () => {
     const clientOrder: StageName[] = ['discovery', 'proposals_contracts', 'ui_ux_design', 'client_approval', 'development', 'qa_testing', 'client_uat', 'deployment', 'maintenance_support', 'admin_review'];
@@ -360,7 +346,7 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
     }
   };
 
-  const openNotes = () => window.open(project.drive_link, '_blank');
+  const openDocs = () => window.open(project.drive_link, '_blank');
 
   return (
     <div className={`bg-[#0c0c0e] rounded-[24px] border-2 flex flex-col h-full transition-all group overflow-hidden relative ${
@@ -397,11 +383,13 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
             </button>
           )}
           <button
-            onClick={openNotes}
+            onClick={openDocs}
             className="flex items-center gap-1.5 px-3 py-2 md:px-5 md:py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-xl active:scale-95 transition-all shadow-lg border border-blue-400/30"
           >
-            <ExternalLink className="h-3 w-3 md:h-4 md:w-4" />
-            Notes
+            <svg viewBox="0 0 24 24" className="h-3 w-3 md:h-4 md:w-4 fill-white" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 14H7v-2h10v2zm0-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Docs
           </button>
         </div>
       </div>
@@ -493,29 +481,24 @@ export function StageCard({ project, stage, tools, onUpdate, designation, role, 
           </div>
         </div>
 
-        {/* GitHub link (dev stage only) - Visible to everyone, Editable only by owner */}
+        {/* GitHub link (dev stage only) - Visible to everyone, Read-Only Link */}
         {stage.stage_name === 'development' && (
           <div className="pt-2">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">GitHub Repository</p>
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={githubUrl}
-                onChange={(e) => setGithubUrl(e.target.value)}
-                placeholder="https://github.com/..."
-                disabled={!isOwner}
-                className="flex-1 text-sm px-4 py-2.5 bg-black/40 border border-white/5 rounded-xl text-white outline-none focus:border-indigo-500/50 placeholder-gray-500 disabled:opacity-50"
-              />
-              {isOwner && (
-                <button
-                  onClick={handleUpdateGithub}
-                  disabled={loading || !githubUrl.trim()}
-                  className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-all"
-                >
-                  <Github className="h-4.5 w-4.5" />
-                </button>
-              )}
-            </div>
+            {project.github_link ? (
+              <a
+                href={project.github_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 text-[13px] font-bold text-indigo-400 rounded-xl border border-white/15 hover:border-indigo-500/30 transition-all shadow-md max-w-full truncate"
+              >
+                <Github className="h-4 w-4 shrink-0 text-indigo-400" />
+                <span className="truncate">{project.github_link}</span>
+                <ExternalLink className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+              </a>
+            ) : (
+              <p className="text-xs text-gray-600 font-bold italic ml-1">No repository linked during creation</p>
+            )}
           </div>
         )}
 

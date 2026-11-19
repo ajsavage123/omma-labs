@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.crm_leads (
   website text,
   external_link text,
   notes text,
+  custom_data jsonb DEFAULT '{}'::jsonb,
   status text DEFAULT 'New Lead'::text NOT NULL,
   follow_up_date timestamp with time zone,
   workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
@@ -24,6 +25,10 @@ CREATE TABLE IF NOT EXISTS public.crm_leads (
 -- Add tracking fields if the table already exists via migration safety
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='is_pinned') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN is_pinned boolean DEFAULT false;
+  END IF;
+
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='confidence') THEN
     ALTER TABLE public.crm_leads ADD COLUMN confidence integer DEFAULT 25;
   END IF;
@@ -51,6 +56,14 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='notes') THEN
     ALTER TABLE public.crm_leads ADD COLUMN notes text;
   END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='custom_data') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN custom_data jsonb DEFAULT '{}'::jsonb;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_leads' AND column_name='comment_on_business') THEN
+    ALTER TABLE public.crm_leads ADD COLUMN comment_on_business text;
+  END IF;
 END $$;
 
 CREATE TABLE IF NOT EXISTS public.crm_activities (
@@ -59,8 +72,17 @@ CREATE TABLE IF NOT EXISTS public.crm_activities (
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   user_id uuid REFERENCES auth.users(id),
   activity_type text NOT NULL, -- e.g., 'call', 'email', 'note'
-  description text
+  description text,
+  workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE
 );
+
+-- RLS policies for activities and migrations
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='crm_activities' AND column_name='workspace_id') THEN
+    ALTER TABLE public.crm_activities ADD COLUMN workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- Enable Row Level Security
 ALTER TABLE public.crm_leads ENABLE ROW LEVEL SECURITY;
@@ -148,3 +170,5 @@ CREATE POLICY "Allow crm_tasks all" ON public.crm_tasks FOR ALL USING (workspace
 
 -- Force Supabase PostgREST to reload its schema cache
 NOTIFY pgrst, 'reload schema';
+ALTER PUBLICATION supabase_realtime ADD TABLE crm_leads, crm_tasks;  
+ALTER PUBLICATION supabase_realtime ADD TABLE crm_activities;

@@ -3,7 +3,8 @@ import { queryCache } from '@/utils/cache';
 import type { AdminRating, ProjectStatus, Project, ProjectStage, User, Invitation } from '@/types';
 import { MOCK_MODE } from '@/lib/mockMode';
 import { mockStorage } from '@/utils/mockStorage';
-
+import { generateSecureInviteCode } from '@/utils/crypto';
+import { logError } from '@/utils/logger';
 export const adminService = {
   async getAdminStats() {
     if (MOCK_MODE) return { activeProjects: 0, researchCount: 0, developmentCount: 0, launchCount: 0, mostActiveTeam: 'Mock Team' };
@@ -94,7 +95,7 @@ export const adminService = {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, username, full_name, designation, role, workspace_id, created_at')
+        .select('id, username, full_name, designation, role, workspace_id, skills, location, created_at')
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: false });
 
@@ -103,7 +104,7 @@ export const adminService = {
       queryCache.set(cacheKey, result);
       return result;
     } catch (err) {
-      console.error('adminService.getTeamMembers failed:', err);
+      logError('adminService.getTeamMembers failed', err);
       throw err;
     }
   },
@@ -124,8 +125,8 @@ export const adminService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Generate a secure random 8-character hex code
-    const code = Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    // Generate a secure 8-character code
+    const code = generateSecureInviteCode();
     
     const { data, error } = await supabase
       .from('invitations')
@@ -153,22 +154,34 @@ export const adminService = {
     if (error) throw error;
   },
 
-  async updateUserRole(userId: string, designation: string, role: string) {
+  async updateUserProfile(userId: string, data: { full_name?: string; designation?: string; role?: string; bio?: string; skills?: string; location?: string }, workspaceId?: string) {
     const { error } = await supabase
       .from('users')
-      .update({ designation, role })
+      .update(data)
       .eq('id', userId);
 
     if (error) throw error;
+    
+    if (workspaceId) {
+      queryCache.invalidate(`members_${workspaceId}`);
+    } else {
+      queryCache.clear();
+    }
   },
 
-  async deleteUser(userId: string) {
+  async deleteUser(userId: string, workspaceId?: string) {
     const { error } = await supabase
       .from('users')
       .delete()
       .eq('id', userId);
 
     if (error) throw error;
+
+    if (workspaceId) {
+      queryCache.invalidate(`members_${workspaceId}`);
+    } else {
+      queryCache.clear();
+    }
   },
 
   async deleteTimelineLog(logId: string) {

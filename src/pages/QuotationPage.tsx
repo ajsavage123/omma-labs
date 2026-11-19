@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { ChevronLeft, CheckCircle, Copy, Check, Plus, X, Pencil, Eye, Download, Clock, History as HistoryIcon, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { ChevronLeft, CheckCircle, Copy, Check, Plus, X, Pencil, Eye, Download, Clock, History as HistoryIcon, Trash2, Search, Sparkles, ChevronDown, ChevronUp, Bot, User, Save, FilePlus, RotateCcw } from 'lucide-react';
+import { WEBSITE_CATALOG, APPLICATION_CATALOG, AI_AUTOMATION_CATALOG, getDefaultPriceFormatted, getDefaultModulePrices } from '@/modules/quotationCatalogData';
 
 interface ScopeItem { title: string; desc: string; }
 interface Phase { name: string; days: string; tasks: string; }
 interface PaymentMilestone { pct: string; label: string; trigger: string; }
-interface CostItem { label: string; amount: string; }
+interface CostItem { label: string; qty?: string; unitPriceINR?: string; unitPriceUSD?: string; unitPrice?: string; amount?: string; }
 
 const serviceScopeMap: Record<string, ScopeItem[]> = {
   'Web Application': [
@@ -78,13 +80,22 @@ const serviceDeliverables: Record<string, string[]> = {
   'E-commerce': ['Product Catalog', 'Shopping Cart', 'Payment Gateway', 'Order Management'],
 };
 
-const servicePriceMap: Record<string, number> = {
-  'Web Application': 15000,
-  'Mobile App': 20000,
-  'UI/UX Design': 8000,
-  'Cloud Architecture': 12000,
-  'Maintenance': 5000,
-  'E-commerce': 18000,
+const servicePriceMapINR: Record<string, number> = {
+  'Web Application': 125000,
+  'Mobile App': 165000,
+  'UI/UX Design': 65000,
+  'Cloud Architecture': 95000,
+  'Maintenance': 40000,
+  'E-commerce': 150000,
+};
+
+const servicePriceMapUSD: Record<string, number> = {
+  'Web Application': 1500,
+  'Mobile App': 2000,
+  'UI/UX Design': 800,
+  'Cloud Architecture': 1200,
+  'Maintenance': 500,
+  'E-commerce': 1800,
 };
 
 const serviceIcons: Record<string, string> = {
@@ -156,7 +167,7 @@ export default function QuotationPage() {
   ]);
   const [companyName, setCompanyName] = useState('OomaLabs');
   const [companyAddress, setCompanyAddress] = useState('Gachibowli, Hyderabad, Telangana, India');
-  const [companyContact, setCompanyContact] = useState('oomalabs@gmail.com | 9381167058 | www.oomalabs.in');
+  const [companyContact, setCompanyContact] = useState('oomalabs@gmail.com | 9381167058 | www.oomalabs.com');
   const [signatureName, setSignatureName] = useState('OomaLabs Team');
   const [signatureTitle, setSignatureTitle] = useState('Authorized Signature');
   const [executiveSummaryGoal, setExecutiveSummaryGoal] = useState('generate leads, build digital presence, and streamline operations');
@@ -169,18 +180,98 @@ export default function QuotationPage() {
 
   const [copied, setCopied] = useState(false);
   const [generated, setGenerated] = useState(true);
-  const [currency, setCurrency] = useState('USD');
-  const symbol = currency === 'USD' ? '$' : '₹';
-  const locale = currency === 'USD' ? 'en-US' : 'en-IN';
+  const [currency, setCurrency] = useState<'USD' | 'INR' | 'BOTH'>('BOTH');
+
+  // Safe number parser that strips currency symbols and prevents NaN
+  const parseNum = (val: any, defaultVal = 0): number => {
+    if (val === undefined || val === null || val === '') return defaultVal;
+    const cleaned = String(val).replace(/[^0-9.-]/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? defaultVal : num;
+  };
+
+  // Helper to format values using independent INR and USD amounts (No exchange rate conversion math!)
+  const formatDualPrices = (valINR: number, valUSD: number) => {
+    const vINR = isNaN(valINR) ? 0 : valINR;
+    const vUSD = isNaN(valUSD) ? 0 : valUSD;
+    const strINR = `₹${vINR.toLocaleString('en-IN')}`;
+    const strUSD = `$${vUSD.toLocaleString('en-US')}`;
+
+    if (currency === 'INR') return strINR;
+    if (currency === 'USD') return strUSD;
+    return `${strINR} / ${strUSD}`;
+  };
   const [includeGST, setIncludeGST] = useState(false);
   const [gstRate, setGstRate] = useState('18');
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   const [customServices, setCustomServices] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [currentQuotationId, setCurrentQuotationId] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'ai' | 'user'>('all');
+
+  // ── MODULE CATALOG STATE ──
+  const [catalogCategory, setCatalogCategory] = useState<'Websites' | 'Applications' | 'AI Automations'>('Websites');
+  const [catalogSubCategory, setCatalogSubCategory] = useState<string>('Business Website');
+  const [catalogGroup, setCatalogGroup] = useState<'Pages' | 'Features' | 'Add-ons'>('Pages');
+  const [catalogSearch, setCatalogSearch] = useState<string>('');
+  const [selectedCatalogItem, setSelectedCatalogItem] = useState<string>('Home');
+  const [customCatalogItemName, setCustomCatalogItemName] = useState<string>('Home');
+  const [customCatalogItemPriceINR, setCustomCatalogItemPriceINR] = useState<string>('5000');
+  const [customCatalogItemPriceUSD, setCustomCatalogItemPriceUSD] = useState<string>('120');
+  const [customCatalogItemQty, setCustomCatalogItemQty] = useState<string>('1');
+  const [catalogFeedback, setCatalogFeedback] = useState<string | null>(null);
+  const [isCatalogOpen, setIsCatalogOpen] = useState<boolean>(true);
+
+  // Current catalog dictionary based on category
+  const activeCatalogData = useMemo(() => {
+    if (catalogCategory === 'Websites') return WEBSITE_CATALOG;
+    if (catalogCategory === 'Applications') return APPLICATION_CATALOG;
+    return AI_AUTOMATION_CATALOG;
+  }, [catalogCategory]);
+
+  // Ensure valid subcategory when category changes
+  useEffect(() => {
+    const availableSubs = Object.keys(activeCatalogData);
+    if (!availableSubs.includes(catalogSubCategory)) {
+      const defaultSub = availableSubs[0] || 'Business Website';
+      setCatalogSubCategory(defaultSub);
+    }
+  }, [catalogCategory, activeCatalogData]);
+
+  // Active items for the selected subcategory & group
+  const currentCatalogItems = useMemo(() => {
+    const sub = activeCatalogData[catalogSubCategory];
+    if (!sub) return [];
+    let items: string[] = [];
+    if (catalogGroup === 'Pages') items = sub.pages || [];
+    else if (catalogGroup === 'Features') items = sub.features || [];
+    else items = sub.addons || [];
+
+    if (!catalogSearch.trim()) return items;
+    const q = catalogSearch.toLowerCase();
+    return items.filter(i => i.toLowerCase().includes(q));
+  }, [activeCatalogData, catalogSubCategory, catalogGroup, catalogSearch]);
+
+  // Update selected item default when group or category changes
+  useEffect(() => {
+    if (currentCatalogItems.length > 0 && !currentCatalogItems.includes(selectedCatalogItem)) {
+      const firstItem = currentCatalogItems[0];
+      setSelectedCatalogItem(firstItem);
+      setCustomCatalogItemName(firstItem);
+    }
+  }, [currentCatalogItems]);
+
+  // Sync default price tags when group changes
+  useEffect(() => {
+    const defaults = getDefaultModulePrices(catalogGroup);
+    setCustomCatalogItemPriceINR(defaults.inr.toString());
+    setCustomCatalogItemPriceUSD(defaults.usd.toString());
+  }, [catalogGroup]);
 
   // Print Styles for professional PDF
   const printStyles = `
@@ -244,13 +335,43 @@ export default function QuotationPage() {
     }
   `;
 
-  // Compute subtotal from cost items
-  const computeSubtotal = () => costItems.reduce((sum, c) => sum + (parseInt(String(c.amount).replace(/,/g, '')) || 0), 0);
-  const subtotal = computeSubtotal();
-  const disc = parseInt(discount) || 0;
-  const priceAfterDiscount = Math.round(subtotal * (1 - disc / 100));
-  const gstAmount = includeGST ? Math.round(priceAfterDiscount * (parseInt(gstRate) || 0) / 100) : 0;
-  const totalInvestment = priceAfterDiscount + gstAmount;
+  // Compute subtotals independently for INR and USD
+  const computeTotals = () => {
+    let subtotalINR = 0;
+    let subtotalUSD = 0;
+
+    costItems.forEach(c => {
+      const qty = parseNum(c.qty, 1);
+      const priceINR = parseNum(c.unitPriceINR !== undefined ? c.unitPriceINR : (c.unitPrice || c.amount), 0);
+      const priceUSD = parseNum(c.unitPriceUSD !== undefined ? c.unitPriceUSD : c.unitPrice, 0);
+      subtotalINR += qty * priceINR;
+      subtotalUSD += qty * priceUSD;
+    });
+
+    const discPct = parseNum(discount, 0);
+    const discAmountINR = Math.round(subtotalINR * (discPct / 100));
+    const discAmountUSD = Math.round(subtotalUSD * (discPct / 100));
+
+    const priceAfterDiscINR = subtotalINR - discAmountINR;
+    const priceAfterDiscUSD = subtotalUSD - discAmountUSD;
+
+    const rateGST = includeGST ? parseNum(gstRate, 18) : 0;
+    const gstAmountINR = includeGST ? Math.round(priceAfterDiscINR * (rateGST / 100)) : 0;
+    const gstAmountUSD = includeGST ? Math.round(priceAfterDiscUSD * (rateGST / 100)) : 0;
+
+    const totalINR = priceAfterDiscINR + gstAmountINR;
+    const totalUSD = priceAfterDiscUSD + gstAmountUSD;
+
+    return {
+      subtotalINR, subtotalUSD,
+      discAmountINR, discAmountUSD,
+      priceAfterDiscINR, priceAfterDiscUSD,
+      gstAmountINR, gstAmountUSD,
+      totalINR, totalUSD
+    };
+  };
+
+  const totals = computeTotals();
 
   useEffect(() => {
     const newScopes = selectedServices.flatMap(s => serviceScopeMap[s] || []);
@@ -279,9 +400,22 @@ export default function QuotationPage() {
       setWarranty('Standard 30-day post-launch warranty for fixing reproducible bugs within the stated scope.');
     }
 
-    // Auto-generate cost items from selected services
-    const newCosts = selectedServices.map(s => ({ label: s, amount: (servicePriceMap[s] || 0).toLocaleString() }));
-    setCostItems(newCosts);
+    // Auto-generate cost items from selected services while preserving custom-added catalog items
+    setCostItems(prev => {
+      return selectedServices.map(s => {
+        const existing = prev.find(c => c.label === s);
+        if (existing) return existing;
+        const defaultRateINR = servicePriceMapINR[s] || 0;
+        const defaultRateUSD = servicePriceMapUSD[s] || 0;
+        return {
+          label: s,
+          qty: '1',
+          unitPriceINR: defaultRateINR.toString(),
+          unitPriceUSD: defaultRateUSD.toString(),
+          amount: defaultRateINR.toString()
+        };
+      }).concat(prev.filter(c => !selectedServices.includes(c.label) && !Object.keys(servicePriceMapINR).includes(c.label)));
+    });
   }, [selectedServices]);
 
   const toggleService = (s: string) => setSelectedServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
@@ -304,9 +438,19 @@ export default function QuotationPage() {
   const removeNextStep = (i: number) => setNextSteps(nextSteps.filter((_, idx) => idx !== i));
   const addPayment = () => setPayments([...payments, { pct: '0%', label: 'New', trigger: 'Trigger event' }]);
   const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
-  const addCostItem = () => setCostItems([...costItems, { label: 'New Line Item', amount: '0' }]);
+  const addCostItem = () => setCostItems([...costItems, { label: 'New Line Item', qty: '1', unitPrice: '0', amount: '0' }]);
   const removeCostItem = (i: number) => setCostItems(costItems.filter((_, idx) => idx !== i));
-  const updateCostItem = (i: number, f: keyof CostItem, v: string) => { const n = [...costItems]; n[i] = { ...n[i], [f]: v }; setCostItems(n); };
+  const updateCostItem = (i: number, f: keyof CostItem, v: string) => { 
+    const n = [...costItems]; 
+    n[i] = { ...n[i], [f]: v }; 
+    if (f === 'unitPrice') {
+      n[i].amount = v;
+    }
+    if (f === 'amount') {
+      n[i].unitPrice = v;
+    }
+    setCostItems(n); 
+  };
 
   const addMetaField = () => setMetaFields([...metaFields, { label: 'Field Label', value: 'Value', subValue: '' }]);
   const removeMetaField = (i: number) => setMetaFields(metaFields.filter((_, idx) => idx !== i));
@@ -314,14 +458,28 @@ export default function QuotationPage() {
 
   const handleCopy = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
-  const computedGSTStr = gstAmount.toLocaleString(locale);
-
-  // Supabase Save Function
-  const handleSave = async () => {
+  // Supabase Save Function (Supports Update or Insert as New Copy)
+  const handleSave = async (asNewCopy = false) => {
     setSaving(true);
     setSaveStatus('Saving...');
     
-    const formData = {
+    // 1. Session check & refresh before attempting save
+    let activeUserId = user?.id || null;
+    try {
+      const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
+      if (sessErr || !sessionData?.session) {
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (refreshData?.session?.user) {
+          activeUserId = refreshData.session.user.id;
+        }
+      } else {
+        activeUserId = sessionData.session.user.id;
+      }
+    } catch (authErr) {
+      console.warn('[Quotation Auth Verification]:', authErr);
+    }
+
+    const fullFormData = {
       metaFields,
       costItems,
       selectedServices,
@@ -343,28 +501,93 @@ export default function QuotationPage() {
       executiveSummaryGoal,
       exclusions,
       warranty,
-      nextSteps
+      nextSteps,
+      payments,      // Included: deposit, milestone & final percentages
+      validity,      // Included: quotation validity days
+      savedBy: (user as any)?.email || user?.full_name || user?.username || activeUserId || 'Web User',
+      source: 'web',
+      updatedAt: new Date().toISOString()
     };
 
+    // 2. Always persist active draft backup to localStorage
     try {
-      const { error } = await supabase
-        .from('quotations')
-        .insert([{ 
-          project_name: projectName, 
-          form_data: formData,
-          created_at: new Date().toISOString()
-        }]);
+      localStorage.setItem('oomalabs_quotation_active_draft', JSON.stringify({
+        id: currentQuotationId,
+        projectName,
+        formData: fullFormData,
+        savedAt: new Date().toISOString()
+      }));
+    } catch (_) {}
 
-      if (error) throw error;
-      setSaveStatus('Quotation Saved to Supabase!');
+    try {
+      const targetId = (!asNewCopy && currentQuotationId) ? currentQuotationId : null;
+
+      if (targetId) {
+        // UPDATE existing quotation
+        const { error: updErr } = await supabase
+          .from('quotations')
+          .update({ 
+            project_name: projectName, 
+            form_data: fullFormData
+          })
+          .eq('id', targetId);
+
+        if (updErr) throw updErr;
+
+        setSaveStatus('Updated!');
+        toast.success(`Quotation "${projectName}" updated successfully!`);
+      } else {
+        // INSERT new quotation
+        const { data: insData, error: insErr } = await supabase
+          .from('quotations')
+          .insert([{ 
+            project_name: projectName, 
+            form_data: fullFormData,
+            created_at: new Date().toISOString()
+          }])
+          .select();
+
+        if (insErr) throw insErr;
+
+        if (insData?.[0]?.id) {
+          setCurrentQuotationId(insData[0].id);
+        }
+        setSaveStatus('Saved!');
+        toast.success(`Quotation "${projectName}" saved to Supabase!`);
+      }
+
       fetchHistory(); // Refresh history
-      setTimeout(() => setSaveStatus(null), 3000);
+      setTimeout(() => setSaveStatus(null), 2500);
     } catch (err: any) {
-      console.error('Error saving to Supabase:', err);
-      setSaveStatus(`Error: ${err.message || 'Check your quotations table'}`);
+      console.error('Error saving quotation to Supabase:', err);
+      const msg = err.message || 'Check your quotations table';
+      setSaveStatus('Saved locally');
+      toast.error(`Could not save to Supabase (${msg}). Your draft is preserved locally.`);
+      setTimeout(() => setSaveStatus(null), 3000);
     } finally {
       setSaving(false);
     }
+  };
+
+  // Generate quotation document handler (updates preview & saves local backup)
+  const handleGenerate = () => {
+    setGenerated(true);
+    setMobileView('preview');
+    try {
+      localStorage.setItem('oomalabs_quotation_active_draft', JSON.stringify({
+        id: currentQuotationId,
+        projectName,
+        formData: {
+          metaFields, costItems, selectedServices, customServices, projectName,
+          companyName, companyAddress, companyContact, signatureName, signatureTitle,
+          currency, includeGST, gstRate, discount, terms, scopes, phases, deliverables,
+          executiveSummaryGoal, exclusions, warranty, nextSteps, payments, validity,
+          updatedAt: new Date().toISOString()
+        },
+        savedAt: new Date().toISOString()
+      }));
+    } catch (_) {}
+    toast.success('Quotation generated and preview updated!');
   };
 
   // Fetch History from Supabase
@@ -378,36 +601,77 @@ export default function QuotationPage() {
 
       if (error) throw error;
       setHistory(data || []);
-    } catch (err) {
-      console.error('Error fetching history:', err);
+    } catch (err: any) {
+      console.error('Error fetching quotation history:', err);
+      // Fallback: check localStorage for any offline drafts
+      try {
+        const local = localStorage.getItem('oomalabs_quotation_active_draft');
+        if (local) {
+          const parsed = JSON.parse(local);
+          setHistory([{
+            id: parsed.id || 'local-draft',
+            project_name: `${parsed.projectName} (Local Draft)`,
+            form_data: parsed.formData,
+            created_at: parsed.savedAt
+          }]);
+        }
+      } catch (_) {}
     } finally {
       setLoadingHistory(false);
     }
   };
 
-  // Load Quotation from History
+  // Start fresh new blank quotation template
+  const startNewQuotation = () => {
+    setCurrentQuotationId(null);
+    setProjectName('Digital Transformation');
+    setValidity('14');
+    setDiscount('15');
+    setIncludeGST(false);
+    setGstRate('18');
+    setCurrency('BOTH');
+    setMetaFields([
+      { label: 'Prepared For', value: 'New Client', subValue: 'client@example.com' },
+      { label: 'Quotation #', value: `OL-Q-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}` },
+      { label: 'Date', value: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), subValue: 'Valid for 14 days' }
+    ]);
+    setSelectedServices(['Web Application']);
+    setCostItems([{ label: 'Engineering & Development', amount: '15,000' }]);
+    setGenerated(true);
+    setShowHistory(false);
+    toast.info('Started a new quotation draft.');
+  };
+
+  // Load Quotation from History (Restores ALL fields including payments & validity)
   const loadQuotation = (q: any) => {
     const d = q.form_data;
     if (!d) return;
 
-    setProjectName(d.projectName || '');
+    setCurrentQuotationId(q.id);
+    setProjectName(q.project_name || d.projectName || '');
     setCompanyName(d.companyName || 'OomaLabs');
-    setCompanyAddress(d.companyAddress || '');
-    setCompanyContact(d.companyContact || '');
-    setSignatureName(d.signatureName || '');
-    setSignatureTitle(d.signatureTitle || '');
-    setCurrency(d.currency || 'USD');
-    setIncludeGST(d.includeGST || false);
+    setCompanyAddress(d.companyAddress || 'Gachibowli, Hyderabad, Telangana, India');
+    setCompanyContact(d.companyContact || 'oomalabs@gmail.com | 9381167058 | www.oomalabs.com');
+    setSignatureName(d.signatureName || 'OomaLabs Team');
+    setSignatureTitle(d.signatureTitle || 'Authorized Signature');
+    setCurrency(d.currency || 'BOTH');
+    setIncludeGST(d.includeGST ?? false);
     setGstRate(d.gstRate || '18');
     setDiscount(d.discount || '15');
+    setValidity(d.validity || '14');
     setMetaFields(d.metaFields || []);
-    setSelectedServices(d.selectedServices || []);
+    setSelectedServices(d.selectedServices || ['Web Application']);
     setCustomServices(d.customServices || []);
     setCostItems(d.costItems || []);
     setScopes(d.scopes || []);
     setPhases(d.phases || []);
     setDeliverables(d.deliverables || []);
     setTerms(d.terms || []);
+    setPayments(d.payments || [
+      { pct: '50%', label: 'Deposit', trigger: 'To commence work' },
+      { pct: '25%', label: 'Milestone', trigger: 'Upon beta delivery' },
+      { pct: '25%', label: 'Final', trigger: 'Prior to launch' }
+    ]);
     setExecutiveSummaryGoal(d.executiveSummaryGoal || 'generate leads, build digital presence, and streamline operations');
     setExclusions(d.exclusions || [
       'Content writing or copywriting services.',
@@ -423,15 +687,21 @@ export default function QuotationPage() {
     
     setShowHistory(false);
     setGenerated(true);
+    toast.success(`Loaded quotation: ${q.project_name || 'Untitled'}`);
   };
 
   const deleteFromHistory = async (id: string) => {
     try {
       const { error } = await supabase.from('quotations').delete().eq('id', id);
       if (error) throw error;
+      if (currentQuotationId === id) {
+        setCurrentQuotationId(null);
+      }
+      toast.success('Quotation removed from history.');
       fetchHistory();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting from history:', err);
+      toast.error(`Delete failed: ${err.message || 'Check database permissions'}`);
     }
   };
 
@@ -444,13 +714,17 @@ export default function QuotationPage() {
   const removeBtnStyle: React.CSSProperties = { position: 'absolute', top: 6, right: 6, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(192,57,43,0.08)', border: 'none', borderRadius: 6, color: '#c0392b', cursor: 'pointer', fontSize: 12, padding: 0 };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#f7f6f2', fontFamily: "'Outfit', sans-serif", color: '#1a1a2e' }}>
+    <div className="h-screen h-[100dvh] w-full overflow-y-auto flex flex-col custom-scrollbar" style={{ background: '#f7f6f2', fontFamily: "'Outfit', sans-serif", color: '#1a1a2e' }}>
       <style>{printStyles}</style>
 
       {/* ── TOP BAR ── */}
       <div className="no-print flex items-center justify-between shrink-0 px-5 py-3 md:px-10 md:py-4" style={{ background: '#1a1a2e', color: '#fff' }}>
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/ideas')} className="p-2 rounded-lg transition-all" style={{ background: 'rgba(255,255,255,0.1)' }}>
+          <button 
+            onClick={() => navigate('/ideas')} 
+            className="p-2 rounded-lg transition-all text-gray-300 hover:text-white active:scale-95" 
+            style={{ background: 'rgba(255,255,255,0.1)' }}
+          >
             <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
           </button>
           <div className="flex items-center gap-2.5 ml-1 md:ml-2">
@@ -492,44 +766,150 @@ export default function QuotationPage() {
         {showHistory && (
           <>
             <div onClick={() => setShowHistory(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" />
-            <div className="fixed top-0 right-0 w-[400px] h-full bg-white shadow-2xl z-50 transform transition-transform animate-slide-left p-8">
-              <div className="flex items-center justify-between mb-8 border-bottom pb-4" style={{ borderBottom: '1.5px solid #e2dfd6' }}>
+            <div className="fixed top-0 right-0 w-full max-w-[440px] h-full bg-white shadow-2xl z-50 transform transition-transform animate-slide-left p-6 sm:p-7 flex flex-col">
+              <div className="flex items-center justify-between mb-4 pb-3" style={{ borderBottom: '1.5px solid #e2dfd6' }}>
                 <div>
                   <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700 }}>Saved Quotations</h2>
-                  <p style={{ fontSize: 11, color: '#8888aa', textTransform: 'uppercase', letterSpacing: 1 }}>Supabase Records</p>
+                  <p style={{ fontSize: 11, color: '#8888aa', textTransform: 'uppercase', letterSpacing: 1 }}>Supabase & AI Agent Records</p>
                 </div>
-                <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-gray-100 rounded-full transition-all">
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={startNewQuotation} 
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#fdfcf9] border border-[#e2dfd6] hover:border-[#c9a84c] text-xs font-semibold text-[#1a1a2e] transition-all"
+                    title="Start fresh new quotation"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-[#c9a84c]" /> New
+                  </button>
+                  <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-gray-100 rounded-full transition-all">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-4 overflow-y-auto h-[calc(100vh-180px)] pr-2">
+              {/* History Search & Filter Bar */}
+              <div className="mb-4 space-y-2">
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    placeholder="Search quotations or clients..."
+                    className="w-full pl-9 pr-3 py-2 bg-[#fdfcf9] border border-[#e2dfd6] rounded-xl text-xs outline-none focus:border-[#c9a84c] transition-all"
+                  />
+                  {historySearch && (
+                    <button onClick={() => setHistorySearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-1.5">
+                  {(['all', 'ai', 'user'] as const).map(tab => {
+                    const aiCount = history.filter(q => q.form_data?.source === 'ai_agent_mcp' || q.form_data?.createdBy?.toLowerCase().includes('agent')).length;
+                    const userCount = history.length - aiCount;
+                    const label = tab === 'all' ? `All (${history.length})` : tab === 'ai' ? `🤖 AI Agent (${aiCount})` : `👤 User (${userCount})`;
+                    const active = historyFilter === tab;
+
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setHistoryFilter(tab)}
+                        className={`flex-1 py-1 px-2 text-[11px] font-semibold rounded-lg transition-all ${active ? 'bg-[#1a1a2e] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quotations List */}
+              <div className="flex flex-col gap-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                 {loadingHistory ? (
-                   <p className="text-center italic text-gray-400 py-10">Fetching records...</p>
+                   <p className="text-center italic text-gray-400 py-10">Fetching quotations from Supabase...</p>
                 ) : history.length === 0 ? (
                   <div className="text-center py-20">
                     <HistoryIcon className="h-12 w-12 text-gray-200 mx-auto mb-4" />
                     <p style={{ fontSize: 14, color: '#8888aa' }}>No saved quotations found.</p>
                   </div>
-                ) : history.map(q => (
-                  <div key={q.id} className="group p-5 rounded-2xl border border-[#e2dfd6] hover:border-[#c9a84c] hover:bg-[#fdfcf9] transition-all cursor-pointer relative">
-                    <div onClick={() => loadQuotation(q)}>
-                      <h4 style={{ fontWeight: 700, fontSize: 15, color: '#1a1a2e' }}>{q.project_name || 'Untitled Project'}</h4>
-                      <div className="flex items-center gap-2 mt-2">
-                         <Clock className="h-3 w-3 text-[#c9a84c]" />
-                         <span style={{ fontSize: 11, fontWeight: 500, color: '#8888aa' }}>{new Date(q.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      </div>
-                    </div>
-                    {user?.role === 'admin' && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteFromHistory(q.id); }} 
-                        className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-2 hover:text-[#c0392b] transition-all"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                ) : (
+                  history
+                    .filter(q => {
+                      // Filter by AI / User tab
+                      const isAi = q.form_data?.source === 'ai_agent_mcp' || q.form_data?.createdBy?.toLowerCase().includes('agent');
+                      if (historyFilter === 'ai' && !isAi) return false;
+                      if (historyFilter === 'user' && isAi) return false;
+
+                      // Filter by search string
+                      if (!historySearch.trim()) return true;
+                      const s = historySearch.toLowerCase();
+                      const meta = q.form_data?.metaFields || [];
+                      const clientName = (meta.find((m: any) => m.label?.toLowerCase().includes('prepared for'))?.value || '').toLowerCase();
+                      const quoteNum = (meta.find((m: any) => m.label?.toLowerCase().includes('quotation #'))?.value || '').toLowerCase();
+                      const title = (q.project_name || '').toLowerCase();
+                      return title.includes(s) || clientName.includes(s) || quoteNum.includes(s);
+                    })
+                    .map(q => {
+                      const d = q.form_data || {};
+                      const meta = d.metaFields || [];
+                      const client = meta.find((m: any) => m.label?.toLowerCase().includes('prepared for'))?.value || '';
+                      const quoteNum = meta.find((m: any) => m.label?.toLowerCase().includes('quotation #'))?.value || '';
+                      const isAi = d.source === 'ai_agent_mcp' || d.createdBy?.toLowerCase().includes('agent');
+                      const isActive = currentQuotationId === q.id;
+
+                      return (
+                        <div 
+                          key={q.id} 
+                          onClick={() => loadQuotation(q)}
+                          className={`group p-4 rounded-2xl border transition-all cursor-pointer relative ${isActive ? 'border-[#c9a84c] bg-[#fffdf8] shadow-sm' : 'border-[#e2dfd6] hover:border-[#c9a84c] hover:bg-[#fdfcf9]'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2 pr-6">
+                            <h4 style={{ fontWeight: 700, fontSize: 14, color: '#1a1a2e' }} className="line-clamp-2">
+                              {q.project_name || 'Untitled Project'}
+                            </h4>
+                          </div>
+
+                          {client && (
+                            <div className="text-xs text-gray-500 mt-1 font-medium">
+                              Client: <span className="text-gray-800 font-semibold">{client}</span> {quoteNum && <span className="text-[10px] text-gray-400">({quoteNum})</span>}
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                            {isAi ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                <Bot className="h-3 w-3 text-purple-600" /> AI Agent ({d.createdBy || 'Atlas'})
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                                <User className="h-3 w-3 text-gray-500" /> Web User
+                              </span>
+                            )}
+
+                            {isActive && (
+                              <span className="text-[10px] bg-[#c9a84c]/20 text-[#8c6d1d] px-2 py-0.5 rounded-full font-bold">
+                                ACTIVE
+                              </span>
+                            )}
+
+                            <div className="flex items-center gap-1 text-[11px] text-[#8888aa] ml-auto">
+                              <Clock className="h-3 w-3 text-[#c9a84c]" />
+                              <span>{new Date(q.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); deleteFromHistory(q.id); }} 
+                            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 hover:text-[#c0392b] text-gray-400 transition-all rounded-lg hover:bg-red-50"
+                            title="Delete quotation"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })
+                )}
               </div>
             </div>
           </>
@@ -733,14 +1113,437 @@ export default function QuotationPage() {
           </div>
 
 
+          {/* ── HIERARCHICAL MODULE CATALOG & PRICING PICKER ── */}
+          <div style={{ marginBottom: 26, background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 12, overflow: 'hidden' }}>
+            <div 
+              onClick={() => setIsCatalogOpen(!isCatalogOpen)}
+              className="flex items-center justify-between cursor-pointer" 
+              style={{ padding: '14px 16px', background: isCatalogOpen ? '#f9f6ee' : '#fdfcf9', borderBottom: isCatalogOpen ? '1px solid #e2dfd6' : 'none' }}
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" style={{ color: '#c9a84c' }} />
+                <div>
+                  <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: '#1a1a2e', fontWeight: 700 }}>
+                    Module Catalog & Pricing Tags
+                  </div>
+                  <div style={{ fontSize: 10.5, color: '#8888aa' }}>
+                    19 Website Types, Apps & AI Automations • Pages, Features & Add-ons
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 10, background: '#1a1a2e', color: '#fff', padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>
+                  {catalogCategory}
+                </span>
+                {isCatalogOpen ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
+              </div>
+            </div>
+
+            {isCatalogOpen && (
+              <div style={{ padding: '16px' }}>
+                {/* 1. Category Switcher */}
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8888aa', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase' }}>
+                    1. Select Service Catalog
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5" style={{ background: '#f0ece1', padding: 3, borderRadius: 8 }}>
+                    {(['Websites', 'Applications', 'AI Automations'] as const).map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setCatalogCategory(cat)}
+                        style={{
+                          padding: '6px 4px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: catalogCategory === cat ? '#1a1a2e' : 'transparent',
+                          color: catalogCategory === cat ? '#fff' : '#4a4a68',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          textAlign: 'center'
+                        }}
+                      >
+                        {cat === 'Websites' ? '🌐 ' : cat === 'Applications' ? '📱 ' : '🤖 '}{cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Subcategory Dropdown ("Drop Box") */}
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8888aa', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase' }}>
+                    2. Select Subcategory / Template {catalogCategory === 'Websites' && '(19 Types)'}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      value={catalogSubCategory}
+                      onChange={e => {
+                        setCatalogSubCategory(e.target.value);
+                      }}
+                      style={{
+                        width: '100%',
+                        background: '#fff',
+                        border: '1.5px solid #c9a84c',
+                        borderRadius: 8,
+                        padding: '9px 12px',
+                        fontFamily: "'Outfit', sans-serif",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: '#1a1a2e',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        appearance: 'none',
+                        backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%231a1a2e%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 12px center'
+                      }}
+                    >
+                      {Object.keys(activeCatalogData).map((subKey, idx) => (
+                        <option key={subKey} value={subKey}>
+                          {catalogCategory === 'Websites' ? `${idx + 1}. ` : ''}{activeCatalogData[subKey]?.icon || '📦'} {subKey}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 3. Sub-group Tabs: Pages | Features | Add-ons */}
+                <div style={{ marginBottom: 12 }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label style={{ fontSize: 10, color: '#8888aa', fontWeight: 600, textTransform: 'uppercase' }}>
+                      3. Module Classification
+                    </label>
+                    <span style={{ fontSize: 10, color: '#c9a84c', fontWeight: 600 }}>
+                      {currentCatalogItems.length} items available
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5" style={{ background: '#f5eed8', padding: 3, borderRadius: 8 }}>
+                    {(['Pages', 'Features', 'Add-ons'] as const).map(grp => {
+                      const count = (activeCatalogData[catalogSubCategory] as any)?.[grp === 'Pages' ? 'pages' : grp === 'Features' ? 'features' : 'addons']?.length || 0;
+                      return (
+                        <button
+                          key={grp}
+                          type="button"
+                          onClick={() => {
+                            setCatalogGroup(grp);
+                            const defaults = getDefaultModulePrices(grp);
+                            setCustomCatalogItemPriceINR(defaults.inr.toString());
+                            setCustomCatalogItemPriceUSD(defaults.usd.toString());
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '6px 4px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderRadius: 6,
+                            border: 'none',
+                            background: catalogGroup === grp ? '#1a1a2e' : 'transparent',
+                            color: catalogGroup === grp ? '#fff' : '#1a1a2e',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4
+                          }}
+                        >
+                          <span>{grp === 'Pages' ? '📄' : grp === 'Features' ? '⚡' : '🧩'}</span>
+                          <span>{grp}</span>
+                          <span style={{ fontSize: 9.5, opacity: 0.8 }}>({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Instant Filter Search */}
+                <div style={{ marginBottom: 12, position: 'relative' }}>
+                  <Search className="h-3.5 w-3.5 text-gray-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={catalogSearch}
+                    onChange={e => setCatalogSearch(e.target.value)}
+                    placeholder={`Filter ${catalogGroup.toLowerCase()} in ${catalogSubCategory}...`}
+                    style={{
+                      width: '100%',
+                      background: '#fff',
+                      border: '1px solid #e2dfd6',
+                      borderRadius: 6,
+                      padding: '7px 10px 7px 30px',
+                      fontSize: 12,
+                      fontFamily: "'Outfit', sans-serif",
+                      outline: 'none'
+                    }}
+                  />
+                  {catalogSearch && (
+                    <button 
+                      onClick={() => setCatalogSearch('')}
+                      style={{ position: 'absolute', right: 8, top: 6, background: 'transparent', border: 'none', color: '#8888aa', cursor: 'pointer' }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* 5. Module Picker Chips / Dropdown List */}
+                <div style={{ marginBottom: 14 }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span style={{ fontSize: 10, color: '#8888aa', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Select Module to Edit & Add:
+                    </span>
+                    <span style={{ fontSize: 10, color: '#2d7a5f', fontWeight: 700 }}>
+                      Tag: {getDefaultPriceFormatted(catalogGroup, currency)}
+                    </span>
+                  </div>
+                  <div 
+                    className="flex flex-wrap gap-1.5 overflow-y-auto pr-1"
+                    style={{ maxHeight: 150, padding: 6, background: '#fff', border: '1px solid #e2dfd6', borderRadius: 8 }}
+                  >
+                    {currentCatalogItems.map(item => {
+                      const isSelected = selectedCatalogItem === item;
+                      return (
+                        <div
+                          key={item}
+                          onClick={() => {
+                            setSelectedCatalogItem(item);
+                            setCustomCatalogItemName(item);
+                            const defaults = getDefaultModulePrices(catalogGroup);
+                            setCustomCatalogItemPriceINR(defaults.inr.toString());
+                            setCustomCatalogItemPriceUSD(defaults.usd.toString());
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '4px 10px',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: isSelected ? 700 : 500,
+                            background: isSelected ? '#1a1a2e' : '#fdfcf9',
+                            color: isSelected ? '#fff' : '#3a3a5c',
+                            border: `1px solid ${isSelected ? '#1a1a2e' : '#e2dfd6'}`,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <span>{item}</span>
+                          <button
+                            title="Add directly to quotation"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const defaults = getDefaultModulePrices(catalogGroup);
+                              const formattedLabel = `[${catalogSubCategory}] ${item}`;
+                              setCostItems(prev => [...prev, {
+                                label: formattedLabel,
+                                qty: '1',
+                                unitPriceINR: defaults.inr.toString(),
+                                unitPriceUSD: defaults.usd.toString(),
+                                amount: defaults.inr.toString()
+                              }]);
+                              setCatalogFeedback(`Added "${item}" (${formatDualPrices(defaults.inr, defaults.usd)}) to Price Summary!`);
+                              setTimeout(() => setCatalogFeedback(null), 3000);
+                            }}
+                            style={{
+                              background: isSelected ? '#3a3a5c' : '#f5eed8',
+                              color: isSelected ? '#fff' : '#c9a84c',
+                              border: 'none',
+                              borderRadius: 4,
+                              padding: '2px 5px',
+                              fontSize: 10,
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 6. Editable Module & Pricing Tag Form */}
+                <div style={{ background: '#f5eed8', border: '1.5px solid #c9a84c', borderRadius: 10, padding: 14 }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a1a2e', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      ✏️ Edit Module & Multiple Currency Price Tags
+                    </span>
+                    <span style={{ fontSize: 10, color: '#c9a84c', background: '#fff', padding: '2px 8px', borderRadius: 6, fontWeight: 700, border: '1px solid #c9a84c' }}>
+                      {catalogSubCategory} • {catalogGroup}
+                    </span>
+                  </div>
+
+                  {/* Module Name Editable */}
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontSize: 9.5, color: '#6a6a88', marginBottom: 3, fontWeight: 600, textTransform: 'uppercase' }}>
+                      Module / Line Item Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={customCatalogItemName}
+                      onChange={e => setCustomCatalogItemName(e.target.value)}
+                      placeholder="e.g., Home Page or Payment Gateway"
+                      style={{
+                        width: '100%',
+                        background: '#fff',
+                        border: '1px solid #c9a84c',
+                        borderRadius: 6,
+                        padding: '7px 10px',
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        color: '#1a1a2e',
+                        fontFamily: "'Outfit', sans-serif",
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+                  {/* Independent Rupee (₹) & Dollar ($) Price Tags */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: '#6a6a88', marginBottom: 3, fontWeight: 600, textTransform: 'uppercase' }}>
+                        Qty:
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={customCatalogItemQty}
+                        onChange={e => setCustomCatalogItemQty(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: '#fff',
+                          border: '1px solid #c9a84c',
+                          borderRadius: 6,
+                          padding: '6px 8px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: '#1a1a2e',
+                          fontFamily: "'Outfit', sans-serif",
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: '#6a6a88', marginBottom: 3, fontWeight: 600, textTransform: 'uppercase' }}>
+                        Rupees (₹ INR):
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: 7, top: 6, fontWeight: 700, color: '#1a1a2e', fontSize: 11 }}>₹</span>
+                        <input
+                          type="text"
+                          value={customCatalogItemPriceINR}
+                          onChange={e => setCustomCatalogItemPriceINR(e.target.value)}
+                          placeholder="INR"
+                          style={{
+                            width: '100%',
+                            background: '#fff',
+                            border: '1px solid #c9a84c',
+                            borderRadius: 6,
+                            padding: '6px 6px 6px 18px',
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: '#2d7a5f',
+                            fontFamily: "'Outfit', sans-serif",
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: '#6a6a88', marginBottom: 3, fontWeight: 600, textTransform: 'uppercase' }}>
+                        Dollars ($ USD):
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: 7, top: 6, fontWeight: 700, color: '#1a1a2e', fontSize: 11 }}>$</span>
+                        <input
+                          type="text"
+                          value={customCatalogItemPriceUSD}
+                          onChange={e => setCustomCatalogItemPriceUSD(e.target.value)}
+                          placeholder="USD"
+                          style={{
+                            width: '100%',
+                            background: '#fff',
+                            border: '1px solid #c9a84c',
+                            borderRadius: 6,
+                            padding: '6px 6px 6px 18px',
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: '#2d7a5f',
+                            fontFamily: "'Outfit', sans-serif",
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Add Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!customCatalogItemName.trim()) return;
+                      const finalQty = customCatalogItemQty.trim() || '1';
+                      const cleanINR = parseNum(customCatalogItemPriceINR, 0).toString();
+                      const cleanUSD = parseNum(customCatalogItemPriceUSD, 0).toString();
+                      const formattedLabel = `[${catalogSubCategory}] ${customCatalogItemName.trim()}`;
+                      
+                      const newCost: CostItem = {
+                        label: formattedLabel,
+                        qty: finalQty,
+                        unitPriceINR: cleanINR,
+                        unitPriceUSD: cleanUSD,
+                        amount: cleanINR
+                      };
+                      setCostItems(prev => [...prev, newCost]);
+                      setCatalogFeedback(`✓ Added "${customCatalogItemName}" (${formatDualPrices(parseNum(cleanINR), parseNum(cleanUSD))}) to Price Summary!`);
+                      setTimeout(() => setCatalogFeedback(null), 3500);
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#1a1a2e',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      padding: '10px 14px',
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: '0 2px 8px rgba(26,26,46,0.18)',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Plus className="h-4 w-4" style={{ color: '#c9a84c' }} />
+                    <span>Add to Quotation / Price Summary</span>
+                  </button>
+
+                  {/* Live Feedback Toast */}
+                  {catalogFeedback && (
+                    <div className="flex items-center gap-2 mt-2" style={{ color: '#2d7a5f', fontSize: 11.5, fontWeight: 700 }}>
+                      <Check className="h-4 w-4" /> {catalogFeedback}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Pricing & Investment */}
           <div style={{ marginBottom: 26 }}>
-            <div className="flex items-center justify-between" style={{ marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid #e2dfd6' }}>
-              <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#8888aa', fontWeight: 600 }}>Pricing & Items</div>
-              <div className="flex items-center gap-2">
-                <div className="flex" style={{ background: '#f5eed8', borderRadius: 8, padding: 2 }}>
-                  <button onClick={() => setCurrency('USD')} style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'USD' ? '#1a1a2e' : 'transparent', color: currency === 'USD' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>USD</button>
-                  <button onClick={() => setCurrency('INR')} style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'INR' ? '#1a1a2e' : 'transparent', color: currency === 'INR' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>INR</button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2" style={{ marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid #e2dfd6' }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#8888aa', fontWeight: 600 }}>Pricing & Items</div>
+                <div style={{ fontSize: 10.5, color: '#2d7a5f', fontWeight: 600 }}>Multiple Currency Quotes for Indian & International Clients</div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex gap-0.5" style={{ background: '#f5eed8', borderRadius: 8, padding: 2 }}>
+                  <button onClick={() => setCurrency('INR')} style={{ padding: '4px 9px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'INR' ? '#1a1a2e' : 'transparent', color: currency === 'INR' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>INR (₹)</button>
+                  <button onClick={() => setCurrency('USD')} style={{ padding: '4px 9px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'USD' ? '#1a1a2e' : 'transparent', color: currency === 'USD' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>USD ($)</button>
+                  <button onClick={() => setCurrency('BOTH')} style={{ padding: '4px 9px', fontSize: 10.5, fontWeight: 700, borderRadius: 6, border: 'none', background: currency === 'BOTH' ? '#1a1a2e' : 'transparent', color: currency === 'BOTH' ? '#fff' : '#1a1a2e', cursor: 'pointer' }}>BOTH (₹ & $)</button>
                 </div>
                 <button onClick={addCostItem} style={{ ...addBtnStyle, marginTop: 0, padding: '4px 10px' }}>
                   <Plus className="h-3 w-3" /> Add Item
@@ -749,22 +1552,49 @@ export default function QuotationPage() {
             </div>
             
             <div className="flex flex-col gap-2 mb-4">
-              {costItems.map((c, i) => (
-                <div key={i} className="flex gap-2 items-center" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 8, padding: '8px 32px 8px 12px' }}>
-                  <input value={c.label} onChange={e => updateCostItem(i, 'label', e.target.value)} style={{ flex: 2, border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 12, color: '#1a1a2e', outline: 'none' }} placeholder="Item description" />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ fontSize: 11, color: '#8888aa' }}>{symbol}</span>
-                    <input value={c.amount} onChange={e => updateCostItem(i, 'amount', e.target.value)} style={{ width: 80, border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 700, color: '#2d7a5f', outline: 'none', textAlign: 'right' }} placeholder="0" />
+              {costItems.map((c, i) => {
+                const uINR = c.unitPriceINR !== undefined ? c.unitPriceINR : (c.amount || '');
+                const uUSD = c.unitPriceUSD !== undefined ? c.unitPriceUSD : (c.unitPrice || '');
+                const qNum = parseNum(c.qty, 1);
+                const lineTotalINR = qNum * parseNum(uINR, 0);
+                const lineTotalUSD = qNum * parseNum(uUSD, 0);
+
+                return (
+                  <div key={i} className="flex flex-col gap-2.5" style={{ position: 'relative', background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 10, padding: '12px 32px 12px 12px' }}>
+                    <input value={c.label} onChange={e => updateCostItem(i, 'label', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 700, color: '#1a1a2e', outline: 'none' }} placeholder="Item description" />
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-center">
+                      <div>
+                        <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Qty</label>
+                        <input value={c.qty || '1'} onChange={e => updateCostItem(i, 'qty', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 6px', fontSize: 12, outline: 'none' }} placeholder="1" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Rate (₹ INR)</label>
+                        <input value={uINR} onChange={e => updateCostItem(i, 'unitPriceINR', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 6px', fontSize: 12, outline: 'none' }} placeholder="0" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Rate ($ USD)</label>
+                        <input value={uUSD} onChange={e => updateCostItem(i, 'unitPriceUSD', e.target.value)} style={{ width: '100%', border: '1px solid #e2dfd6', background: '#fff', borderRadius: 4, padding: '4px 6px', fontSize: 12, outline: 'none' }} placeholder="0" />
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <label style={{ display: 'block', fontSize: 9, color: '#8888aa', textTransform: 'uppercase', marginBottom: 2 }}>Line Total</label>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: '#2d7a5f' }}>
+                          {formatDualPrices(lineTotalINR, lineTotalUSD)}
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => removeCostItem(i)} style={removeBtnStyle}><X className="h-3 w-3" /></button>
                   </div>
-                  <button onClick={() => removeCostItem(i)} style={removeBtnStyle}><X className="h-3 w-3" /></button>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div style={{ background: '#fdfcf9', border: '1.5px solid #e2dfd6', borderRadius: 10, padding: 16 }}>
               <div className="flex justify-between items-center mb-3">
                 <label style={{ fontSize: 11, color: '#8888aa', fontWeight: 500, textTransform: 'uppercase' }}>Subtotal</label>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e' }}>{symbol}{subtotal.toLocaleString(locale)}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1a1a2e' }}>
+                  {formatDualPrices(totals.subtotalINR, totals.subtotalUSD)}
+                </div>
               </div>
               
               <div className="flex justify-between items-center mb-3">
@@ -774,7 +1604,9 @@ export default function QuotationPage() {
 
               <div className="flex justify-between items-center pt-3" style={{ borderTop: '1px dashed #e2dfd6' }}>
                 <label style={{ fontSize: 11, color: '#1a1a2e', fontWeight: 700, textTransform: 'uppercase' }}>Net Total</label>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#2d7a5f' }}>{symbol}{priceAfterDiscount.toLocaleString(locale)}</div>
+                <div style={{ fontSize: 14.5, fontWeight: 800, color: '#2d7a5f' }}>
+                  {formatDualPrices(totals.priceAfterDiscINR, totals.priceAfterDiscUSD)}
+                </div>
               </div>
 
               <div className="mt-4 pt-4" style={{ borderTop: '1px solid #e2dfd6' }}>
@@ -793,7 +1625,9 @@ export default function QuotationPage() {
                 {includeGST && (
                   <div className="flex justify-between items-center pt-2">
                     <label style={{ fontSize: 11, color: '#1a1a2e', fontWeight: 700, textTransform: 'uppercase' }}>Total + Tax</label>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#2d7a5f' }}>{symbol}{totalInvestment.toLocaleString(locale)}</div>
+                    <div style={{ fontSize: 14.5, fontWeight: 800, color: '#2d7a5f' }}>
+                      {formatDualPrices(totals.totalINR, totals.totalUSD)}
+                    </div>
                   </div>
                 )}
               </div>
@@ -831,30 +1665,54 @@ export default function QuotationPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2.5" style={{ marginTop: 6 }}>
-            <button onClick={() => setGenerated(true)} style={{ flex: 1, padding: 13, background: '#1a1a2e', border: 'none', borderRadius: 10, color: '#fff', fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 14, cursor: 'pointer', letterSpacing: 0.3 }}>
-              Generate Quotation
-            </button>
-            <button 
-              onClick={handleSave} 
-              disabled={saving}
-              style={{ 
-                flex: 1, 
-                padding: 13, 
-                background: saveStatus?.includes('Error') ? '#c0392b' : (saveStatus ? '#2d7a5f' : '#c9a84c'), 
-                border: 'none', 
-                borderRadius: 10, 
-                color: '#fff', 
-                fontFamily: "'Outfit', sans-serif", 
-                fontWeight: 600, 
-                fontSize: 14, 
-                cursor: saving ? 'wait' : 'pointer', 
-                transition: 'all 0.2s',
-                opacity: saving ? 0.7 : 1
-              }}
-            >
-              {saveStatus || (saving ? 'Saving...' : 'Save to Supabase')}
-            </button>
+          <div className="flex flex-col gap-2.5" style={{ marginTop: 6 }}>
+            <div className="flex gap-2.5">
+              <button 
+                onClick={handleGenerate} 
+                style={{ flex: 1, padding: 13, background: '#1a1a2e', border: 'none', borderRadius: 10, color: '#fff', fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 14, cursor: 'pointer', letterSpacing: 0.3 }}
+              >
+                Generate Preview
+              </button>
+              <button 
+                onClick={() => handleSave(false)} 
+                disabled={saving}
+                style={{ 
+                  flex: 1, 
+                  padding: 13, 
+                  background: saving ? '#8888aa' : (saveStatus === 'Saved!' || saveStatus === 'Updated!' ? '#2d7a5f' : '#c9a84c'), 
+                  border: 'none', 
+                  borderRadius: 10, 
+                  color: '#fff', 
+                  fontFamily: "'Outfit', sans-serif", 
+                  fontWeight: 600, 
+                  fontSize: 14, 
+                  cursor: saving ? 'wait' : 'pointer', 
+                  transition: 'all 0.2s',
+                  opacity: saving ? 0.7 : 1
+                }}
+              >
+                {saveStatus || (saving ? 'Saving...' : (currentQuotationId ? 'Update Quotation' : 'Save to Supabase'))}
+              </button>
+            </div>
+
+            {currentQuotationId && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  className="flex-1 py-2 px-3 text-xs font-semibold rounded-lg border border-[#e2dfd6] bg-[#fdfcf9] hover:bg-gray-100 text-[#1a1a2e] flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <FilePlus className="h-3.5 w-3.5 text-[#c9a84c]" /> Save as New Copy
+                </button>
+                <button
+                  onClick={startNewQuotation}
+                  className="py-2 px-3 text-xs font-semibold rounded-lg border border-[#e2dfd6] bg-[#fdfcf9] hover:bg-gray-100 text-gray-600 flex items-center justify-center gap-1.5 transition-all"
+                  title="Clear and start new blank quotation"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Start New
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -866,7 +1724,15 @@ export default function QuotationPage() {
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700 }}>Live Preview</h2>
               <p style={{ fontSize: 12, color: '#8888aa', marginTop: 4 }}>How your quotation looks to the client</p>
             </div>
-            <div className="flex gap-2.5 w-full md:w-auto">
+            <div className="flex flex-wrap gap-2.5 w-full md:w-auto items-center">
+              <button 
+                onClick={() => handleSave(false)} 
+                disabled={saving}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-all shadow-sm text-white"
+                style={{ background: '#c9a84c', fontSize: 13 }}
+              >
+                <Save className="h-4 w-4" /> {saving ? 'Saving...' : (currentQuotationId ? 'Update Cloud' : 'Save to Cloud')}
+              </button>
               <button onClick={handleCopy} className="flex-1 md:flex-initial flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-bold transition-all shadow-sm" style={{ background: '#fff', border: '1.5px solid #e2dfd6', color: '#1a1a2e', fontSize: 14 }}>
                 {copied ? <Check className="h-4 w-4 text-[#2d7a5f]" /> : <Copy className="h-4 w-4" />} {copied ? 'Copied' : 'Share Link'}
               </button>
@@ -1019,32 +1885,53 @@ export default function QuotationPage() {
                     💰 Price Summary
                   </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #1a1a2e' }}>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'left' }}>Item Description</th>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'center' }}>Qty</th>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'right' }}>
+                        {currency === 'BOTH' ? 'Unit Price (₹ INR / $ USD)' : currency === 'INR' ? 'Unit Price (₹ INR)' : 'Unit Price ($ USD)'}
+                      </th>
+                      <th style={{ padding: '10px 14px', fontSize: 11, textTransform: 'uppercase', color: '#8888aa', textAlign: 'right' }}>
+                        {currency === 'BOTH' ? 'Total (₹ INR / $ USD)' : currency === 'INR' ? 'Total (₹ INR)' : 'Total ($ USD)'}
+                      </th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {costItems.map((c, i) => (
-                      <tr key={i}>
-                        <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6' }}>{c.label}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600 }}>{symbol}{c.amount}</td>
+                    {costItems.map((c, i) => {
+                      const qty = parseNum(c.qty, 1);
+                      const uINR = parseNum(c.unitPriceINR !== undefined ? c.unitPriceINR : (c.unitPrice || c.amount), 0);
+                      const uUSD = parseNum(c.unitPriceUSD !== undefined ? c.unitPriceUSD : c.unitPrice, 0);
+                      return (
+                        <tr key={i}>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6' }}>{c.label}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'center' }}>{qty}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'right' }}>{formatDualPrices(uINR, uUSD)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 700, color: '#1a1a2e' }}>{formatDualPrices(qty * uINR, qty * uUSD)}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr>
+                      <td colSpan={3} style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', color: '#8888aa' }}>Subtotal</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#1a1a2e' }}>{formatDualPrices(totals.subtotalINR, totals.subtotalUSD)}</td>
+                    </tr>
+                    {totals.discAmountINR > 0 && (
+                      <tr>
+                        <td colSpan={3} style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6' }}>Discount ({discount}%)</td>
+                        <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#c0392b' }}>
+                          - {formatDualPrices(totals.discAmountINR, totals.discAmountUSD)}
+                        </td>
                       </tr>
-                    ))}
-                    <tr>
-                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', color: '#8888aa', textDecoration: 'line-through' }}>Subtotal</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#8888aa', textDecoration: 'line-through' }}>{symbol}{subtotal.toLocaleString(locale)}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6' }}>Discount ({discount}%)</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13.5, borderBottom: '1px solid #e2dfd6', textAlign: 'right', fontWeight: 600, color: '#c0392b' }}>
-                        -{symbol}{Math.round(subtotal * disc / 100).toLocaleString(locale)}
-                      </td>
-                    </tr>
+                    )}
                     {includeGST && (
                       <tr>
-                        <td style={{ padding: '10px 14px', fontSize: 12, borderBottom: '1px solid #e2dfd6', color: '#8888aa' }}>GST ({gstRate}%)</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, borderBottom: '1px solid #e2dfd6', textAlign: 'right', color: '#8888aa' }}>{symbol}{computedGSTStr}</td>
+                        <td colSpan={3} style={{ padding: '10px 14px', fontSize: 12, borderBottom: '1px solid #e2dfd6', color: '#8888aa' }}>GST ({gstRate}%)</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, borderBottom: '1px solid #e2dfd6', textAlign: 'right', color: '#8888aa' }}>{formatDualPrices(totals.gstAmountINR, totals.gstAmountUSD)}</td>
                       </tr>
                     )}
                     <tr>
-                      <td style={{ padding: '10px 14px', fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700 }}>Total Investment</td>
-                      <td style={{ padding: '10px 14px', fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, textAlign: 'right', color: '#2d7a5f' }}>{symbol}{totalInvestment.toLocaleString(locale)}</td>
+                      <td colSpan={3} style={{ padding: '10px 14px', fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700 }}>Total Investment</td>
+                      <td style={{ padding: '10px 14px', fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, textAlign: 'right', color: '#2d7a5f' }}>{formatDualPrices(totals.totalINR, totals.totalUSD)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1056,13 +1943,21 @@ export default function QuotationPage() {
                     🏦 Payment Milestones
                   </div>
                   <div className="flex gap-3">
-                    {payments.map((p, i) => (
-                      <div key={i} className="flex-1 text-center" style={{ padding: '16px 12px', border: '1px solid #e2dfd6', borderRadius: 8, background: '#fdfcf9' }}>
-                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: '#1a1a2e' }}>{p.pct}</div>
-                        <div style={{ fontSize: 11, color: '#8888aa', margin: '4px 0', textTransform: 'uppercase', letterSpacing: 1 }}>{p.label}</div>
-                        <div style={{ fontSize: 12, color: '#3a3a5c', fontWeight: 500 }}>{p.trigger}</div>
-                      </div>
-                    ))}
+                    {payments.map((p, i) => {
+                      const pctVal = (parseFloat(p.pct) || 0) / 100;
+                      const mINR = Math.round(totals.totalINR * pctVal);
+                      const mUSD = Math.round(totals.totalUSD * pctVal);
+                      return (
+                        <div key={i} className="flex-1 text-center" style={{ padding: '16px 12px', border: '1px solid #e2dfd6', borderRadius: 8, background: '#fdfcf9' }}>
+                          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: '#1a1a2e' }}>{p.pct}</div>
+                          <div style={{ fontSize: 11, color: '#8888aa', margin: '4px 0', textTransform: 'uppercase', letterSpacing: 1 }}>{p.label}</div>
+                          <div style={{ fontSize: 12, color: '#3a3a5c', fontWeight: 500 }}>{p.trigger}</div>
+                          <div style={{ fontSize: 11.5, color: '#2d7a5f', fontWeight: 700, marginTop: 6 }}>
+                            {formatDualPrices(mINR, mUSD)}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

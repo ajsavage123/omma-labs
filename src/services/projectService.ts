@@ -247,6 +247,9 @@ export const projectService = {
     await this.logActivity(projectId, designation, currentStage, `Completed ${stageLabelMap[currentStage]} stage and advanced to ${nextLabel}.`, workspaceId);
     queryCache.invalidate('projects_list');
     queryCache.invalidate(`project_${projectId}`);
+    // Also clear throttle keys so the immediate re-fetch hits the network
+    localStorage.removeItem('last_fetch_projects');
+    localStorage.removeItem(`last_fetch_logs_${projectId}`);
   },
 
   async sendBackToStage(projectId: string, workspaceId: string, targetStage: StageName, feedbackNote: string, projectType: 'internal' | 'client') {
@@ -385,13 +388,13 @@ export const projectService = {
     // Strict 24-hour rate limit on the client side so users don't burn database egress limits
     if (now - lastCleanup < 86400000) return;
 
-    const fiveDaysAgo = new Date();
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    const sixDaysAgo = new Date();
+    sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
     
     const { error } = await supabase
       .from('chat_messages')
       .delete()
-      .lt('created_at', fiveDaysAgo.toISOString());
+      .lt('created_at', sixDaysAgo.toISOString());
       
     if (error) {
       console.error('Cleanup old messages failed:', error);

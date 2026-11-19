@@ -1,206 +1,917 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminService } from '@/services/adminService';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import type { User } from '@/types';
-import { ChevronLeft, Users, Briefcase, Shield, Search, Globe } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { OomaLogo } from '@/components/OomaLogo';
-import { ToastContainer } from '@/components/Toast';
+import { Search, Bell, Moon, Filter, LayoutGrid, MapPin, Briefcase, Network, Code, TrendingUp, ChevronRight, ChevronLeft, Star, Edit2, Lightbulb } from 'lucide-react';
+
 import { useToast } from '@/hooks/useToast';
+import { OomaLogo } from '@/components/OomaLogo';
+
+import { queryCache } from '@/utils/cache';
 
 export default function ProjectMembersPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toasts, toast, removeToast } = useToast();
-  
+  const { toast } = useToast();
+
   const [members, setMembers] = useState<User[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
 
-  useEffect(() => {
-    if (user?.workspace_id) {
-      fetchMembers();
+  const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [editSkills, setEditSkills] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editLocation, setEditLocation] = useState('');
 
-      // Subscribe to real-time changes on the 'users' table
-      const subscription = supabase
-        .channel('users_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'users',
-            filter: `workspace_id=eq.${user.workspace_id}`
-          },
-          () => {
-            fetchMembers(); // Refetch when a change occurs
-          }
-        )
-        .subscribe();
-
-      // Cleanup subscription when component unmounts
-      return () => {
-        supabase.removeChannel(subscription);
-      };
-    }
-  }, [user?.workspace_id]);
+  const [viewMode, setViewMode] = useState<'grid' | 'tree'>('grid');
 
   const fetchMembers = async () => {
     if (!user?.workspace_id) return;
     try {
       const data = await adminService.getTeamMembers(user.workspace_id);
       setMembers(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error('Failed to load team members.');
+      toast.error(err?.message || 'Failed to load team members.');
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredMembers = members.filter((m) => {
-    const searchString = `${m.username} ${m.full_name || ''} ${m.designation} ${m.role}`.toLowerCase();
-    return searchString.includes(searchQuery.toLowerCase());
+  const handleUpdateProfile = async (memberId: string) => {
+    if (!user?.workspace_id) return;
+    try {
+      await adminService.updateUserProfile(
+        memberId,
+        { full_name: editName, skills: editSkills, location: editLocation },
+        user.workspace_id
+      );
+
+      setEditingMember(null);
+      await fetchMembers();
+      toast.success('Profile updated successfully');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update profile');
+    }
+  };
+
+  useEffect(() => {
+    if (!user?.workspace_id) return;
+
+    fetchMembers();
+
+    const dataSubscription = supabase
+      .channel(`users_changes_${user.workspace_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'users',
+          filter: `workspace_id=eq.${user.workspace_id}`
+        },
+        () => {
+          queryCache.invalidate(`members_${user.workspace_id}`);
+          fetchMembers();
+        }
+      )
+      .subscribe();
+
+    const presenceChannel = supabase.channel(`presence_${user.workspace_id}`, {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const onlineIds = new Set(Object.keys(state));
+        setOnlineUsers(onlineIds);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(dataSubscription);
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [user?.workspace_id, user?.id]);
+
+  // Hide default system admin account from team library if it exists
+  const realMembers = members.filter(m => !['admin', 'oomadmin'].includes(m.username?.toLowerCase()));
+
+  // Find CEO strictly from filtered real members list
+  const ceo = realMembers.find(m =>
+    m.designation?.toLowerCase().includes('ceo') ||
+    m.designation?.toLowerCase().includes('founder') ||
+    m.role === 'admin'
+  );
+
+  // 3 Primary Departments
+  const ALL_DEPARTMENTS = [
+    'Marketing & Business',
+    'Innovation Lab',
+    'Engineering Group'
+  ];
+
+  const getNormalizedDepartment = (rawDesignation?: string) => {
+    if (!rawDesignation) return 'Unassigned';
+    const lower = rawDesignation.toLowerCase();
+    if (lower.includes('marketing') || lower.includes('business')) return 'Marketing & Business';
+    if (lower.includes('innovation')) return 'Innovation Lab';
+    return 'Engineering Group';
+  };
+
+  const departmentsMap = new Map<string, User[]>();
+  ALL_DEPARTMENTS.forEach(dept => departmentsMap.set(dept, []));
+
+  realMembers.forEach(m => {
+    if (m.id === ceo?.id) return;
+
+    const normalizedDept = getNormalizedDepartment(m.designation);
+
+    if (!departmentsMap.has(normalizedDept)) {
+      departmentsMap.set(normalizedDept, []);
+    }
+    departmentsMap.get(normalizedDept)!.push(m);
   });
 
+  const sortedDepartments = Array.from(departmentsMap.entries()).sort((a, b) => {
+    const indexA = ALL_DEPARTMENTS.indexOf(a[0]);
+    const indexB = ALL_DEPARTMENTS.indexOf(b[0]);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a[0].localeCompare(b[0]);
+  });
+
+
+
+  const filteredMembers = realMembers.filter((m) => {
+    const searchString = `${m.username} ${m.full_name || m.username} ${m.designation || ''} ${m.role || ''} ${m.skills || ''}`.toLowerCase();
+    const matchesSearch = searchString.includes(searchQuery.toLowerCase());
+
+    if (activeFilter === 'All') return matchesSearch;
+
+    const userDept = getNormalizedDepartment(m.designation);
+    if (activeFilter === userDept) return matchesSearch;
+
+    return false;
+  });
+
+  const onlineCount = Array.from(onlineUsers).filter(id => realMembers.some(m => m.id === id)).length;
+
   if (loading) return (
-    <div className="fixed inset-0 flex items-center justify-center bg-[#050505] z-50">
-      <div className="text-center">
-        <OomaLogo className="text-[#6366f1] animate-pulse" size={48} />
-        <p className="text-gray-600 font-bold tracking-widest text-[10px] uppercase mt-4">Accessing Directory...</p>
-      </div>
+    <div className="flex-1 flex items-center justify-center bg-[#09090b]">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-[#6366f1]/30 overflow-hidden flex flex-col">
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[150px] rounded-full pointer-events-none"></div>
-      
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/5 h-16 shrink-0 flex items-center justify-between px-4 md:px-8">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="p-2.5 bg-white/5 rounded-2xl border border-white/10 text-gray-400 active:scale-90 transition-all">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <div className="hidden sm:block h-8 w-[1px] bg-white/5 mx-2"></div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-indigo-400" />
-              <h1 className="text-[14px] md:text-lg font-black text-white uppercase tracking-tight">Team Library</h1>
+    <div className="h-screen h-[100dvh] w-full bg-[#09090b] text-white font-sans overflow-y-auto custom-scrollbar">
+      {/* Header with Ooma Logo and Company Name */}
+      <header className="bg-[#09090b]/90 backdrop-blur-md border-b border-[#27272a] px-4 sm:px-8 py-3.5 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center sticky top-0 z-40">
+        <div className="flex items-center gap-3 sm:gap-4 justify-between md:justify-start">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 sm:p-2.5 bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] rounded-xl text-gray-400 hover:text-white transition-all shrink-0 active:scale-95 flex items-center justify-center"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className="p-2 sm:p-2.5 bg-[#18181b] border border-[#27272a] rounded-xl flex items-center justify-center shadow-lg hover:border-amber-500/50 transition-all shrink-0">
+              <OomaLogo size={24} />
             </div>
-            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-[0.2em]">Ooma Personnel Directory</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm sm:text-base font-black tracking-widest text-amber-400 uppercase">OOMA LABS</span>
+                <span className="text-xs text-gray-600 font-bold">•</span>
+                <h1 className="text-base sm:text-lg font-bold text-white leading-tight truncate">Team Library</h1>
+              </div>
+              <p className="text-[10px] sm:text-xs text-gray-500 font-medium truncate">Organization Directory & Hierarchy</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 md:hidden">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-900 to-[#18181b] flex items-center justify-center border border-indigo-500/30 overflow-hidden relative shadow-lg">
+              <span className="text-indigo-400 font-bold text-[10px]">{user?.full_name?.substring(0, 2).toUpperCase() || 'AD'}</span>
+              <div className="absolute bottom-0 right-0 h-2 w-2 bg-emerald-500 rounded-full border border-[#18181b]"></div>
+            </div>
           </div>
         </div>
 
-        <div className="relative w-full max-w-[200px] md:max-w-xs hidden sm:block group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
-          <input 
-            type="text" 
-            placeholder="Search colleagues..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 bg-[#0a0a0d] border border-white/20 rounded-2xl text-[13px] outline-none focus:border-indigo-500/50 transition-all font-bold text-white placeholder:text-gray-600 shadow-inner"
-          />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+          <div className="relative w-full md:w-72 lg:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search name, role, skill..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-12 py-2 bg-[#18181b] border border-[#27272a] rounded-lg text-xs sm:text-sm text-white placeholder:text-gray-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner"
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1">
+              <span className="text-[10px] font-medium text-gray-500 bg-[#27272a] border border-[#3f3f46] rounded px-1.5 py-0.5">Ctrl + K</span>
+            </div>
+          </div>
+
+          <div className="hidden md:flex items-center gap-3">
+            <button className="relative p-2 text-gray-400 hover:text-white hover:bg-[#27272a] rounded-full transition-colors">
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 border-2 border-[#09090b] rounded-full"></span>
+            </button>
+            <button className="p-2 text-gray-400 hover:text-white hover:bg-[#27272a] rounded-full transition-colors">
+              <Moon className="h-5 w-5 text-indigo-400 fill-indigo-400/20" />
+            </button>
+            <div className="h-8 w-px bg-[#27272a] mx-1"></div>
+            <div className="flex items-center gap-3 cursor-pointer">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-semibold text-white leading-none">{user?.full_name || 'Admin'}</p>
+                <p className="text-[10px] text-gray-500 font-medium mt-0.5">{ceo?.id === user?.id ? 'Founder & CEO' : 'Member'}</p>
+              </div>
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-900 to-[#18181b] flex items-center justify-center border border-indigo-500/30 overflow-hidden relative shadow-lg">
+                <span className="text-indigo-400 font-bold text-xs">{user?.full_name?.substring(0, 2).toUpperCase() || 'AD'}</span>
+                <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-emerald-500 rounded-full border border-[#18181b]"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto pt-24 px-4 md:px-10 pb-20 custom-scrollbar mt-4">
-        <div className="max-w-7xl mx-auto w-full">
-          <div className="sm:hidden mb-6 group">
-             <div className="relative w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Search colleagues..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-[#0a0a0d] border border-white/20 rounded-2xl text-[13px] outline-none focus:border-indigo-500/50 transition-all font-bold text-white placeholder:text-gray-600 shadow-inner"
-              />
+      <main className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
+
+        {/* Mobile-Only Ultra-Compact Single Row */}
+        <div className="grid grid-cols-4 gap-1.5 sm:hidden">
+          <div className="bg-[#18181b] rounded-xl p-2 border border-[#27272a] shadow-md text-center">
+            <p className="text-[9px] text-gray-400 font-medium truncate">Total</p>
+            <h3 className="text-xs font-black text-white leading-none mt-1">{realMembers.length}</h3>
+          </div>
+          <div className="bg-[#18181b] rounded-xl p-2 border border-[#27272a] shadow-md text-center">
+            <p className="text-[9px] text-gray-400 font-medium truncate">Online</p>
+            <h3 className="text-xs font-black text-emerald-400 leading-none mt-1">{onlineCount}</h3>
+          </div>
+          <div className="bg-[#18181b] rounded-xl p-2 border border-[#27272a] shadow-md text-center">
+            <p className="text-[9px] text-gray-400 font-medium truncate">Depts</p>
+            <h3 className="text-xs font-black text-white leading-none mt-1">{sortedDepartments.length}</h3>
+          </div>
+          <div className="bg-[#18181b] rounded-xl p-2 border border-[#27272a] shadow-md text-center">
+            <p className="text-[9px] text-gray-400 font-medium truncate">Experts</p>
+            <h3 className="text-xs font-black text-white leading-none mt-1">
+              {realMembers.filter(m => (m.skills?.split(',').length || 0) > 3).length}
+            </h3>
+          </div>
+        </div>
+
+        {/* Desktop-Only Original Rich Stats Row */}
+        <div className="hidden sm:grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-[#18181b] rounded-xl p-5 border border-[#27272a] shadow-lg flex flex-col justify-between hover:border-[#3f3f46] transition-colors">
+            <div className="flex items-start justify-between">
+              <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-lg">
+                <OomaLogo size={20} />
+              </div>
+              <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full flex items-center gap-1 border border-emerald-500/20">
+                Ooma Labs <ChevronRight className="h-3 w-3" />
+              </span>
+            </div>
+            <div className="mt-4">
+              <p className="text-sm text-gray-400 font-medium">Total Members</p>
+              <h3 className="text-3xl font-bold text-white mt-1">{realMembers.length}</h3>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMembers.map(member => (
-              <div key={member.id} className="group relative overflow-hidden bg-[#0c0c0e] rounded-[32px] border border-white/5 p-6 hover:border-indigo-500/30 transition-all duration-500 shadow-xl flex flex-col">
-                <div className="absolute top-0 right-0 p-4">
-                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/5 shadow-inner">
-                      <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Online</span>
-                   </div>
-                </div>
-                
-                <div className="flex items-center gap-5 mb-8">
-                  <div className="h-16 w-16 rounded-[24px] bg-gradient-to-br from-indigo-500 to-purple-600 p-[2px] shadow-lg shadow-indigo-600/20">
-                     <div className="h-full w-full bg-[#0c0c0e] rounded-[22px] flex items-center justify-center text-xl font-bold text-white uppercase">
-                        {member.username.substring(0,2)}
-                     </div>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-white tracking-tight">{member.full_name || member.username}</h3>
-                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mt-0.5">{member.username}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 flex-1">
-                  <div className="flex items-start gap-3 p-4 bg-white/[0.02] rounded-2xl border border-white/5 group-hover:bg-white/[0.04] transition-colors">
-                     <Briefcase className="h-4 w-4 text-gray-500 mt-0.5 shrink-0" />
-                     <div>
-                        <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Department</p>
-                        <p className="text-[11px] font-bold text-gray-200 leading-tight">{member.designation}</p>
-                     </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-4 bg-white/[0.02] rounded-2xl border border-white/5 group-hover:bg-white/[0.04] transition-colors">
-                     <Globe className="h-4 w-4 text-gray-500 mt-0.5 shrink-0" />
-                     <div>
-                        <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">E-Mail Address</p>
-                        <p className="text-[11px] font-bold text-gray-200 leading-tight truncate max-w-[180px]">{(member as any).email || (member.username + '@gmail.com')}</p>
-                     </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3 p-4 bg-white/[0.02] rounded-2xl border border-white/5 group-hover:bg-white/[0.04] transition-colors">
-                     <Shield className="h-4 w-4 text-gray-500 mt-0.5 shrink-0" />
-                     <div>
-                        <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Platform Role</p>
-                        <p className="text-[11px] font-bold text-indigo-300 leading-tight uppercase tracking-wider">{member.role}</p>
-                     </div>
-                  </div>
+          <div className="bg-[#18181b] rounded-xl p-5 border border-[#27272a] shadow-lg flex flex-col justify-between hover:border-[#3f3f46] transition-colors">
+            <div className="flex items-start justify-between">
+              <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                <div className="h-5 w-5 flex items-center justify-center relative">
+                  <div className="absolute h-3 w-3 bg-emerald-400 rounded-full"></div>
+                  <div className="absolute h-3 w-3 bg-emerald-400 rounded-full animate-ping"></div>
                 </div>
               </div>
+              <span className="text-xs font-semibold text-gray-400 bg-[#27272a] border border-[#3f3f46] px-2 py-1 rounded-full">
+                {Math.round((onlineCount / (realMembers.length || 1)) * 100)}% active
+              </span>
+            </div>
+            <div className="mt-4">
+              <p className="text-sm text-gray-400 font-medium">Online Now</p>
+              <h3 className="text-3xl font-bold text-white mt-1">{onlineCount}</h3>
+            </div>
+          </div>
+
+          <div className="bg-[#18181b] rounded-xl p-5 border border-[#27272a] shadow-lg flex flex-col justify-between hover:border-[#3f3f46] transition-colors">
+            <div className="flex items-start justify-between">
+              <div className="p-2.5 bg-purple-500/10 text-purple-400 rounded-lg">
+                <Briefcase className="h-5 w-5" />
+              </div>
+              <div className="flex -space-x-2">
+                <div className="h-6 w-6 rounded-full bg-purple-800 border-2 border-[#18181b]"></div>
+                <div className="h-6 w-6 rounded-full bg-emerald-700 border-2 border-[#18181b]"></div>
+                <div className="h-6 w-6 rounded-full bg-blue-600 border-2 border-[#18181b]"></div>
+              </div>
+            </div>
+            <div className="mt-4">
+              <p className="text-sm text-gray-400 font-medium">Departments</p>
+              <h3 className="text-3xl font-bold text-white mt-1">{sortedDepartments.length}</h3>
+              <p className="text-xs text-gray-500 mt-1 font-medium truncate">{sortedDepartments.map(d => d[0]).join(' • ')}</p>
+            </div>
+          </div>
+
+          <div className="bg-[#18181b] rounded-xl p-5 border border-[#27272a] shadow-lg flex flex-col justify-between hover:border-[#3f3f46] transition-colors">
+            <div className="flex items-start justify-between">
+              <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg">
+                <Star className="h-5 w-5 fill-amber-500/50" />
+              </div>
+              <span className="text-[10px] font-semibold text-gray-400 bg-[#27272a] border border-[#3f3f46] px-2 py-1 rounded-full">
+                Skills Registry
+              </span>
+            </div>
+            <div className="mt-4">
+              <p className="text-sm text-gray-400 font-medium">Experts</p>
+              <h3 className="text-3xl font-bold text-white mt-1">
+                {realMembers.filter(m => (m.skills?.split(',').length || 0) > 3).length}
+              </h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters & Actions */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1 min-w-0">
+            {['All', ...sortedDepartments.map(d => d[0])].map(filter => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${activeFilter === filter
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500'
+                    : 'bg-[#18181b] border border-[#27272a] text-gray-400 hover:bg-[#27272a] hover:text-white'
+                  }`}
+              >
+                {filter} {filter !== 'All' && <span className="ml-1 opacity-70 bg-black/30 px-1.5 py-0.5 rounded text-[10px]">{
+                  sortedDepartments.find(d => d[0] === filter)?.[1].length || 0
+                }</span>}
+              </button>
             ))}
           </div>
-          
-          {filteredMembers.length === 0 && (
-            <div className="py-20 text-center">
-              <div className="h-20 w-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/5">
-                <Search className="h-8 w-8 text-gray-700" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-600 uppercase tracking-widest">No members found</h3>
-              <p className="text-gray-700 text-sm mt-2">Adjust your search query and try again.</p>
-            </div>
-          )}
-        </div>
-      </main>
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
-      
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #050505;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #11111d;
-          border-radius: 20px;
-          border: 2px solid #050505;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #1a1a2e;
-        }
-      `}</style>
+          <div className="flex items-center justify-end gap-2.5 shrink-0">
+            <div className="flex bg-[#18181b] border border-[#27272a] rounded-lg p-1 shadow-lg">
+              <button
+                onClick={() => setViewMode('grid')}
+                title="Grid View"
+                className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-[#27272a] text-white shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#27272a]'}`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('tree')}
+                title="Hierarchy Tree View"
+                className={`p-1.5 rounded transition-colors ${viewMode === 'tree' ? 'bg-[#27272a] text-white shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#27272a]'}`}
+              >
+                <Network className="h-4 w-4" />
+              </button>
+            </div>
+
+            <button className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 bg-[#18181b] border border-[#27272a] rounded-lg text-xs sm:text-sm font-medium text-gray-300 hover:bg-[#27272a] transition-colors shadow-lg">
+              <Filter className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-gray-400" />
+              Filter
+            </button>
+          </div>
+        </div>
+
+        {viewMode === 'grid' && (
+          <div className="space-y-10">
+            {/* 👑 1. Leadership & Executive Section */}
+            {ceo && (activeFilter === 'All' || activeFilter === getNormalizedDepartment(ceo.designation)) && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1.5 border-b border-amber-500/20">
+                  <Star className="h-4 w-4 text-amber-400 fill-amber-400/30" />
+                  <h2 className="text-sm font-bold tracking-tight text-white uppercase">Executive Board & Leadership</h2>
+                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/30 text-amber-400 px-2 py-0.5 rounded-full">
+                    Executive
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  {/* Compact CEO Card matching department cards */}
+                  {(() => {
+                    const member = ceo;
+                    const isOnline = onlineUsers.has(member.id);
+                    const skills = member.skills ? member.skills.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+                    const isOwnProfile = user?.id === member.id;
+                    const isEditing = isOwnProfile && editingMember === member.id;
+                    const theme = {
+                      cardBg: 'bg-gradient-to-b from-amber-950/40 via-[#18181b] to-[#09090b]',
+                      border: 'border-amber-500/50 hover:border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]',
+                      avatarBg: 'from-yellow-400 via-amber-500 to-orange-600',
+                      avatarText: 'text-amber-950 font-black',
+                      badge: 'bg-amber-500/20 text-yellow-300 border-amber-500/40',
+                      accent: 'text-amber-400',
+                    };
+
+                    return (
+                      <div key={member.id} className={`flex flex-col justify-between ${theme.cardBg} rounded-[16px] sm:rounded-[20px] p-3 sm:p-5 border ${theme.border} shadow-xl hover:-translate-y-1 transition-all relative group overflow-hidden h-full min-h-[180px] sm:min-h-[220px] w-full`}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-3">
+                          <div className="flex items-center justify-between w-full sm:w-auto">
+                            <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br ${theme.avatarBg} border border-white/20 flex items-center justify-center shrink-0 shadow-md`}>
+                              <span className={`text-sm sm:text-base font-black ${theme.avatarText}`}>
+                                {member.full_name?.substring(0, 2).toUpperCase() || member.username?.substring(0, 2).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0 sm:hidden">
+                              <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-gray-500'}`}></div>
+                              {isOwnProfile && !isEditing && (
+                                <button
+                                  onClick={() => {
+                                    setEditingMember(member.id);
+                                    setEditName(member.full_name || '');
+                                    setEditSkills(member.skills || '');
+                                    setEditLocation(member.location || '');
+                                  }}
+                                  className="p-1 text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[9px]"
+                                  title="Edit Profile"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0 w-full sm:w-auto">
+                            <h3 className="text-xs sm:text-sm font-extrabold text-white truncate">{member.full_name || member.username}</h3>
+                            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${theme.badge} inline-block mt-0.5`}>
+                              Founder & CEO
+                            </span>
+                          </div>
+                          <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                            <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-gray-500'}`}></div>
+                            {isOwnProfile && !isEditing && (
+                              <button
+                                onClick={() => {
+                                  setEditingMember(member.id);
+                                  setEditName(member.full_name || '');
+                                  setEditSkills(member.skills || '');
+                                  setEditLocation(member.location || '');
+                                }}
+                                className="p-1 text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[9px]"
+                                title="Edit Profile"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {isEditing ? (
+                          <div className="space-y-2 my-2 p-2 bg-black/40 border border-amber-500/30 rounded-xl">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              placeholder="Full Name"
+                              className="w-full bg-[#09090b] border border-amber-500/50 rounded px-2 py-1 text-xs text-white"
+                            />
+                            <input
+                              type="text"
+                              value={editLocation}
+                              onChange={(e) => setEditLocation(e.target.value)}
+                              placeholder="Location"
+                              className="w-full bg-[#09090b] border border-amber-500/50 rounded px-2 py-1 text-xs text-white"
+                            />
+                            <input
+                              type="text"
+                              value={editSkills}
+                              onChange={(e) => setEditSkills(e.target.value)}
+                              placeholder="Skills (comma separated)"
+                              className="w-full bg-[#09090b] border border-amber-500/50 rounded px-2 py-1 text-xs text-white"
+                            />
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={() => handleUpdateProfile(member.id)}
+                                className="flex-1 bg-amber-500 hover:bg-amber-400 text-black py-1 rounded-lg text-xs font-bold"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingMember(null)}
+                                className="px-3 bg-gray-800 text-gray-300 rounded-lg text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col justify-between flex-1 mt-1">
+                            <div className="flex items-center gap-1 text-gray-400 text-xs mb-3">
+                              <MapPin className="h-3 w-3 text-gray-500" />
+                              <span>{member.location || 'Hyderabad'}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-white/5">
+                              {skills.map((skill: string, i: number) => (
+                                <span key={i} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[9px] font-medium text-gray-300">
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* 🏢 2. Department Breakdown Sections */}
+            {sortedDepartments
+              .filter(([deptName]) => activeFilter === 'All' || activeFilter === deptName)
+              .map(([deptName, deptMembers]) => {
+                const membersInDept = deptMembers.filter(m => m.id !== ceo?.id && filteredMembers.some(fm => fm.id === m.id));
+                if (membersInDept.length === 0 && activeFilter !== 'All') return null;
+
+                return (
+                  <div key={deptName} className="space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#27272a]">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-indigo-400" />
+                        <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">{deptName}</h2>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-400 bg-[#18181b] border border-[#27272a] px-2.5 py-0.5 rounded-full">
+                        {membersInDept.length} member{membersInDept.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                      {membersInDept.map(member => {
+                        const isOnline = onlineUsers.has(member.id);
+                        const skills = member.skills ? member.skills.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+                        const isOwnProfile = user?.id === member.id;
+                        const isEditing = isOwnProfile && editingMember === member.id;
+
+                        let theme = {
+                          cardBg: 'bg-gradient-to-b from-indigo-950/40 via-[#18181b] to-[#09090b]',
+                          border: 'border-indigo-500/30 hover:border-indigo-400',
+                          avatarBg: 'from-indigo-500 via-purple-500 to-indigo-700',
+                          avatarText: 'text-white font-black',
+                          badge: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30',
+                          accent: 'text-indigo-400',
+                          btn: 'hover:bg-indigo-600 hover:border-indigo-500'
+                        };
+
+                        if (deptName === 'Marketing & Business') {
+                          theme = {
+                            cardBg: 'bg-gradient-to-b from-purple-950/40 via-[#18181b] to-[#09090b]',
+                            border: 'border-purple-500/30 hover:border-purple-400',
+                            avatarBg: 'from-purple-500 via-pink-500 to-indigo-600',
+                            avatarText: 'text-white font-black',
+                            badge: 'bg-purple-500/10 text-purple-300 border-purple-500/30',
+                            accent: 'text-purple-400',
+                            btn: 'hover:bg-purple-600 hover:border-purple-500'
+                          };
+                        } else if (deptName === 'Innovation Lab') {
+                          theme = {
+                            cardBg: 'bg-gradient-to-b from-cyan-950/40 via-[#18181b] to-[#09090b]',
+                            border: 'border-cyan-500/30 hover:border-cyan-400',
+                            avatarBg: 'from-cyan-500 via-teal-500 to-blue-600',
+                            avatarText: 'text-white font-black',
+                            badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
+                            accent: 'text-cyan-400',
+                            btn: 'hover:bg-cyan-600 hover:border-cyan-500'
+                          };
+                        } else if (deptName === 'Engineering Group') {
+                          theme = {
+                            cardBg: 'bg-gradient-to-b from-blue-950/40 via-[#18181b] to-[#09090b]',
+                            border: 'border-blue-500/30 hover:border-blue-400',
+                            avatarBg: 'from-blue-500 via-indigo-500 to-slate-700',
+                            avatarText: 'text-white font-black',
+                            badge: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+                            accent: 'text-blue-400',
+                            btn: 'hover:bg-blue-600 hover:border-blue-500'
+                          };
+                        }
+
+                        return (
+                          <div key={member.id} className={`flex flex-col justify-between ${theme.cardBg} rounded-[16px] sm:rounded-[20px] p-3 sm:p-5 border ${theme.border} shadow-xl hover:-translate-y-1 transition-all relative group overflow-hidden h-full min-h-[180px] sm:min-h-[220px] w-full`}>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-3">
+                              <div className="flex items-center justify-between w-full sm:w-auto">
+                                <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br ${theme.avatarBg} border border-white/20 flex items-center justify-center shrink-0 shadow-md`}>
+                                  <span className={`text-sm sm:text-base font-black ${theme.avatarText}`}>
+                                    {member.full_name?.substring(0, 2).toUpperCase() || member.username?.substring(0, 2).toUpperCase()}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col items-end gap-1 shrink-0 sm:hidden">
+                                  <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-gray-500'}`}></div>
+                                  {isOwnProfile && !isEditing && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingMember(member.id);
+                                        setEditName(member.full_name || '');
+                                        setEditSkills(member.skills || '');
+                                        setEditLocation(member.location || '');
+                                      }}
+                                      className="p-1 text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[9px]"
+                                      title="Edit Profile"
+                                    >
+                                      <Edit2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0 w-full sm:w-auto">
+                                <h3 className="text-xs sm:text-sm font-extrabold text-white truncate">{member.full_name || member.username}</h3>
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${theme.badge} inline-block mt-0.5`}>
+                                  {member.designation || 'Member'}
+                                </span>
+                              </div>
+                              <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                                <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-gray-500'}`}></div>
+                                {isOwnProfile && !isEditing && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingMember(member.id);
+                                      setEditName(member.full_name || '');
+                                      setEditSkills(member.skills || '');
+                                      setEditLocation(member.location || '');
+                                    }}
+                                    className="p-1 text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[9px]"
+                                    title="Edit Profile"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            {isEditing ? (
+                              <div className="space-y-2 my-2 p-2 bg-black/40 border border-indigo-500/30 rounded-xl">
+                                <input
+                                  type="text"
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  placeholder="Full Name"
+                                  className="w-full bg-[#09090b] border border-indigo-500/50 rounded px-2 py-1 text-xs text-white"
+                                />
+                                <input
+                                  type="text"
+                                  value={editLocation}
+                                  onChange={(e) => setEditLocation(e.target.value)}
+                                  placeholder="Location"
+                                  className="w-full bg-[#09090b] border border-indigo-500/50 rounded px-2 py-1 text-xs text-white"
+                                />
+                                <input
+                                  type="text"
+                                  value={editSkills}
+                                  onChange={(e) => setEditSkills(e.target.value)}
+                                  placeholder="Skills (comma separated)"
+                                  className="w-full bg-[#09090b] border border-indigo-500/50 rounded px-2 py-1 text-xs text-white"
+                                />
+                                <div className="flex gap-2 pt-1">
+                                  <button
+                                    onClick={() => handleUpdateProfile(member.id)}
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1 rounded-lg text-xs font-bold"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingMember(null)}
+                                    className="px-3 bg-gray-800 text-gray-300 rounded-lg text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col justify-between flex-1 mt-1">
+                                <div className="flex items-center gap-1 text-gray-400 text-xs mb-3">
+                                  <MapPin className="h-3 w-3 text-gray-500" />
+                                  <span>{member.location || 'Hyderabad'}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-white/5">
+                                  {skills.map((skill: string, i: number) => (
+                                    <span key={i} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[9px] font-medium text-gray-300">
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+
+        {viewMode === 'tree' && (
+          <div className="mt-4 bg-[#18181b] rounded-2xl p-4 sm:p-8 border border-[#27272a] shadow-xl overflow-x-auto custom-scrollbar">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 sticky left-0 gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm font-black text-amber-400 uppercase tracking-widest">OOMA LABS</span>
+                  <span className="text-xs text-gray-500">•</span>
+                  <h2 className="text-lg sm:text-xl font-bold text-white">Organization Hierarchy</h2>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Structured departments and leadership architecture</p>
+              </div>
+              <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full sm:hidden">
+                ↔ Swipe to view tree
+              </span>
+            </div>
+
+            <div className="min-w-[900px] flex flex-col items-center pt-4">
+
+              {/* Top Node - Founder & CEO directly */}
+              <div className="bg-[#18181b] border-2 border-amber-500/50 rounded-2xl py-3 px-6 shadow-2xl flex items-center gap-4 z-10 relative hover:border-amber-400 transition-colors">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-500 to-indigo-600 border border-amber-400 flex items-center justify-center text-white font-black text-sm shadow-inner">
+                  {ceo?.full_name?.substring(0, 2).toUpperCase() || ceo?.username?.substring(0, 2).toUpperCase() || 'AK'}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-base font-extrabold text-white">
+                    {ceo?.full_name || ceo?.username || 'Ajay Kumar'}
+                  </span>
+                  <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                    Founder & CEO
+                  </span>
+                </div>
+              </div>
+
+              {/* Main Vertical Connector */}
+              <div className="w-px h-8 bg-[#3f3f46]"></div>
+
+              {/* Horizontal Connector line */}
+              <div className="w-[94%] h-px bg-[#3f3f46]"></div>
+
+              {/* Branches to All Departments */}
+              <div className="w-[94%] flex justify-around relative mt-[-1px]">
+
+                {sortedDepartments.map(([deptName, teamMembers]) => {
+                  let colorClasses = 'bg-gray-900/40 border-gray-500/30 text-gray-400';
+                  let textClasses = 'text-gray-300';
+                  let Icon = Briefcase;
+
+                  // Department color scheme mapping for Tree View tiles
+                  let deptTheme = {
+                    cardBg: 'bg-[#18181b] border-[#3f3f46]',
+                    avatarBg: 'from-gray-700 to-gray-900 text-gray-300 border-gray-600',
+                    leadBg: 'bg-gradient-to-r from-amber-950/60 to-[#18181b] border-amber-500/40',
+                    leadAvatar: 'from-yellow-400 via-amber-500 to-orange-600 text-amber-950',
+                    managerBg: 'bg-gradient-to-r from-indigo-950/50 to-[#18181b] border-indigo-500/40',
+                    managerAvatar: 'from-indigo-500 to-purple-600 text-white',
+                    memberBg: 'bg-[#18181b] border-[#3f3f46]',
+                    memberAvatar: 'from-gray-600 to-gray-800 text-gray-200'
+                  };
+
+                  if (deptName === 'Marketing & Business') {
+                    colorClasses = 'bg-lime-900/30 border-lime-500/40';
+                    textClasses = 'text-lime-300';
+                    Icon = TrendingUp;
+                    deptTheme.memberBg = 'bg-gradient-to-r from-lime-950/40 to-[#18181b] border-lime-500/30';
+                    deptTheme.memberAvatar = 'from-lime-500 via-emerald-500 to-green-600 text-lime-950 font-black border-lime-400/40';
+                  } else if (deptName === 'Innovation Lab') {
+                    colorClasses = 'bg-emerald-900/30 border-emerald-500/40';
+                    textClasses = 'text-emerald-300';
+                    Icon = Lightbulb;
+                    deptTheme.memberBg = 'bg-gradient-to-r from-emerald-950/40 to-[#18181b] border-emerald-500/30';
+                    deptTheme.memberAvatar = 'from-emerald-500 via-teal-600 to-emerald-700 text-emerald-100 border-emerald-400/40';
+                  } else if (deptName === 'Engineering Group') {
+                    colorClasses = 'bg-slate-800/40 border-slate-400/40';
+                    textClasses = 'text-slate-200';
+                    Icon = Code;
+                    deptTheme.memberBg = 'bg-gradient-to-r from-slate-900/60 to-[#18181b] border-slate-500/30';
+                    deptTheme.memberAvatar = 'from-slate-200 via-slate-400 to-zinc-600 text-slate-950 border-slate-300 font-black';
+                  }
+
+
+
+                  // Sub-tier grouping for Lead, Manager, and Team Members
+                  const leads = teamMembers.filter(m => {
+                    const d = (m.designation || '').toLowerCase();
+                    return d.includes('lead') || d.includes('head') || d.includes('vp') || d.includes('director') || d.includes('chief');
+                  });
+
+                  const managers = teamMembers.filter(m => {
+                    const d = (m.designation || '').toLowerCase();
+                    const isLead = d.includes('lead') || d.includes('head') || d.includes('vp') || d.includes('director') || d.includes('chief');
+                    return !isLead && (d.includes('manager') || d.includes('supervisor') || d.includes('principal'));
+                  });
+
+                  const membersOnly = teamMembers.filter(m => !leads.includes(m) && !managers.includes(m));
+
+                  return (
+                    <div key={deptName} className="flex flex-col items-center flex-1 min-w-[210px] px-2">
+                      <div className="w-px h-8 bg-[#3f3f46]"></div>
+                      <div className={`${colorClasses} border rounded-xl py-2 px-4 flex items-center gap-2 mb-6 shadow-md backdrop-blur-md`}>
+                        <Icon className="h-4 w-4" />
+                        <span className={`text-[11px] font-extrabold ${textClasses} uppercase tracking-wider whitespace-nowrap`}>{deptName}</span>
+                      </div>
+
+                      <div className="flex flex-col items-center w-full space-y-4">
+                        {/* 1. Team Lead Level */}
+                        {leads.length > 0 && (
+                          <div className="w-full flex flex-col items-center">
+                            <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1.5 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shadow-sm">
+                              Team Lead / Head
+                            </span>
+                            <div className="flex flex-col gap-2 w-full items-center">
+                              {leads.map(m => (
+                                <div key={m.id} className={`${deptTheme.leadBg} border-2 rounded-xl p-2.5 shadow-xl flex items-center gap-3 w-full max-w-[190px] hover:-translate-y-0.5 transition-all`}>
+                                  <div className={`h-8 w-8 rounded-full bg-gradient-to-br ${deptTheme.leadAvatar} border border-amber-300 flex shrink-0 items-center justify-center font-black text-xs relative shadow-md`}>
+                                    {m.full_name?.substring(0, 2).toUpperCase() || m.username?.substring(0, 2).toUpperCase()}
+                                    <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#18181b] ${onlineUsers.has(m.id) ? 'bg-emerald-400' : 'bg-gray-500'}`}></div>
+                                  </div>
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-xs font-bold text-white truncate block w-full">{m.full_name?.split(' ')[0] || m.username}</span>
+                                    <span className="text-[9px] text-amber-300 font-semibold truncate block w-full" title={m.designation}>{m.designation || 'Team Lead'}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Connector line between Lead and Manager if both exist */}
+                        {leads.length > 0 && managers.length > 0 && (
+                          <div className="w-px h-4 bg-[#3f3f46]"></div>
+                        )}
+
+                        {/* 2. Manager Level */}
+                        {managers.length > 0 && (
+                          <div className="w-full flex flex-col items-center">
+                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1.5 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 shadow-sm">
+                              Manager / Senior
+                            </span>
+                            <div className="flex flex-col gap-2 w-full items-center">
+                              {managers.map(m => (
+                                <div key={m.id} className={`${deptTheme.managerBg} border rounded-xl p-2.5 shadow-lg flex items-center gap-3 w-full max-w-[190px] hover:-translate-y-0.5 transition-all`}>
+                                  <div className={`h-8 w-8 rounded-full bg-gradient-to-br ${deptTheme.managerAvatar} border border-indigo-400 flex shrink-0 items-center justify-center text-xs font-black relative shadow-md`}>
+                                    {m.full_name?.substring(0, 2).toUpperCase() || m.username?.substring(0, 2).toUpperCase()}
+                                    <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#18181b] ${onlineUsers.has(m.id) ? 'bg-emerald-400' : 'bg-gray-500'}`}></div>
+                                  </div>
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-xs font-bold text-gray-100 truncate block w-full">{m.full_name?.split(' ')[0] || m.username}</span>
+                                    <span className="text-[9px] text-indigo-300 font-semibold truncate block w-full" title={m.designation}>{m.designation || 'Manager'}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Connector line between Manager/Lead and Members if Members exist */}
+                        {(leads.length > 0 || managers.length > 0) && membersOnly.length > 0 && (
+                          <div className="w-px h-4 bg-[#3f3f46]"></div>
+                        )}
+
+                        {/* 3. Team Members Level */}
+                        {membersOnly.length > 0 && (
+                          <div className="w-full flex flex-col items-center">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 bg-[#27272a] px-2 py-0.5 rounded border border-[#3f3f46]">
+                              Team Members ({membersOnly.length})
+                            </span>
+                            <div className="flex flex-col gap-2 w-full items-center">
+                              {membersOnly.map(m => (
+                                <div key={m.id} className={`${deptTheme.memberBg} border rounded-xl p-2.5 shadow-md flex items-center gap-3 w-full max-w-[190px] hover:-translate-y-0.5 transition-all`}>
+                                  <div className={`h-8 w-8 rounded-full bg-gradient-to-br ${deptTheme.memberAvatar} border flex shrink-0 items-center justify-center text-xs font-black relative shadow-inner`}>
+                                    {m.full_name?.substring(0, 2).toUpperCase() || m.username?.substring(0, 2).toUpperCase()}
+                                    <div className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[#27272a] ${onlineUsers.has(m.id) ? 'bg-emerald-400' : 'bg-gray-500'}`}></div>
+                                  </div>
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-xs font-bold text-gray-200 truncate block w-full">{m.full_name?.split(' ')[0] || m.username}</span>
+                                    <span className="text-[9px] text-gray-400 truncate block w-full" title={m.designation}>{m.designation || 'Member'}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Fallback if entire department is empty */}
+                        {teamMembers.length === 0 && (
+                          <div className="border border-dashed border-[#3f3f46] rounded-xl p-3 text-center w-full max-w-[190px]">
+                            <span className="text-[10px] text-gray-500 font-medium italic">Department Open</span>
+                          </div>
+                        )}
+
+                      </div>
+                    </div>
+                  );
+                })}
+
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

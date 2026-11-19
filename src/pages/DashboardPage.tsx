@@ -4,20 +4,24 @@ import { projectService } from '@/services/projectService';
 import { adminService } from '@/services/adminService';
 import type { Project, ProjectStage, TimelineLog } from '@/types';
 import { ProjectCard } from '@/components/ProjectCard';
-import { ToastContainer } from '@/components/Toast';
+
 import { useToast } from '@/hooks/useToast';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { OomaLogo } from '@/components/OomaLogo';
 import { GoogleMeetIcon } from '@/components/GoogleMeetIcon';
-import { Plus, LayoutDashboard, LogOut, Settings, Search, Menu, X, Trash2, History, Users, ChevronUp, ChevronDown, Wrench, Book, Activity, CircleDollarSign } from 'lucide-react';
+import { DashboardIcon, LiveHQIcon, TeamChatIcon, ToolsIcon, TeamLibraryIcon, DocsLibraryIcon, CRMIcon, ClientContactsIcon, CommissionCalcIcon, AdminPanelIcon } from '@/components/icons';
+import { Plus, LogOut, Search, Menu, X, Trash2, History, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import NotificationCenterWidget from '@/components/NotificationCenterWidget';
+import SupportChatWidget from '@/components/SupportChatWidget';
+import AdminSupportLinksManagerModal from '@/components/AdminSupportLinksManagerModal';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'rejected' | 'internal' | 'client';
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { toasts, toast, removeToast } = useToast();
+  const { toast, removeToast } = useToast();
   
   const [projects, setProjects] = useState<(Project & { project_stages: ProjectStage[] })[]>([]);
   const [logs, setLogs] = useState<TimelineLog[]>([]);
@@ -25,6 +29,8 @@ export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
+  const [isSupportPickerOpen, setIsSupportPickerOpen] = useState(false);
+  const [isAdminLinksManagerOpen, setIsAdminLinksManagerOpen] = useState(false);
   
   // Search + filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +67,7 @@ export default function DashboardPage() {
       toast.error('Failed to load dashboard data.');
     } finally {
       setLoading(false);
+      window.dispatchEvent(new Event('app-ready'));
     }
   };
 
@@ -164,7 +171,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#050505] z-50">
       <div className="text-center">
-        <OomaLogo className="text-[#6366f1] animate-pulse" size={48} />
+        <OomaLogo className="animate-pulse" size={48} />
         <p className="text-gray-600 font-bold tracking-widest text-[10px] uppercase mt-4">Initializing Ooma...</p>
       </div>
     </div>
@@ -174,7 +181,7 @@ export default function DashboardPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-6 flex items-center justify-between border-b border-white/5 md:border-none">
         <div className="flex items-center gap-3">
-          <OomaLogo className="text-[#6366f1]" size={32} />
+          <OomaLogo size={32} />
           <div>
             <h1 className="text-md font-bold tracking-tight text-white">Ooma Workspace</h1>
             <p className="text-[8px] uppercase tracking-[0.2em] font-extrabold text-[#6366f1]">Ooma Workflow</p>
@@ -186,43 +193,132 @@ export default function DashboardPage() {
       </div>
 
       <nav className="mt-4 px-3 space-y-1.5 overflow-y-auto scrollbar-hide">
-        <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group">
-          <LayoutDashboard className="mr-3 h-4 w-4" />
+        <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group hover:bg-indigo-500/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+          <DashboardIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Dashboard
         </Link>
-        <Link to="/office" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-cyan-400 bg-cyan-500/5 border border-cyan-500/10 rounded-xl hover:bg-cyan-500/10 transition-colors relative overflow-hidden group">
+        <Link to="/office" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-cyan-400 bg-cyan-500/5 border border-cyan-500/10 rounded-xl hover:bg-cyan-500/10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-          <Activity className="mr-3 h-4 w-4" />
+          <LiveHQIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Live HQ (Beta)
         </Link>
-        <Link to="/meetings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <GoogleMeetIcon size={16} className="mr-3" />
+        <button onClick={() => { setIsMobileMenuOpen(false); window.dispatchEvent(new CustomEvent('open_chat_widget')); }} className="flex items-center px-4 py-3 text-[13px] font-bold text-[#6366f1] bg-indigo-500/5 border border-indigo-500/10 rounded-xl hover:bg-indigo-500/10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group w-full">
+          <TeamChatIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
+          Team Chat
+        </button>
+        <Link to="/meetings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+          <GoogleMeetIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Meetings
         </Link>
-        <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <Wrench className="mr-3 h-4 w-4 text-emerald-500" />
+        <Link to="/ideas" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+          <ToolsIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Tools Space
         </Link>
-        <Link to="/directory" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <Users className="mr-3 h-4 w-4 text-emerald-500" />
+        <Link to="/directory" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+          <TeamLibraryIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Team Library
         </Link>
-        <Link to="/library" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <Book className="mr-3 h-4 w-4 text-blue-400" />
+        <Link to="/library" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+          <DocsLibraryIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
           Docs Library
         </Link>
-        <Link to="/crm" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-          <CircleDollarSign className="mr-3 h-4 w-4 text-emerald-400" />
-          CRM Pipeline
-        </Link>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            setIsMobileMenuOpen(false);
+            setIsSupportPickerOpen(true);
+          }}
+          className="flex items-center justify-between px-4 py-3 text-[13px] font-bold text-gray-300 bg-purple-500/10 border border-purple-500/20 rounded-xl hover:bg-purple-500/20 hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group w-full text-left"
+          title="Support - Select Support Topic AI Assistant"
+          aria-label="Open Support Assistant"
+        >
+          <div className="flex items-center min-w-0">
+            <img
+              src="/robot-assistant.png"
+              alt="Support"
+              className="w-5 h-5 object-contain flex-shrink-0 mr-3 group-hover:scale-110 transition-transform"
+            />
+            <span className="truncate">Support</span>
+          </div>
+          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0 ml-2">
+            DEV AI
+          </span>
+        </button>
+        {(() => {
+          const needsAccessRequest = !(
+            user?.role === 'admin' || 
+            user?.designation?.includes('Business Strategy & Marketing Team') ||
+            user?.designation?.includes('Marketing & Business')
+          );
+          const [accessStatus, setAccessStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+          
+          useEffect(() => {
+            if (needsAccessRequest && user?.id && user?.workspace_id) {
+              import('@/services/crmAccessService').then(({ crmAccessService }) => {
+                crmAccessService.getAccessStatus(user.id, user.workspace_id).then(status => {
+                  setAccessStatus(status as any);
+                });
+              });
+            }
+          }, [needsAccessRequest, user?.id, user?.workspace_id]);
+
+          const handleCRMClick = async (e: React.MouseEvent) => {
+            if (needsAccessRequest && accessStatus !== 'approved') {
+              e.preventDefault();
+              if (accessStatus === 'none') {
+                if (window.confirm("You don't have access to the CRM Pipeline. Would you like to request access from the admin?")) {
+                  try {
+                    const { crmAccessService } = await import('@/services/crmAccessService');
+                    await crmAccessService.requestAccess(user!.id, user!.workspace_id);
+                    setAccessStatus('pending');
+                    toast.success("Access request sent to admin.");
+                  } catch (err) {
+                    toast.error("Failed to send request.");
+                  }
+                }
+              } else if (accessStatus === 'pending') {
+                alert("Your access request is still pending approval.");
+              } else if (accessStatus === 'rejected') {
+                alert("Your access request was rejected. Please contact an admin for details.");
+              }
+            } else {
+              setIsMobileMenuOpen(false);
+            }
+          };
+
+          return (
+            <Link 
+              to="/crm" 
+              onClick={handleCRMClick} 
+              className={`flex items-center px-4 py-3 text-[13px] font-bold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group ${
+                needsAccessRequest && accessStatus !== 'approved' 
+                  ? 'text-gray-500 bg-white/[0.01] cursor-pointer' 
+                  : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'
+              }`}
+            >
+              <CRMIcon size={25} className={`mr-3 text-gray-400 group-hover:scale-110 transition-transform ${needsAccessRequest && accessStatus !== 'approved' ? 'opacity-40' : ''}`} />
+              <div className="flex flex-col">
+                <span>CRM</span>
+                {needsAccessRequest && accessStatus === 'pending' && <span className="text-[8px] text-amber-500 uppercase">Request Pending</span>}
+                {needsAccessRequest && accessStatus === 'rejected' && <span className="text-[8px] text-red-500 uppercase">Access Denied</span>}
+                {needsAccessRequest && accessStatus === 'none' && <span className="text-[8px] text-indigo-400 uppercase">Locked • Click to Request</span>}
+              </div>
+            </Link>
+          );
+        })()}
         {user?.role === 'admin' && (
           <>
-            <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-              <Plus className="mr-3 h-4 w-4 text-amber-500" />
+            <Link to="/contacts" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+              <ClientContactsIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
               Client Contacts
             </Link>
-            <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.02] hover:text-white transition-colors">
-              <Settings className="mr-3 h-4 w-4" />
+            <Link to="/admin/calculator" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-purple-400 hover:bg-purple-500/10 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+              <CommissionCalcIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
+              Commission Calculator
+            </Link>
+            <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-4 py-3 text-[13px] font-bold text-gray-400 rounded-xl hover:bg-white/[0.04] hover:text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group">
+              <AdminPanelIcon size={22} className="mr-3 group-hover:scale-110 transition-transform" />
               Admin Panel
             </Link>
           </>
@@ -269,8 +365,10 @@ export default function DashboardPage() {
           <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-[0.2em] mt-0.5">Innovation Lab</p>
         </div>
 
-        {/* Empty spacer to balance flex-between and keep center logo perfectly centered */}
-        <div className="w-9"></div>
+        {/* Notification Center embedded in mobile header */}
+        <div className="relative">
+          <NotificationCenterWidget />
+        </div>
       </div>
 
       {/* Mobile Menu Overlay - Solid Premium Drawer */}
@@ -300,16 +398,20 @@ export default function DashboardPage() {
                   Monitoring <span className="text-indigo-400">Ooma Workflow</span>
                 </p>
               </div>
-              
-              {canCreateProject && (
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_15px_rgba(99,102,241,0.3)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all flex items-center justify-center active:scale-90 shrink-0"
-                  title="Create New Project"
-                >
-                  <Plus className="h-5 w-5 md:h-6 md:w-6" strokeWidth={3} />
-                </button>
-              )}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="hidden md:block">
+                  <NotificationCenterWidget />
+                </div>
+                {canCreateProject && (
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_15px_rgba(99,102,241,0.3)] hover:shadow-[0_4px_25px_rgba(99,102,241,0.5)] transition-all flex items-center justify-center active:scale-90 shrink-0"
+                    title="Create New Project"
+                  >
+                    <Plus className="h-5 w-5 md:h-6 md:w-6" strokeWidth={3} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Search bar row */}
@@ -547,7 +649,14 @@ export default function DashboardPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] sm:text-[11px] font-black text-indigo-300 uppercase tracking-[0.2em] ml-1">Repository Link</label>
-                    <input type="url" value={newGithubLink} onChange={e => setNewGithubLink(e.target.value)} placeholder="GitHub / Repo..." className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all" />
+                    <input 
+                      type="url" 
+                      value={newGithubLink} 
+                      onChange={e => setNewGithubLink(e.target.value)} 
+                      placeholder="GitHub / Repo..." 
+                      disabled={!!editingProject}
+                      className="w-full bg-white/[0.05] border border-white/20 p-4 rounded-2xl outline-none focus:border-indigo-500/50 text-[15px] font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                    />
                   </div>
                 </div>
 
@@ -562,8 +671,19 @@ export default function DashboardPage() {
           </div>
         )}
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
       {creating && <LoadingOverlay message="Forging New Project..." />}
+
+      <SupportChatWidget
+        isOpen={isSupportPickerOpen}
+        onClose={() => setIsSupportPickerOpen(false)}
+        onOpenAdminManager={() => setIsAdminLinksManagerOpen(true)}
+      />
+
+      <AdminSupportLinksManagerModal
+        isOpen={isAdminLinksManagerOpen}
+        onClose={() => setIsAdminLinksManagerOpen(false)}
+      />
     </div>
   );
 }
